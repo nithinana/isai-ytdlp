@@ -442,10 +442,29 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 #player .rt button{color:rgba(255,255,255,.72)}
 #player .rt button:hover,#player .rt button.on{color:#fff}
 #player .btns button svg,#player .rt svg{filter:drop-shadow(0 1px 4px rgba(0,0,0,.35))}
+/* ---- settings ---- */
+.set{max-width:760px}
+.sgrp{border-radius:20px;padding:6px 20px 8px;margin:0 0 18px}
+.sgrp h3{margin:14px 0 4px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:default}
+.sgrp h3+.srow{border-top:0}
+.srow>div{min-width:0}
+.srow b{display:block;font-size:15px;font-weight:600}
+.srow span{display:block;color:var(--mute);font-size:13px;margin-top:2px}
+.srow input,.srow select{flex:none;width:min(300px,50%);height:40px;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);outline:0;color:var(--fg);transition:border-color .25s var(--ease),background-color .25s var(--ease)}
+.srow input:focus,.srow select:focus{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
+.srow select{width:130px;appearance:none;-webkit-appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;cursor:pointer}
+.srow select option{background:#1a1a20;color:#fff}
+.srow .btn{flex:none;padding:8px 18px;font-size:13px}
 /* ---- mobile fixes (must stay last) ---- */
 @media(max-width:720px){
   .npfb{display:none}
   #npv.open>.npr{animation:npfade .4s var(--ease) both}
+  .sgrp{padding:4px 16px 6px;border-radius:18px}
+  .srow{flex-wrap:wrap;gap:10px}
+  .srow>div{flex:1 1 100%}
+  .srow input,.srow select{width:100%}
+  .srow .btn{margin-left:auto}
   #npv.open>.npl{animation:npfade .4s var(--ease) both}
 }
 </style>
@@ -581,10 +600,11 @@ function imgErr(el){
 }
 const imgTag = (t, s, extra = '') => `<img ${extra} loading="lazy" src="${esc(cov(t, s))}" alt="" data-id="${esc(t.id)}" ${t.kind ? 'data-e="1"' : ''} onerror="imgErr(this)">`;
 function setImg(el, t, s){
-  const fade = el.id === 'npcover' && el.dataset.id && el.dataset.id !== t.id;
-  el.dataset.id = t.id; el.onerror = () => imgErr(el);
-  if (fade) { el.classList.add('sw'); const u = cov(t, s); setTimeout(() => { el.src = u; }, 150); el.onload = () => { el.classList.remove('sw'); el.onload = null; }; setTimeout(() => el.classList.remove('sw'), 1500); }
-  else el.src = cov(t, s);
+  const u = cov(t, s); el.dataset.id = t.id; el.onerror = () => imgErr(el);
+  if (!el.getAttribute('src')) { el.src = u; return; }
+  const im = new Image();                       // keep the old cover until the new one is ready
+  im.onload = im.onerror = () => { if (el.dataset.id === t.id) el.src = u; };
+  im.src = u;
 }
 let tt;
 function toast(msg, err){
@@ -982,15 +1002,23 @@ function renderLiked(){
     ${liked.length ? liked.map(lrow).join('') : '<p class="qmsg">Nothing here yet. Tap the heart on a song, or save an album or artist.</p>'}</div>`;
 }
 function renderSettings(){
-  $('main').innerHTML = `<div class="pg"><h1 class="t">Settings</h1>
-    <label class="field">API base URL<input id="sBase" value="${esc(base())}"></label>
-    <label class="field">API key (only if the server has API_KEY set)<input id="sKey" type="password" value="${esc(store.get('key', ''))}"></label>
-    <label class="field">Download format<select id="sFmt">${['mp3','m4a','opus','flac','wav','best'].map(f => `<option ${f === store.get('fmt', 'mp3') ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" id="sRef">Refresh home</button><button class="btn ghost" id="sClr">Clear Listen again</button></div></div>`;
-  document.querySelectorAll('.field input,.field select').forEach(el => { el.style.cssText = 'background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;padding:11px 13px;outline:0;color:var(--fg)'; });
+  const dsz = dls.reduce((n, d) => n + (d.size || 0), 0);
+  $('main').innerHTML = `<div class="pg set"><h1 class="t">Settings</h1>
+    <section class="sgrp glass"><h3>Server</h3>
+      <label class="srow"><div><b>API base URL</b><span>Where your Thirai server is running</span></div><input id="sBase" value="${esc(base())}" spellcheck="false" autocapitalize="off"></label>
+      <label class="srow"><div><b>API key</b><span>Only needed if the server has API_KEY set</span></div><input id="sKey" type="password" value="${esc(store.get('key', ''))}" placeholder="Optional" autocomplete="off"></label>
+    </section>
+    <section class="sgrp glass"><h3>Downloads</h3>
+      <label class="srow"><div><b>Format</b><span>Used for new downloads</span></div><select id="sFmt">${['mp3','m4a','opus','flac','wav','best'].map(f => `<option ${f === store.get('fmt', 'mp3') ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
+      <div class="srow"><div><b>Stored offline</b><span>${dls.length} song${dls.length === 1 ? '' : 's'}${dsz ? ' · ' + fmtSize(dsz) : ''}</span></div><button class="btn ghost" data-view="downloads">Manage</button></div>
+    </section>
+    <section class="sgrp glass"><h3>Data</h3>
+      <div class="srow"><div><b>Refresh home</b><span>Reload recommendations from the server</span></div><button class="btn ghost" id="sRef">Refresh</button></div>
+      <div class="srow"><div><b>Listen again</b><span>Clear your recently played history</span></div><button class="btn ghost" id="sClr">Clear</button></div>
+    </section></div>`;
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
   $('sKey').onchange = e => store.set('key', e.target.value);
-  $('sFmt').onchange = e => store.set('fmt', e.target.value);
+  $('sFmt').onchange = e => { store.set('fmt', e.target.value); toast('Format set to ' + e.target.value); };
   $('sRef').onclick = () => { homeData = null; for (const k in entCache) delete entCache[k]; toast('Refreshing…'); show('home'); loadHome(true); };
   $('sClr').onclick = () => { recent = []; store.set('recent', '[]'); toast('Cleared'); };
 }
@@ -1007,29 +1035,44 @@ function playFrom(key, i, open = true){
   setTab('queue', true); playCurrent();
   if (open && !isMobile()) openNP();
 }
+let a = $('audio'), standby = new Audio(), pending = false;
+standby.preload = 'auto';
+const resetSeek = () => { $('seek').value = $('mseek').value = 0; fillRange($('seek')); fillRange($('mseek')); $('mprog').style.width = '0'; };
 async function playCurrent(){
   const t = queue[qi]; if (!t) return;
   const my = ++token; current = t;
+  const live = !!a.src && !a.paused;          // keep the old song going until the new one is ready
+  pending = live;
   $('player').classList.add('on');
   setImg($('pimg'), t, 160);
   $('ptitle').textContent = t.title; $('partist').innerHTML = artistLinks(t);
-  $('dur').textContent = $('mdur').textContent = '-' + fmt(t.duration);
-  $('seek').value = $('mseek').value = 0; fillRange($('seek')); fillRange($('mseek')); $('mprog').style.width = '0';
+  if (!live) { $('dur').textContent = $('mdur').textContent = '-' + fmt(t.duration); resetSeek(); }
   markPlaying(); updateNP(); tint(t);
   try {
     const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
     if (my !== token) return;
-    if (blob) {
-      if (offUrl) URL.revokeObjectURL(offUrl);
-      $('audio').src = offUrl = URL.createObjectURL(blob);
-      await $('audio').play(); addRecent(t); return;
-    }
-    const d = await (await api('/stream/' + t.id)).json();
-    if (my !== token) return;
-    $('audio').src = d.audio_url;
-    await $('audio').play();
-    addRecent(t);
-  } catch (e) { if (my === token && e.name !== 'AbortError') toast(e.message || 'Could not play this track', true); }
+    let url, blobUrl = null;
+    if (blob) url = blobUrl = URL.createObjectURL(blob);
+    else { url = (await (await api('/stream/' + t.id)).json()).audio_url; if (my !== token) return; }
+    const n = standby;
+    n.volume = a.volume; n.src = url;
+    await new Promise((res, rej) => {
+      const ok = () => { off(); res(); }, bad = () => { off(); rej(new Error('Could not load this track')); };
+      const off = () => { n.removeEventListener('canplay', ok); n.removeEventListener('error', bad); };
+      n.addEventListener('canplay', ok); n.addEventListener('error', bad);
+      if (n.readyState >= 3) ok();
+    });
+    if (my !== token) { if (blobUrl) URL.revokeObjectURL(blobUrl); return; }
+    const old = a;
+    a = n; standby = old; pending = false;
+    old.pause(); old.removeAttribute('src'); old.load();
+    if (old._blob) URL.revokeObjectURL(old._blob);
+    n._blob = blobUrl; old._blob = null;
+    resetSeek(); $('dur').textContent = $('mdur').textContent = '-' + fmt(n.duration || t.duration);
+    await a.play(); setPP(); addRecent(t);
+  } catch (e) {
+    if (my === token) { pending = false; if (e.name !== 'AbortError') toast(e.message || 'Could not play this track', true); }
+  }
 }
 function addRecent(t){
   recent = [t, ...recent.filter(r => r.id !== t.id)].slice(0, 20);
@@ -1042,7 +1085,6 @@ function step(d, auto){
   else { const n = qi + d; if (auto && n >= queue.length && repeat === 'off') return; qi = (n + queue.length) % queue.length; }
   playCurrent();
 }
-const a = $('audio');
 const doNext = () => step(1);
 const doPrev = () => a.currentTime > 4 ? (a.currentTime = 0) : step(-1);
 const doPP = () => { if (!a.src) return; a.paused ? a.play() : a.pause(); };
@@ -1059,24 +1101,28 @@ $('pp').onclick = $('mpp').onclick = doPP;
 $('shuf').onclick = $('mshuf').onclick = doShuf;
 $('rep').onclick = $('mrep').onclick = doRep;
 const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; };
-a.onplay = setPP; a.onpause = setPP;
-a.onended = () => repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true);
-a.onerror = () => { if (a.src) toast('Playback failed. The stream may have expired; try again.', true); };
-a.ontimeupdate = () => {
-  const d = a.duration || (current && current.duration) || 0, p = d ? a.currentTime / d : 0;
-  $('cur').textContent = $('mcur').textContent = fmt(a.currentTime);
-  if (d) {
-    $('dur').textContent = $('mdur').textContent = '-' + fmt(Math.max(0, d - a.currentTime));
-    $('mprog').style.width = (p * 100) + '%';
-    if (!seeking) { $('seek').value = $('mseek').value = p * 1000; fillRange($('seek')); fillRange($('mseek')); }
-  }
+const wire = el => {
+  el.onplay = el.onpause = () => { if (el === a) setPP(); };
+  el.onended = () => { if (el === a) repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true); };
+  el.onerror = () => { if (el === a && el.src) toast('Playback failed. The stream may have expired; try again.', true); };
+  el.ontimeupdate = () => {
+    if (el !== a || pending) return;
+    const d = a.duration || (current && current.duration) || 0, p = d ? a.currentTime / d : 0;
+    $('cur').textContent = $('mcur').textContent = fmt(a.currentTime);
+    if (d) {
+      $('dur').textContent = $('mdur').textContent = '-' + fmt(Math.max(0, d - a.currentTime));
+      $('mprog').style.width = (p * 100) + '%';
+      if (!seeking) { $('seek').value = $('mseek').value = p * 1000; fillRange($('seek')); fillRange($('mseek')); }
+    }
+  };
 };
+wire(a); wire(standby);
 ['seek', 'mseek'].forEach(id => {
   $(id).oninput = () => { seeking = true; fillRange($(id)); };
   $(id).onchange = e => { const d = a.duration || 0; if (d) a.currentTime = e.target.value / 1000 * d; seeking = false; };
 });
-$('vol').oninput = e => { a.volume = e.target.value / 100; fillRange(e.target); };
-a.volume = .8; fillRange($('vol')); fillRange($('seek')); fillRange($('mseek'));
+$('vol').oninput = e => { a.volume = standby.volume = e.target.value / 100; fillRange(e.target); };
+a.volume = standby.volume = .8; fillRange($('vol')); fillRange($('seek')); fillRange($('mseek'));
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); doPP(); }
   if (e.key === 'Escape') closeNP();
