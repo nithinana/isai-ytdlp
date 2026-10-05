@@ -624,6 +624,26 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   .msheet{width:100%;border-radius:22px 22px 0 0;padding-bottom:calc(20px + var(--sab))}
   .libact .btn{flex:1;justify-content:center}
 }
+
+/* ---- lyrics ---- */
+.lyhd{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:2px 4px 10px}
+.lyhd[hidden]{display:none}
+.lysrc{color:var(--mute);font-size:12px}
+.lychips{display:flex;gap:6px}
+.lychips button{padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px;font-weight:600;color:var(--mute)}
+.lychips button.on{background:#fff;color:#000}
+.qlist.lyr{padding:6px 6px 45% 6px}
+.ly{margin:0;padding:8px 6px;font-size:22px;line-height:1.3;font-weight:800;color:#fff;opacity:.38;cursor:pointer;border-radius:10px;overflow-wrap:anywhere;transition:opacity .35s var(--ease)}
+.ly:hover{opacity:.7}
+.ly.on{opacity:1}
+.ly.plain,.ly.plain:hover{opacity:.88;cursor:default;font-size:17px;font-weight:600;padding:3px 6px}
+.ly.rich.on .w{opacity:.4;transition:opacity .2s}
+.ly.rich.on .w.wd{opacity:1}
+.lyf{display:flex;gap:8px;margin:8px 4px 6px}
+.lyf .minp{height:42px}
+.lyf .btn{padding:8px 16px;white-space:nowrap;font-size:13px}
+.qlist.lyr .mhint,.qlist.lyr .qmsg{margin-left:4px;margin-right:4px}
+@media(max-width:720px){.ly{font-size:20px}.ly.plain{font-size:16px}}
 </style>
 </head>
 <body>
@@ -668,7 +688,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
     <img id="npcover" alt="">
     <div class="npcard glass">
       <div class="npinfo"><b id="mtitle" data-go="album"></b><span id="martist"></span></div>
-      <div class="npact"><button class="pill" id="mLike">♡ Like</button><button class="pill" id="npAlbum">Go to album</button><button class="pill" id="npArtist">Go to artist</button><button class="pill" id="mDl">Download</button><button class="pill" id="mAdd">+ Playlist</button></div>
+      <div class="npact"><button class="pill" id="mLike">♡ Like</button><button class="pill" id="npAlbum">Go to album</button><button class="pill" id="npArtist">Go to artist</button><button class="pill" id="mDl">Download</button><button class="pill" id="mAdd">+ Playlist</button><button class="pill" id="mLyr">Lyrics</button></div>
       <div class="npseek"><input id="mseek" type="range" min="0" max="1000" value="0"><div><span id="mcur">0:00</span><span id="mdur">-0:00</span></div></div>
       <div class="npctl">
         <button id="mshuf" data-ic="shuffle"></button><button id="mprev" data-ic="prev"></button>
@@ -679,8 +699,9 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   </div>
   <div class="npr glass" id="npr">
     <div class="grab" id="grab"></div>
-    <div class="tabs"><button data-tab="queue" class="on">UP NEXT</button><button data-tab="related">RELATED</button></div>
+    <div class="tabs"><button data-tab="queue" class="on">UP NEXT</button><button data-tab="related">RELATED</button><button data-tab="lyrics">LYRICS</button></div>
     <div class="npf"><div><small>Playing from</small><b id="npfrom"></b></div><div class="dsk npfb"><button class="btn ghost" id="npAdd">Add to playlist</button><button class="btn ghost" id="npDl">Download</button><button class="btn" id="npLike">Like</button></div></div>
+    <div id="lyhd" class="lyhd" hidden></div>
     <div id="npq" class="qlist"></div>
   </div>
 </section>
@@ -1269,12 +1290,13 @@ $('prev').onclick = $('mprev').onclick = doPrev;
 $('pp').onclick = $('mpp').onclick = doPP;
 $('shuf').onclick = $('mshuf').onclick = doShuf;
 $('rep').onclick = $('mrep').onclick = doRep;
-const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; };
+const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); };
 const wire = el => {
   el.onplay = el.onpause = () => { if (el === a) setPP(); };
   el.onended = () => { if (el === a) repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true); };
   el.onerror = () => { if (el === a && el.src) toast('Playback failed. The stream may have expired; try again.', true); };
   el.ontimeupdate = () => {
+    if (el === a && !pending && npTab === 'lyrics') lyUpdate();
     if (el !== a || pending) return;
     const d = a.duration || (current && current.duration) || 0, p = d ? a.currentTime / d : 0;
     $('cur').textContent = $('mcur').textContent = fmt(a.currentTime);
@@ -1324,6 +1346,8 @@ const qrow = (t, i, kind) => `<div class="qr ${kind === 'q' && i === qi ? 'cur' 
   <div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div><em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 function renderQueue(){
   const box = $('npq');
+  box.classList.toggle('lyr', npTab === 'lyrics'); $('lyhd').hidden = npTab !== 'lyrics';
+  if (npTab === 'lyrics') return loadLyrics();
   if (npTab === 'related') return loadRelated();
   box.innerHTML = queue.map((t, i) => qrow(t, i, 'q')).join('');
   const c = box.querySelector('.cur'); if (c) box.scrollTop = c.offsetTop;
@@ -1347,6 +1371,8 @@ function toggleLike(t){
   syncLike();
 }
 $('npq').onclick = e => {
+  const ly = e.target.closest('.ly');
+  if (ly) return lySeek(+ly.dataset.i);
   const r = e.target.closest('.qr'); if (!r) return;
   if (r.dataset.kind === 'r') return playFrom('related', +r.dataset.i, false);
   qi = +r.dataset.i; playCurrent();
@@ -1755,6 +1781,101 @@ function paintChart(d){
   if (tracks[0]) tintFrom(tracks[0]);
 }
 $('mAdd').onclick = $('npAdd').onclick = () => current && openAddModal([current]);
+
+/* ---------- lyrics ---------- */
+const lyCache = {}; let lyCur = null, lyEls = [], lyIdx = -1, lyWn = -1, lyRaf = 0, lyUserTs = 0;
+let isrcs = jget('isrcs', {});
+const lySrc = () => store.get('lsrc', 'auto');
+const SYNC_LABEL = { richsync: 'word-synced', linesync: 'line-synced', plain: 'unsynced' };
+function lyHeader(d){
+  const s = lySrc();
+  const chips = [['auto', 'Auto'], ['unison', 'Unison'], ['lrcred', 'lrc.red']].map(([k, l]) => `<button data-lsrc="${k}" class="${s === k ? 'on' : ''}">${l}</button>`).join('');
+  const info = d && d.found ? `via ${d.source === 'lrcred' ? 'lrc.red' : 'Unison'} · ${SYNC_LABEL[d.syncType] || ''}` : '';
+  $('lyhd').innerHTML = `<span class="lysrc">${esc(info)}</span><span class="lychips">${chips}</span>`;
+}
+$('lyhd').onclick = e => {
+  const b = e.target.closest('[data-lsrc]'); if (!b) return;
+  store.set('lsrc', b.dataset.lsrc); loadLyrics();
+};
+$('npq').addEventListener('wheel', () => { lyUserTs = Date.now(); }, { passive: true });
+$('npq').addEventListener('touchmove', () => { lyUserTs = Date.now(); }, { passive: true });
+async function loadLyrics(){
+  const t = current, box = $('npq'); if (!t) return;
+  const isrc = isrcs[t.id] || '', key = `${t.id}|${lySrc()}|${isrc}`;
+  lyCur = null; lyHeader(null);
+  if (lyCache[key]) return paintLyrics(lyCache[key], t);
+  box.innerHTML = '<p class="qmsg">Finding lyrics…</p>';
+  const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, source: lySrc() }).filter(([, v]) => v));
+  try {
+    const d = await (await api(`/lyrics/${t.id}?${qs}`)).json();
+    lyCache[key] = d;
+    if (npTab !== 'lyrics' || current !== t) return;
+    paintLyrics(d, t);
+  } catch (e) { if (npTab === 'lyrics' && current === t) box.innerHTML = `<p class="qmsg err">${esc(e.message)}</p>`; }
+}
+function paintLyrics(d, t){
+  const box = $('npq'); lyIdx = -1; lyWn = -1; lyEls = [];
+  lyHeader(d);
+  if (!d.found || !d.lines.length) {
+    lyCur = null;
+    box.innerHTML = `<p class="qmsg">${esc(d.note || 'No lyrics found for this song yet.')}</p>
+      <div class="lyf"><input id="lyIsrc" class="minp" placeholder="ISRC, e.g. GBUM71029604" value="${esc(isrcs[t.id] || '')}" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn" id="lyGo">Try lrc.red</button></div>
+      <p class="mhint">lrc.red finds lyrics by ISRC (the 12-character recording code). Unison is checked automatically by video.</p>`;
+    const go = () => {
+      const v = $('lyIsrc').value.replace(/[\s-]/g, '').toUpperCase();
+      if (!/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(v)) return toast('That doesn\'t look like an ISRC', true);
+      isrcs[t.id] = v; store.set('isrcs', JSON.stringify(isrcs));
+      if (lySrc() === 'unison') store.set('lsrc', 'auto');
+      loadLyrics();
+    };
+    $('lyGo').onclick = go; $('lyIsrc').onkeydown = e => { if (e.key === 'Enter') go(); };
+    return;
+  }
+  lyCur = d;
+  const rich = d.syncType === 'richsync';
+  box.innerHTML = d.lines.map((l, i) => {
+    const cls = ['ly', d.synced ? '' : 'plain', rich && l.words ? 'rich' : ''].filter(Boolean).join(' ');
+    const body = rich && l.words ? l.words.map(w => `<span class="w">${esc(w.w)}</span>`).join('') : (esc(l.text) || '♪');
+    return `<p class="${cls}" data-i="${i}">${body}</p>`;
+  }).join('');
+  lyEls = [...box.querySelectorAll('.ly')];
+  box.scrollTop = 0;
+  lyUpdate(); lyKick();
+}
+function lyUpdate(){
+  const d = lyCur; if (!d || !d.synced || !lyEls.length) return;
+  const tm = a.currentTime || 0, L = d.lines;
+  let lo = 0, hi = L.length - 1, i = -1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (L[m].t <= tm + 0.08) { i = m; lo = m + 1; } else hi = m - 1; }
+  if (i !== lyIdx) {
+    lyEls.forEach((el, k) => { el.classList.toggle('on', k === i); el.classList.toggle('past', k < i); });
+    lyIdx = i; lyWn = -1;
+    if (i >= 0 && Date.now() - lyUserTs > 3500) {
+      const box = $('npq');
+      box.scrollTo({ top: Math.max(0, lyEls[i].offsetTop - box.clientHeight * .38), behavior: 'smooth' });
+    }
+  }
+  if (i >= 0 && L[i].words) {
+    const ws = L[i].words; let n = 0;
+    while (n < ws.length && ws[n].t <= tm) n++;
+    if (n !== lyWn) { lyWn = n; lyEls[i].querySelectorAll('.w').forEach((s, k) => s.classList.toggle('wd', k < n)); }
+  }
+}
+function lyKick(){
+  if (!lyRaf && npTab === 'lyrics' && lyCur && lyCur.synced && !a.paused && $('npv').classList.contains('open')) lyRaf = requestAnimationFrame(lyLoop);
+}
+function lyLoop(){
+  lyRaf = 0;
+  if (npTab !== 'lyrics' || !lyCur || !lyCur.synced || a.paused || !$('npv').classList.contains('open')) return;
+  if (!pending) lyUpdate();
+  lyRaf = requestAnimationFrame(lyLoop);
+}
+function lySeek(i){
+  const l = lyCur && lyCur.synced && lyCur.lines[i];
+  if (!l || !a.src) return;
+  a.currentTime = l.t; lyUserTs = 0; lyUpdate();
+}
+$('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList.add('up'); };
 
 show('home');
 </script>
