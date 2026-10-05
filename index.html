@@ -583,6 +583,47 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   .srow{padding:12px 0}
   .srow .btn{padding:9px 18px}
 }
+
+/* ======== playlists / moods / charts / modal ======== */
+.libact{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px}
+.libact .btn{padding:9px 16px;font-size:14px}
+.lh{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lh .pill{margin-top:10px}
+.acover.ph{display:grid;place-items:center;background:rgba(255,255,255,.07);color:rgba(255,255,255,.4)}
+.moods{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.mood{position:relative;height:88px;border-radius:14px;padding:14px;text-align:left;font-weight:800;font-size:17px;color:#fff;overflow:hidden;background:linear-gradient(135deg,var(--a),var(--b));box-shadow:0 8px 22px rgba(0,0,0,.3);text-shadow:0 1px 8px rgba(0,0,0,.25);transition:transform .3s var(--ease)}
+.mood::after{content:'';position:absolute;right:-16px;bottom:-26px;width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.22)}
+.mood:hover{transform:translateY(-2px)}
+.mood:active{transform:scale(.97)}
+#modal{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#modal[hidden]{display:none}
+.msheet{width:min(440px,100%);max-height:80vh;overflow:auto;border-radius:22px;padding:20px;background:rgba(26,26,32,.94)}
+.msheet h3{margin:0 0 12px;font-size:20px;font-weight:800}
+.mhint{color:var(--mute);font-size:13px;line-height:1.5;margin:0 0 12px}
+.minp{width:100%;height:46px;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);outline:0;color:var(--fg)}
+.minp:focus{border-color:rgba(255,255,255,.4)}
+.mbtns{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.plr{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:8px;border-radius:12px}
+.plr:hover{background:rgba(255,255,255,.1)}
+.plr .plc{width:46px;height:46px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.08);display:grid;place-items:center;flex:none}
+.plr .plc img{width:100%;height:100%;object-fit:cover}
+.plr.new{font-weight:700}
+#bulk{position:fixed;top:calc(var(--topH) + 8px);left:50%;transform:translateX(-50%);z-index:45;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 16px;border-radius:16px;width:min(420px,calc(100vw - 24px));background:rgba(26,26,32,.92)}
+#bulk[hidden]{display:none}
+#bulk>div{flex:1;min-width:0}
+#bulk b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar{margin:0 0 10px}
+.csel{height:42px;width:min(280px,100%);padding:0 36px 0 16px;border-radius:999px;background:rgba(255,255,255,.1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 15px center;border:1px solid rgba(255,255,255,.18);outline:0;color:var(--fg);appearance:none;-webkit-appearance:none;cursor:pointer;font-weight:600}
+.csel option{background:#1a1a20;color:#fff}
+.rc .btn{padding:8px 16px;font-size:13px}
+@media(max-width:720px){
+  .qr .qa button{width:34px;height:34px}
+  .qa{gap:0}
+  .moods{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #modal{place-items:end center;padding:0}
+  .msheet{width:100%;border-radius:22px 22px 0 0;padding-bottom:calc(20px + var(--sab))}
+  .libact .btn{flex:1;justify-content:center}
+}
 </style>
 </head>
 <body>
@@ -590,6 +631,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 <aside id="nav">
   <button data-view="home"><span data-ic="home"></span><em>Home</em></button>
   <button data-view="search"><span data-ic="search"></span><em>Search</em></button>
+  <button data-view="charts"><span data-ic="chart"></span><em>Charts</em></button>
   <button data-view="liked"><span data-ic="heart"></span><em>Library</em></button>
   <button data-view="downloads"><span data-ic="dl"></span><em>Downloads</em></button>
   <button data-view="settings"><span data-ic="sliders"></span><em>Settings</em></button>
@@ -626,7 +668,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
     <img id="npcover" alt="">
     <div class="npcard glass">
       <div class="npinfo"><b id="mtitle" data-go="album"></b><span id="martist"></span></div>
-      <div class="npact"><button class="pill" id="mLike">♡ Like</button><button class="pill" id="npAlbum">Go to album</button><button class="pill" id="npArtist">Go to artist</button><button class="pill" id="mDl">Download</button></div>
+      <div class="npact"><button class="pill" id="mLike">♡ Like</button><button class="pill" id="npAlbum">Go to album</button><button class="pill" id="npArtist">Go to artist</button><button class="pill" id="mDl">Download</button><button class="pill" id="mAdd">+ Playlist</button></div>
       <div class="npseek"><input id="mseek" type="range" min="0" max="1000" value="0"><div><span id="mcur">0:00</span><span id="mdur">-0:00</span></div></div>
       <div class="npctl">
         <button id="mshuf" data-ic="shuffle"></button><button id="mprev" data-ic="prev"></button>
@@ -638,10 +680,12 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   <div class="npr glass" id="npr">
     <div class="grab" id="grab"></div>
     <div class="tabs"><button data-tab="queue" class="on">UP NEXT</button><button data-tab="related">RELATED</button></div>
-    <div class="npf"><div><small>Playing from</small><b id="npfrom"></b></div><div class="dsk npfb"><button class="btn ghost" id="npDl">Download</button><button class="btn" id="npLike">Like</button></div></div>
+    <div class="npf"><div><small>Playing from</small><b id="npfrom"></b></div><div class="dsk npfb"><button class="btn ghost" id="npAdd">Add to playlist</button><button class="btn ghost" id="npDl">Download</button><button class="btn" id="npLike">Like</button></div></div>
     <div id="npq" class="qlist"></div>
   </div>
 </section>
+<div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
+<div id="modal" hidden><div class="msheet glass"></div></div>
 <audio id="audio"></audio>
 <div id="toast"></div>
 
@@ -669,7 +713,10 @@ const ICONS = {
   x:'M6.4 5l5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z',
   chev:'M9 5l7 7-7 7-1.4-1.4L13.2 12 7.6 6.4z',
   vol:'M3 9v6h4l5 4V5L7 9zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4z',
-  dots:'M12 8a2 2 0 100-4 2 2 0 000 4zm0 6a2 2 0 100-4 2 2 0 000 4zm0 6a2 2 0 100-4 2 2 0 000 4z'
+  dots:'M12 8a2 2 0 100-4 2 2 0 000 4zm0 6a2 2 0 100-4 2 2 0 000 4zm0 6a2 2 0 100-4 2 2 0 000 4z',
+  chart:'M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z',
+  plus:'M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z',
+  note:'M12 3v10.55A4 4 0 1014 17V7h4V3z'
 };
 const STROKES = {
   shuffle:'<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>',
@@ -783,7 +830,7 @@ async function tint(t){
 const lists = {}, names = {}, relCache = {}, entCache = {};
 let homeData = null, view = 'home', viewArg = null, stack = [], listKey = '', entTok = 0, pageEnt = null, disc = {};
 let searchType = 'songs', lastSearch = { q: '', type: 'songs', items: [] };
-let recent = jget('recent', []), liked = jget('liked', []), saved = jget('saved', []);
+let recent = jget('recent', []), liked = jget('liked', []), saved = jget('saved', []), playlists = jget('playlists', []);
 let dls = []; const dlActive = {}; let offUrl = null;
 let queue = [], qi = -1, token = 0, current = null;
 let shuffle = false, repeat = 'off', queueName = '', npTab = 'queue', seeking = false;
@@ -816,7 +863,7 @@ function cardHtml(t, key, i, removable){
   return `<div class="card" data-k="${key}" data-i="${i}" data-id="${esc(t.id)}">
     <div class="cv">${imgTag(t, 340)}<div class="ov">${ic('play', 40)}</div>
       ${removable ? `<button class="x" data-a="rm" title="Remove">${ic('x')}</button>` : ''}
-      <div class="mini"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart')}</button><button data-a="dl" title="Download">${ic('dl')}</button></div>
+      <div class="mini"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart')}</button><button data-a="pl" title="Add to playlist">${ic('plus')}</button><button data-a="dl" title="Download">${ic('dl')}</button></div>
     </div><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>`;
 }
 function rowHtml(title, key, items, removable, label){
@@ -841,19 +888,19 @@ const skeleton = () => `<section class="rw sk"><div class="rh"><div><h2>&nbsp;</
 const lrow = (t, i) => `<div class="qr lrow ${current && current.id === t.id ? 'cur' : ''}" data-i="${i}" data-id="${esc(t.id)}">
   <div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
   <div class="qm"><b>${esc(t.title)}</b><span>${artistLinks(t)}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
-  <span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}">${ic('heart', 18)}</button><button data-a="dl">${ic('dl', 18)}</button></span>
+  ${qaBtns(t)}
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
-const trow = (t, i, withCover) => `<div class="tr lrow ${current && current.id === t.id ? 'cur' : ''}" data-i="${i}" data-id="${esc(t.id)}">
+const trow = (t, i, withCover, rm) => `<div class="tr lrow ${current && current.id === t.id ? 'cur' : ''}" data-i="${i}" data-id="${esc(t.id)}">
   <span class="ix">${i + 1}</span><span class="ixp">${ic('play', 16)}</span>
   ${withCover ? `<div class="qt">${imgTag(t, 120)}</div>` : ''}
-  <div class="qm"><b>${esc(t.title)}</b><span>${withCover ? esc(t.album || '') : artistLinks(t)}</span></div>
-  <span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}">${ic('heart', 18)}</button><button data-a="dl">${ic('dl', 18)}</button></span>
+  <div class="qm"><b>${esc(t.title)}</b><span>${(withCover && !rm) ? esc(t.album || '') : artistLinks(t)}</span></div>
+  ${qaBtns(t, rm)}
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="back" title="Back"></button>`;
 
 function show(v, arg, back){
   closeNP();
-  const detail = v === 'list' || v === 'entity';
+  const detail = ['list', 'entity', 'mood', 'upl'].includes(v);
   if (!back) { if (detail) stack.push({ v: view, arg: viewArg }); else stack = []; }
   view = v; viewArg = arg;
   const hl = detail ? (stack[0] ? stack[0].v : 'home') : v;
@@ -862,7 +909,7 @@ function show(v, arg, back){
   scrollTo(0, 0);
   { const m = $('main'); m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter'); }
   ({ home: renderHome, search: renderSearch, liked: renderLiked, downloads: renderDownloads, settings: renderSettings,
-     list: () => renderList(arg), entity: () => renderEntity(arg) })[v]();
+     list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderCharts, mood: () => renderMood(arg), upl: () => renderUserPl(arg) })[v]();
   markPlaying();
 }
 function goBack(){ const p = stack.pop() || { v: 'home' }; show(p.v, p.arg, true); }
@@ -903,7 +950,7 @@ function fillHome(){
 }
 function fillCont(){
   const el = $('cont'); if (!el) return;
-  el.innerHTML = recent.length ? rowHtml('Listen again', 'recent', recent, true, 'Recently played') : '';
+  el.innerHTML = (playlists.length ? rowHtml('Your playlists', 'uplhome', plCards(), false, 'Library') : '') + (recent.length ? rowHtml('Listen again', 'recent', recent, true, 'Recently played') : '');
   wireRows(el); markPlaying();
 }
 /* ---------- album / playlist page ---------- */
@@ -941,7 +988,7 @@ function renderCollection(d, key){
         <button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          <button data-m="shuffle">Shuffle play</button>${arts.length ? '<button data-m="artist">Go to artist</button>' : ''}
+          <button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button><button data-m="addall">Add all to playlist</button>${arts.length ? '<button data-m="artist">Go to artist</button>' : ''}
         </div>
       </div></aside>
       <div class="alb-r"><div class="tl">${tracks.map((t, i) => trow(t, i)).join('')}</div>${more}</div></div>`;
@@ -951,7 +998,9 @@ function renderCollection(d, key){
   $('amenu').onclick = e => {
     const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
     if (m.dataset.m === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
-    else openArtist(arts[0].id, arts[0].name);
+    else if (m.dataset.m === 'dlall') downloadAll(tracks, d.title || 'playlist');
+    else if (m.dataset.m === 'addall') openAddModal(tracks);
+    else if (arts[0]) openArtist(arts[0].id, arts[0].name);
   };
   tintFrom(cv);
 }
@@ -1053,10 +1102,7 @@ function paintRecs(){
   if (lastSearch.items.length) { box.innerHTML = ''; return; }
   const rs = jget('rsearch', []);
   const recent = rs.length ? `<div class="pg" style="padding-bottom:0"><h3 class="sec0" style="margin-top:6px">Recent searches</h3><div class="chips" style="flex-wrap:wrap;overflow:visible">${rs.map(q => `<button class="chip" data-rs="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>` : '';
-  if (!homeData) { box.innerHTML = recent + skeleton(); loadHome(false); return; }
-  box.innerHTML = recent + `<div class="rw" style="margin-bottom:6px"><h3 class="sec0" style="margin:6px 0 0">Recommended for you</h3></div>`
-    + homeData.sections.slice(0, 4).map(s => rowHtml(s.title, 'sr_' + s.id, s.tracks || s.items || [])).join('');
-  wireRows(box); markPlaying();
+  box.innerHTML = recent + `<div class="pg"><h3 class="sec0" style="margin-top:6px">Browse by mood</h3><div class="moods">${MOOD_DEF.map(([n, a, b]) => `<button class="mood" data-mood="${esc(n)}" style="--a:${a};--b:${b}">${esc(n)}</button>`).join('')}</div></div>`;
 }
 function pushRecentSearch(q){
   store.set('rsearch', JSON.stringify([q, ...jget('rsearch', []).filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 8)));
@@ -1112,10 +1158,17 @@ $('logo').onclick = () => show('home');
 /* ---------- library + settings ---------- */
 function renderLiked(){
   lists.liked = liked; names.liked = 'Liked songs'; listKey = 'liked';
+  const pc = plCards();
   $('main').innerHTML = `<div class="pg"><h1 class="t">Library</h1>
+    <div class="libact"><button class="btn" id="plNew">${ic('plus', 16)} New playlist</button><button class="btn ghost" id="plImp">Import from YouTube</button></div>
+    <h3 class="sec0">Playlists</h3>
+    ${pc.length ? gridHtml('uplist', pc) : '<p class="qmsg">No playlists yet. Create one, or paste the link of a public YouTube playlist to import it.</p>'}
     ${saved.length ? `<h3 class="sec0">Saved</h3>${gridHtml('saved', saved)}` : ''}
-    <h3 class="sec0">Liked songs</h3>
+    <div class="lh"><h3 class="sec0">Liked songs</h3>${liked.length ? '<button class="pill" id="dlLiked">Download all</button>' : ''}</div>
     ${liked.length ? liked.map(lrow).join('') : '<p class="qmsg">Nothing here yet. Tap the heart on a song, or save an album or artist.</p>'}</div>`;
+  $('plNew').onclick = () => promptName({ title: 'New playlist', cta: 'Create', onOk: v => { createPlaylist(v); toast(`Created "${v}"`); if (view === 'liked') renderLiked(); } });
+  $('plImp').onclick = openImport;
+  if ($('dlLiked')) $('dlLiked').onclick = () => downloadAll(liked, 'Liked songs');
 }
 function renderSettings(){
   const dsz = dls.reduce((n, d) => n + (d.size || 0), 0);
@@ -1241,7 +1294,7 @@ $('vol').oninput = e => { a.volume = standby.volume = e.target.value / 100; fill
 a.volume = standby.volume = .8; fillRange($('vol')); fillRange($('seek')); fillRange($('mseek'));
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); doPP(); }
-  if (e.key === 'Escape') closeNP();
+  if (e.key === 'Escape') { closeModal(); closeNP(); }
 });
 
 /* ---------- now playing view ---------- */
@@ -1345,7 +1398,7 @@ idb.all().then(r => { dls = r || []; }).catch(() => {}).finally(() => { dlsReady
 /* ---------- download ---------- */
 const fmtSize = b => !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 const fmtDate = ts => { const d = new Date(ts), n = new Date(); return d.toDateString() === n.toDateString() ? 'Today ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }); };
-const slim = t => ({ id: t.id, title: t.title, artist: t.artist, artists: t.artists, album: t.album, thumbnail: t.thumbnail, duration: t.duration });
+const slim = t => ({ id: t.id, title: t.title, artist: t.artist, artists: t.artists, album: t.album, album_id: t.album_id, thumbnail: t.thumbnail, duration: t.duration });
 function saveFile(blob, name){
   const url = URL.createObjectURL(blob);
   const el = Object.assign(document.createElement('a'), { href: url, download: name });
@@ -1362,11 +1415,13 @@ function dlProgress(id){
     el.textContent = a.total ? `${fmtSize(a.loaded)} of ${fmtSize(a.total)}` : a.loaded ? fmtSize(a.loaded) : 'Preparing…';
   });
 }
-async function download(t, btn){
-  if (dlActive[t.id]) return toast('Already downloading');
+async function download(t, btn, quiet){
+  if (dlActive[t.id]) { if (!quiet) toast('Already downloading'); return false; }
   const f = store.get('fmt', 'mp3'), a = dlActive[t.id] = { t: slim(t), loaded: 0, total: 0, fmt: f };
-  if (btn) btn.disabled = true; toast('Preparing download… this can take a moment');
+  if (btn) btn.disabled = true;
+  if (!quiet) toast('Preparing download… this can take a moment');
   if (view === 'downloads') renderDownloads();
+  let ok = false;
   try {
     const r = await api(`/download/${t.id}?fmt=${f}`);
     const cd = r.headers.get('content-disposition') || '';
@@ -1384,14 +1439,16 @@ async function download(t, btn){
       await idb.put(meta, blob);
       dls = [meta, ...dls.filter(d => d.id !== t.id)];
       navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {});
-      toast('Saved to Downloads');
+      ok = true; if (!quiet) toast('Saved to Downloads');
     } catch (e) {
-      saveFile(blob, fname); toast('Could not store offline, saved as a file instead', true);
+      if (quiet) throw e;
+      saveFile(blob, fname); ok = true; toast('Could not store offline, saved as a file instead', true);
     }
-  } catch (e) { toast(e.message, true); }
+  } catch (e) { if (!quiet) toast(e.message, true); }
   delete dlActive[t.id];
   if (btn) btn.disabled = false;
   if (view === 'downloads') renderDownloads();
+  return ok;
 }
 
 const dlSorts = { recent: 'Recent', track: 'Track', album: 'Album', artist: 'Artist' };
@@ -1450,8 +1507,10 @@ function renderDownloads(){
 
 /* ---------- global clicks ---------- */
 document.addEventListener('click', e => {
+  if (e.target.closest('[data-mc]') || e.target.id === 'modal') return closeModal();
   const menu = $('amenu'); if (menu && !menu.hidden && !e.target.closest('#amenu,#aMenu')) menu.hidden = true;
   if (e.target.closest('#backBtn')) return goBack();
+  const md = e.target.closest('[data-mood]'); if (md) return show('mood', md.dataset.mood);
   const nav = e.target.closest('[data-view]'); if (nav) return show(nav.dataset.view);
   const ds = e.target.closest('[data-dlsort]'); if (ds) { store.set('dlsort', ds.dataset.dlsort); return renderDownloads(); }
   const dc = e.target.closest('[data-disc]'); if (dc) return setDisc(dc);
@@ -1471,16 +1530,231 @@ document.addEventListener('click', e => {
     if (!b) return playFrom(listKey, +lr.dataset.i, false);
     if (b.dataset.a === 'rmdl') { idb.del(t.id).then(() => { dls = dls.filter(d => d.id !== t.id); renderDownloads(); }).catch(err => toast(err.message, true)); return; }
     if (b.dataset.a === 'save') { idb.blob(t.id).then(bl => bl ? saveFile(bl, t.file || `${t.title}.${t.fmt || 'mp3'}`) : toast('File not found', true)).catch(err => toast(err.message, true)); return; }
+    if (b.dataset.a === 'pl') return openAddModal([t]);
+    if (b.dataset.a === 'rmpl') return removeFromPl(t);
     return b.dataset.a === 'dl' ? download(t, b) : toggleLike(t);
   }
   const c = e.target.closest('.card'); if (!c) return;
   const t = (lists[c.dataset.k] || [])[c.dataset.i]; if (!t) return;
+  if (t.kind === 'uplaylist') return show('upl', t.id);
   if (t.kind) return show('entity', t);
   if (!b) return playFrom(c.dataset.k, +c.dataset.i);
   if (b.dataset.a === 'rm') { recent = recent.filter(r => r.id !== t.id); store.set('recent', JSON.stringify(recent)); fillCont(); }
+  else if (b.dataset.a === 'pl') openAddModal([t]);
   else if (b.dataset.a === 'dl') download(t, b);
   else if (b.dataset.a === 'like') toggleLike(t);
 });
+
+/* ---------- playlists ---------- */
+const PH = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#2a2a34"/><circle cx="42" cy="66" r="9" fill="#7d7d8c"/><rect x="49" y="28" width="6" height="38" fill="#7d7d8c"/><rect x="49" y="28" width="16" height="8" fill="#7d7d8c"/></svg>');
+const uid = () => 'pl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function savePl(){
+  try { localStorage.setItem('playlists', JSON.stringify(playlists)); return true; }
+  catch { toast('Storage is full, could not save your playlists', true); return false; }
+}
+function addTracks(pl, tracks){
+  const have = new Set(pl.tracks.map(t => t.id)); let n = 0;
+  for (const t of tracks) if (t && t.id && !have.has(t.id)) { have.add(t.id); pl.tracks.push(slim(t)); n++; }
+  if (n) savePl();
+  return n;
+}
+function createPlaylist(name, tracks = [], extra = {}){
+  const p = { id: uid(), name, tracks: [], ts: Date.now(), ...extra };
+  playlists.unshift(p); addTracks(p, tracks); savePl();
+  return p;
+}
+const plCover = (p, s = 340) => p.tracks[0] ? cov({ id: p.tracks[0].id, thumbnail: p.tracks[0].thumbnail }, s) : PH;
+const plCards = () => playlists.map(p => ({ kind: 'uplaylist', id: p.id, title: p.name, artist: `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}`, thumbnail: plCover(p) }));
+const qaBtns = (t, rm) => `<span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart', 18)}</button>${rm ? `<button data-a="rmpl" title="Remove from playlist">${ic('x', 18)}</button>` : `<button data-a="pl" title="Add to playlist">${ic('plus', 18)}</button>`}<button data-a="dl" title="Download">${ic('dl', 18)}</button></span>`;
+
+/* ---------- modal ---------- */
+function openModal(html){ const m = $('modal'); m.querySelector('.msheet').innerHTML = html; m.hidden = false; return m.querySelector('.msheet'); }
+function closeModal(){ $('modal').hidden = true; }
+function promptName({ title, value = '', cta, onOk }){
+  openModal(`<h3>${esc(title)}</h3><input id="mIn" class="minp" maxlength="80" value="${esc(value)}" placeholder="Playlist name" autocomplete="off"><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="mOk">${esc(cta)}</button></div>`);
+  const inp = $('mIn'); inp.focus(); inp.select();
+  const go = () => { const v = inp.value.trim(); if (!v) return inp.focus(); closeModal(); onOk(v); };
+  $('mOk').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+function openAddModal(tracks){
+  const ts = (tracks || []).filter(t => t && t.id);
+  if (!ts.length) return;
+  const rows = playlists.map(p => `<button class="plr" data-pl="${esc(p.id)}"><span class="plc"><img src="${esc(plCover(p, 100))}" alt=""></span><span class="qm"><b>${esc(p.name)}</b><span>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</span></span></button>`).join('');
+  const sheet = openModal(`<h3>${ts.length > 1 ? `Add ${ts.length} songs to…` : 'Add to playlist'}</h3><button class="plr new" id="mNew"><span class="plc">${ic('plus', 22)}</span><span class="qm"><b>New playlist</b></span></button>${rows}`);
+  $('mNew').onclick = () => promptName({ title: 'New playlist', cta: 'Create', onOk: v => {
+    const p = createPlaylist(v, ts); toast(`Added ${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'} to "${v}"`);
+    if (view === 'liked') renderLiked();
+  } });
+  sheet.onclick = e => {
+    const r = e.target.closest('[data-pl]'); if (!r) return;
+    const pl = playlists.find(p => p.id === r.dataset.pl); if (!pl) return;
+    const n = addTracks(pl, ts); closeModal();
+    toast(n ? `Added ${n} song${n === 1 ? '' : 's'} to "${pl.name}"` : `Already in "${pl.name}"`);
+    if (view === 'upl' && viewArg === pl.id) renderUserPl(pl.id);
+  };
+}
+function openImport(){
+  openModal(`<h3>Import from YouTube</h3><p class="mhint">Paste the link to a public or unlisted YouTube or YouTube Music playlist. It will be copied into your library as a new playlist.</p><input id="mIn" class="minp" placeholder="https://www.youtube.com/playlist?list=…" autocomplete="off" autocapitalize="off" spellcheck="false"><p class="err" id="mErr" style="margin:10px 0 0"></p><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="mOk">Import</button></div>`);
+  const inp = $('mIn'), ok = $('mOk'); inp.focus();
+  const go = async () => {
+    const v = inp.value.trim(); if (!v) return inp.focus();
+    $('mErr').textContent = ''; ok.disabled = true; ok.textContent = 'Importing…';
+    try {
+      const d = await (await api('/import?url=' + encodeURIComponent(v))).json();
+      closeModal();
+      const p = createPlaylist(d.title || 'Imported playlist', d.tracks, { srcId: d.id });
+      toast(`Imported ${p.tracks.length} songs`);
+      show('upl', p.id);
+    } catch (e) { if ($('mErr')) { $('mErr').textContent = e.message; ok.disabled = false; ok.textContent = 'Import'; } }
+  };
+  ok.onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+async function syncPl(pl){
+  toast('Syncing from YouTube…');
+  try {
+    const d = await (await api('/import?url=' + encodeURIComponent(pl.srcId))).json();
+    const n = addTracks(pl, d.tracks);
+    toast(n ? `Added ${n} new song${n === 1 ? '' : 's'}` : 'Already up to date');
+    if (view === 'upl' && viewArg === pl.id) renderUserPl(pl.id);
+  } catch (e) { toast(e.message, true); }
+}
+function removeFromPl(t){
+  const pl = playlists.find(p => p.id === viewArg); if (!pl) return;
+  pl.tracks = pl.tracks.filter(x => x.id !== t.id); savePl();
+  renderUserPl(pl.id); toast('Removed from playlist');
+}
+function renderUserPl(id){
+  const pl = playlists.find(p => p.id === id);
+  if (!pl) { toast('Playlist not found', true); return show('liked'); }
+  const key = 'upl_' + id, tracks = pl.tracks;
+  lists[key] = tracks; names[key] = pl.name; listKey = key; pageEnt = null;
+  const total = tracks.reduce((s, t) => s + (t.duration || 0), 0);
+  const meta = `${tracks.length} song${tracks.length === 1 ? '' : 's'}` + (total ? ` • ${fmtMin(total)}` : '');
+  const cover = tracks.length ? imgTag({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640, 'class="acover"') : `<div class="acover ph">${ic('note', 72)}</div>`;
+  $('main').innerHTML = `<div class="bkrow">${backBtn()}</div>
+    <div class="alb"><aside class="alb-l"><span class="by"><span class="bav">♪</span>Your playlist${pl.srcId ? ' · from YouTube' : ''}</span>${cover}
+      <h1>${esc(pl.name)}</h1><p>${meta}</p>
+      <div class="aact">
+        <button class="rb sm" id="uDl" title="Download all">${ic('dl', 18)}</button>
+        ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
+        <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
+        <div class="menu glass" id="amenu" hidden>
+          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
+        </div>
+      </div></aside>
+      <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div></div></div>`;
+  hydrate($('main')); bindPlay(key, tracks.length);
+  $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name) : toast('Nothing to download yet');
+  $('aMenu').onclick = e => { e.stopPropagation(); $('amenu').hidden = !$('amenu').hidden; };
+  $('amenu').onclick = e => {
+    const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
+    const k = m.dataset.m;
+    if (k === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
+    else if (k === 'dlall') downloadAll(tracks, pl.name);
+    else if (k === 'rename') promptName({ title: 'Rename playlist', value: pl.name, cta: 'Save', onOk: v => { pl.name = v; savePl(); renderUserPl(id); } });
+    else if (k === 'sync') syncPl(pl);
+    else if (k === 'find') show('search');
+    else if (k === 'del' && confirm(`Delete "${pl.name}"?`)) { playlists = playlists.filter(p => p.id !== id); savePl(); toast('Playlist deleted'); goBack(); }
+  };
+  if (tracks[0]) tintFrom(tracks[0]);
+  markPlaying();
+}
+
+/* ---------- download whole playlists ---------- */
+let bulk = null;
+function paintBulk(){
+  if (!bulk) { $('bulk').hidden = true; return; }
+  const n = bulk.done + bulk.fail;
+  $('bulk').hidden = false;
+  $('bulkT').textContent = `Downloading ${bulk.label} · ${n}/${bulk.total}`;
+  $('bulkI').style.width = Math.round(n / bulk.total * 100) + '%';
+}
+async function downloadAll(tracks, label){
+  if (bulk) return toast('Another playlist is already downloading');
+  const todo = (tracks || []).filter((t, i, arr) => t && t.id && !dls.some(d => d.id === t.id) && arr.findIndex(x => x.id === t.id) === i);
+  if (!todo.length) return toast('Everything here is already downloaded');
+  bulk = { total: todo.length, done: 0, fail: 0, label: label || 'playlist', stop: false };
+  paintBulk();
+  toast(`Downloading ${todo.length} song${todo.length === 1 ? '' : 's'}…`);
+  const worker = async () => {
+    while (bulk && !bulk.stop) {
+      const t = todo.shift(); if (!t) break;
+      const ok = await download(t, null, true);
+      if (bulk) { ok ? bulk.done++ : bulk.fail++; paintBulk(); }
+    }
+  };
+  await Promise.all([worker(), worker()]);
+  const b = bulk; bulk = null; paintBulk();
+  toast(b.stop ? `Stopped · ${b.done} of ${b.total} saved` : `Downloaded ${b.done} of ${b.total} songs` + (b.fail ? ` (${b.fail} failed)` : ''), b.fail > 0 && !b.done);
+  if (view === 'downloads') renderDownloads();
+}
+$('bulkX').onclick = () => { if (bulk) bulk.stop = true; };
+
+/* ---------- moods ---------- */
+const MOOD_DEF = [
+  ['Relax', '#3a7bd5', '#00c9a7'], ['Romance', '#e8457a', '#ff9a8b'], ['Sleep', '#2b2f77', '#7a6ad8'],
+  ['Energize', '#ff6a00', '#ffc400'], ['Sad', '#355c7d', '#6c5b7b'], ['Feel good', '#f7971e', '#ffd200'],
+  ['Workout', '#cb2d3e', '#ef473a'], ['Party', '#8e2de2', '#ff3cac'], ['Commute', '#0f9b8e', '#3ab0ff'], ['Focus', '#1d976c', '#7be0a8']
+];
+const moodCache = {};
+async function renderMood(name){
+  const my = ++entTok;
+  $('main').innerHTML = `<div class="bkrow">${backBtn()}</div><div class="pg"><h1 class="t">${esc(name)}</h1></div><div id="rows">${skeleton()}${skeleton()}</div>`;
+  hydrate($('main'));
+  try {
+    const d = moodCache[name] || await (await api('/mood?name=' + encodeURIComponent(name))).json();
+    if (my !== entTok || view !== 'mood') return;
+    if (!d.sections || !d.sections.length) throw new Error('Nothing found for this mood yet.');
+    moodCache[name] = d;
+    paintSections(d.sections, 'm_' + name + '_');
+  } catch (e) {
+    if (my !== entTok || view !== 'mood') return;
+    $('rows').innerHTML = `<div class="pg"><p class="err">${esc(e.message)}</p><button class="btn" id="mRetry">Try again</button></div>`;
+    $('mRetry').onclick = () => renderMood(name);
+  }
+}
+
+/* ---------- charts ---------- */
+let chartCountries = null; const chartCache = {};
+async function renderCharts(){
+  const my = ++entTok, code = store.get('ccode', 'ZZ');
+  const opts = () => (chartCountries || [{ code, name: code === 'ZZ' ? 'Global' : code }]).map(c => `<option value="${esc(c.code)}" ${c.code === code ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  $('main').innerHTML = `<div class="pg"><h1 class="t">Charts</h1><div class="cbar"><select class="csel" id="cSel" aria-label="Country">${opts()}</select></div></div><div id="crows">${skeleton()}${skeleton()}</div>`;
+  $('cSel').onchange = e => { store.set('ccode', e.target.value); renderCharts(); };
+  try {
+    const [cs, d] = await Promise.all([
+      chartCountries || api('/charts/countries').then(r => r.json()).then(j => j.countries),
+      chartCache[code] || api('/charts/' + encodeURIComponent(code)).then(r => r.json())
+    ]);
+    chartCountries = cs; chartCache[code] = d;
+    if (my !== entTok || view !== 'charts') return;
+    $('cSel').innerHTML = opts();
+    paintChart(d);
+  } catch (e) {
+    if (my !== entTok || view !== 'charts') return;
+    $('crows').innerHTML = `<div class="pg"><p class="err">${esc(e.message)}</p><button class="btn" id="cRetry">Try again</button></div>`;
+    $('cRetry').onclick = renderCharts;
+  }
+}
+function paintChart(d){
+  const key = 'chart_' + d.code, tracks = d.tracks || [], pls = d.playlists || [], arts = d.artists || [];
+  lists[key] = tracks; names[key] = 'Top songs · ' + d.name; listKey = key;
+  if (!tracks.length && !pls.length) { $('crows').innerHTML = '<div class="pg"><p class="qmsg">No charts available for this country right now.</p></div>'; return; }
+  $('crows').innerHTML = (pls.length ? rowHtml('Chart playlists', 'cp_' + d.code, pls, false, d.name) : '')
+    + (tracks.length ? `<section class="rw"><div class="rh"><div><small>${esc(d.name)}</small><h2>Top songs</h2></div><div class="rc"><button class="btn ghost" id="lShuf">Shuffle</button><button class="btn" id="lPlay">Play</button></div></div><div class="tl" id="ctop"></div><button class="linkb" id="cMore"></button></section>` : '')
+    + (arts.length ? rowHtml('Top artists', 'ca_' + d.code, arts, false, d.name) : '');
+  wireRows($('crows')); bindPlay(key, tracks.length);
+  const paintTop = all => {
+    if (!$('ctop')) return;
+    $('ctop').innerHTML = (all ? tracks : tracks.slice(0, 10)).map((t, i) => trow(t, i, true)).join('');
+    $('cMore').style.display = (!all && tracks.length > 10) ? '' : 'none';
+    $('cMore').textContent = `Show all ${tracks.length}`; markPlaying();
+  };
+  paintTop(false);
+  if ($('cMore')) $('cMore').onclick = () => paintTop(true);
+  if (tracks[0]) tintFrom(tracks[0]);
+}
+$('mAdd').onclick = $('npAdd').onclick = () => current && openAddModal([current]);
 
 show('home');
 </script>
