@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Isai</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Isai">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 /* animatable palette: the page gradient eases between songs */
 @property --c1{syntax:'<color>';inherits:true;initial-value:#1b1b24}
@@ -280,9 +287,9 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
 
   #nav{inset:auto 0 0 0;width:100%;height:calc(58px + var(--sab));padding:0 0 var(--sab);flex-direction:row;justify-content:space-around;align-items:stretch;gap:0;background:rgba(14,14,18,.72);backdrop-filter:blur(26px) saturate(1.5);-webkit-backdrop-filter:blur(26px) saturate(1.5);border-top:1px solid var(--line)}
   #nav .sp{display:none}
-  #nav button{flex:1;width:auto;height:auto;border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--mute);background:none!important}
+  #nav button{flex:1;width:auto;height:100%;border-radius:0;display:flex;align-items:center;justify-content:center;color:var(--mute);background:none!important}
   #nav button.on{color:#fff}
-  #nav button em{display:block;font-style:normal}
+  #nav button em{display:none!important}
 
   #player{left:8px;right:8px;bottom:calc(66px + var(--sab));height:60px;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:0 12px 0 10px;border-radius:18px}
   #player .seek,#prev,.rt{display:none}
@@ -554,11 +561,15 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 
   /* bottom nav: floating glass with pill indicator */
   #nav{background:rgba(14,14,20,.62);backdrop-filter:blur(30px) saturate(1.4);-webkit-backdrop-filter:blur(30px) saturate(1.4);border-top:1px solid rgba(255,255,255,.1)}
-  #nav button{gap:2px;font-size:10.5px;font-weight:600;letter-spacing:.01em;color:rgba(255,255,255,.58);transition:color .25s var(--ease)}
-  #nav button>span{display:grid;place-items:center;width:56px;height:30px;border-radius:15px;transition:background-color .3s var(--ease),transform .3s var(--ease)}
+  #nav button{height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.58);transition:color .25s var(--ease)}
+  #nav button em{display:none!important}
+  #nav button>span{display:grid;place-items:center;width:52px;height:36px;border-radius:18px;transition:background-color .3s var(--ease),transform .3s var(--ease)}
   #nav button.on>span{background:rgba(255,255,255,.16)}
   #nav button:active>span{transform:scale(.92)}
   #nav button.on{color:#fff}
+
+  @keyframes pp-loading{0%,100%{opacity:.45;transform:scale(0.96)}50%{opacity:1;transform:scale(1)}}
+  .pp.loading{animation:pp-loading 1s infinite ease-in-out}
 
   /* mini player */
   #player{height:62px;border-radius:20px;left:10px;right:10px;overflow:hidden;padding:0 10px 0 9px;gap:6px}
@@ -705,12 +716,12 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 <body>
 <div id="bg"></div>
 <aside id="nav">
-  <button data-view="home"><span data-ic="home"></span><em>Home</em></button>
-  <button data-view="search"><span data-ic="search"></span><em>Search</em></button>
-  <button data-view="charts"><span data-ic="chart"></span><em>Charts</em></button>
-  <button data-view="liked"><span data-ic="heart"></span><em>Library</em></button>
-  <button data-view="downloads"><span data-ic="dl"></span><em>Downloads</em></button>
-  <button data-view="settings"><span data-ic="sliders"></span><em>Settings</em></button>
+  <button data-view="home" title="Home" aria-label="Home"><span data-ic="home"></span></button>
+  <button data-view="search" title="Search" aria-label="Search"><span data-ic="search"></span></button>
+  <button data-view="liked" title="Library" aria-label="Library"><span data-ic="heart"></span></button>
+  <button data-view="downloads" title="Downloads" aria-label="Downloads"><span data-ic="dl"></span></button>
+  <button data-view="settings" title="Settings" aria-label="Settings"><span data-ic="sliders"></span></button>
+  <button id="pwaInstall" title="Install App" aria-label="Install App"><span data-ic="install"></span></button>
   <span class="sp"></span>
 </aside>
 <header class="top">
@@ -800,7 +811,8 @@ const STROKES = {
   repeat:'<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',
   up:'<polyline points="6 15 12 9 18 15"/>', down:'<polyline points="6 9 12 15 18 9"/>',
   back:'<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
-  bookmark:'<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>'
+  bookmark:'<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>',
+  install:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'
 };
 const ic = (n, s = 20) => STROKES[n]
   ? `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${STROKES[n]}</svg>`
@@ -810,8 +822,15 @@ hydrate(document);
 function fillRange(el){ el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min) * 100) + '%'); }
 
 /* ---------- API + covers ---------- */
-const defBase = 'https://ytdlpapi-jd2j.onrender.com';
-const base = () => store.get('base', defBase).replace(/\/$/, '');
+const defBase = 'https://isaiapi.thirai.uk';
+const base = () => {
+  let b = store.get('base', defBase);
+  if (!b || b === 'https://ytdlpapi-jd2j.onrender.com') {
+    b = defBase;
+    store.set('base', defBase);
+  }
+  return b.replace(/\/$/, '');
+};
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
 async function api(path){
   let r;
@@ -986,7 +1005,7 @@ function show(v, arg, back){
   scrollTo(0, 0);
   { const m = $('main'); m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter'); }
   ({ home: renderHome, search: renderSearch, liked: renderLiked, downloads: renderDownloads, settings: renderSettings,
-     list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderCharts, mood: () => renderMood(arg), upl: () => renderUserPl(arg) })[v]();
+     list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderHome, mood: () => renderMood(arg), upl: () => renderUserPl(arg) })[v]();
   markPlaying();
 }
 function goBack(){ const p = stack.pop() || { v: 'home' }; show(p.v, p.arg, true); }
@@ -1339,12 +1358,23 @@ const resetSeek = () => { $('seek').value = $('mseek').value = 0; fillRange($('s
 async function playCurrent(){
   const t = queue[qi]; if (!t) return;
   const my = ++token; current = t;
-  const live = !!a.src && !a.paused;          // keep the old song going until the new one is ready
-  pending = live;
+
+  // Immediately pause currently playing audio so it stops when switching songs
+  try {
+    if (a && !a.paused) a.pause();
+    if (standby && !standby.paused) standby.pause();
+  } catch {}
+  pending = false;
+
   $('player').classList.add('on');
   setImg($('pimg'), t, 160);
   $('ptitle').textContent = t.title; $('partist').innerHTML = artistLinks(t);
-  if (!live) { $('dur').textContent = $('mdur').textContent = '-' + fmt(t.duration); resetSeek(); }
+  $('dur').textContent = $('mdur').textContent = '-' + fmt(t.duration);
+  $('cur').textContent = $('mcur').textContent = '0:00';
+  resetSeek();
+  $('pp').classList.add('loading');
+  $('mpp').classList.add('loading');
+  setPP();
   markPlaying(); updateNP(); tint(t);
   try {
     const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
@@ -1366,10 +1396,18 @@ async function playCurrent(){
     old.pause(); old.removeAttribute('src'); old.load();
     if (old._blob) URL.revokeObjectURL(old._blob);
     n._blob = blobUrl; old._blob = null;
+    $('pp').classList.remove('loading');
+    $('mpp').classList.remove('loading');
     resetSeek(); $('dur').textContent = $('mdur').textContent = '-' + fmt(n.duration || t.duration);
     await a.play(); setPP(); addRecent(t);
   } catch (e) {
-    if (my === token) { pending = false; if (e.name !== 'AbortError') toast(e.message || 'Could not play this track', true); }
+    if (my === token) {
+      pending = false;
+      $('pp').classList.remove('loading');
+      $('mpp').classList.remove('loading');
+      setPP();
+      if (e.name !== 'AbortError') toast(e.message || 'Could not load this track', true);
+    }
   }
 }
 function addRecent(t){
@@ -1908,46 +1946,8 @@ async function renderMood(name){
   }
 }
 
-/* ---------- charts ---------- */
-let chartCountries = null; const chartCache = {};
-async function renderCharts(){
-  const my = ++entTok, code = store.get('ccode', 'ZZ');
-  const opts = () => (chartCountries || [{ code, name: code === 'ZZ' ? 'Global' : code }]).map(c => `<option value="${esc(c.code)}" ${c.code === code ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-  $('main').innerHTML = `<div class="pg"><h1 class="t">Charts</h1><div class="cbar"><select class="csel" id="cSel" aria-label="Country">${opts()}</select></div></div><div id="crows">${skeleton()}${skeleton()}</div>`;
-  $('cSel').onchange = e => { store.set('ccode', e.target.value); renderCharts(); };
-  try {
-    const [cs, d] = await Promise.all([
-      chartCountries || api('/charts/countries').then(r => r.json()).then(j => j.countries),
-      chartCache[code] || api('/charts/' + encodeURIComponent(code)).then(r => r.json())
-    ]);
-    chartCountries = cs; chartCache[code] = d;
-    if (my !== entTok || view !== 'charts') return;
-    $('cSel').innerHTML = opts();
-    paintChart(d);
-  } catch (e) {
-    if (my !== entTok || view !== 'charts') return;
-    $('crows').innerHTML = `<div class="pg"><p class="err">${esc(e.message)}</p><button class="btn" id="cRetry">Try again</button></div>`;
-    $('cRetry').onclick = renderCharts;
-  }
-}
-function paintChart(d){
-  const key = 'chart_' + d.code, tracks = d.tracks || [], pls = d.playlists || [], arts = d.artists || [];
-  lists[key] = tracks; names[key] = 'Top songs · ' + d.name; listKey = key;
-  if (!tracks.length && !pls.length) { $('crows').innerHTML = '<div class="pg"><p class="qmsg">No charts available for this country right now.</p></div>'; return; }
-  $('crows').innerHTML = (pls.length ? rowHtml('Chart playlists', 'cp_' + d.code, pls, false, d.name) : '')
-    + (tracks.length ? `<section class="rw"><div class="rh"><div><small>${esc(d.name)}</small><h2>Top songs</h2></div><div class="rc"><button class="btn ghost" id="lShuf">Shuffle</button><button class="btn" id="lPlay">Play</button></div></div><div class="tl" id="ctop"></div><button class="linkb" id="cMore"></button></section>` : '')
-    + (arts.length ? rowHtml('Top artists', 'ca_' + d.code, arts, false, d.name) : '');
-  wireRows($('crows')); bindPlay(key, tracks.length);
-  const paintTop = all => {
-    if (!$('ctop')) return;
-    $('ctop').innerHTML = (all ? tracks : tracks.slice(0, 10)).map((t, i) => trow(t, i, true)).join('');
-    $('cMore').style.display = (!all && tracks.length > 10) ? '' : 'none';
-    $('cMore').textContent = `Show all ${tracks.length}`; markPlaying();
-  };
-  paintTop(false);
-  if ($('cMore')) $('cMore').onclick = () => paintTop(true);
-  if (tracks[0]) tintFrom(tracks[0]);
-}
+/* ---------- charts (removed) ---------- */
+async function renderCharts(){ show('home'); }
 $('mAdd').onclick = $('npAdd').onclick = () => current && openAddModal([current]);
 
 /* ---------- lyrics ---------- */
@@ -2044,6 +2044,57 @@ function lySeek(i){
   a.currentTime = l.t; lyUserTs = 0; lyUpdate();
 }
 $('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList.add('up'); };
+
+/* ---------- PWA & install ---------- */
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW:', err));
+  });
+}
+
+let deferredPrompt = null;
+const pwaBtn = $('pwaInstall');
+
+function updateInstallBtn() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (pwaBtn) {
+    if (isStandalone) pwaBtn.style.display = 'none';
+    else pwaBtn.style.display = '';
+  }
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (pwaBtn) pwaBtn.style.display = '';
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  if (pwaBtn) pwaBtn.style.display = 'none';
+  toast('Isai installed successfully!');
+});
+
+if (pwaBtn) {
+  pwaBtn.onclick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice && choice.outcome === 'accepted') {
+        deferredPrompt = null;
+        pwaBtn.style.display = 'none';
+      }
+    } else {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS) {
+        toast('To install: tap Share and select "Add to Home Screen"');
+      } else {
+        toast('To install: click the Install icon in your browser address bar or menu');
+      }
+    }
+  };
+}
+updateInstallBtn();
 
 show('home');
 </script>
