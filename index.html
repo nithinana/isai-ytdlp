@@ -392,6 +392,31 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
 .dlsub{color:var(--mute);font-size:13px;margin:0 0 4px}
 .dlg{display:flex;align-items:baseline;gap:10px;margin:26px 0 8px}
 .dlg small{color:var(--mute);font-size:13px;font-weight:500}
+/* ---- downloads playlist grouping ---- */
+.dlpl-hd{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px 10px;
+  margin:22px 0 4px;
+  border-radius:12px;
+  cursor:pointer;
+  transition:background .2s var(--ease);
+}
+.dlpl-hd:hover{background:rgba(255,255,255,.07)}
+.dlpl-hd .dlpl-img{
+  width:46px;height:46px;border-radius:8px;
+  object-fit:cover;flex:none;
+  background:var(--panel);
+}
+.dlpl-hd .dlpl-info{flex:1;min-width:0}
+.dlpl-hd .dlpl-info b{display:block;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dlpl-hd .dlpl-info span{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:5px}
+.dlpl-hd .dlpl-info span svg{opacity:.7}
+.dlpl-chev{color:var(--mute);transition:transform .3s var(--ease);flex:none}
+.dlpl-hd.open .dlpl-chev{transform:rotate(90deg)}
+.dlpl-body{overflow:hidden;transition:max-height .35s var(--ease);}
+.dlpl-body.collapsed{max-height:0!important}
 /* ---- motion polish ---- */
 :root{--ease:cubic-bezier(.32,.72,0,1);--ease-io:cubic-bezier(.65,0,.35,1)}
 #nav button,.btn,.pill,.rb,.qa button,.btns button,.rt button,.npctl button,.sbi{transition:background-color .25s var(--ease),color .25s var(--ease),transform .25s var(--ease),opacity .25s var(--ease)}
@@ -632,18 +657,49 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .lychips{display:flex;gap:6px}
 .lychips button{padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px;font-weight:600;color:var(--mute)}
 .lychips button.on{background:#fff;color:#000}
-.qlist.lyr{padding:6px 6px 45% 6px}
-.ly{margin:0;padding:8px 6px;font-size:22px;line-height:1.3;font-weight:800;color:#fff;opacity:.38;cursor:pointer;border-radius:10px;overflow-wrap:anywhere;transition:opacity .35s var(--ease)}
-.ly:hover{opacity:.7}
-.ly.on{opacity:1}
-.ly.plain,.ly.plain:hover{opacity:.88;cursor:default;font-size:17px;font-weight:600;padding:3px 6px}
-.ly.rich.on .w{opacity:.4;transition:opacity .2s}
+/* Cinematic lyrics: no box, full-bleed scrolling */
+.qlist.lyr{padding:6px 6px 45% 6px;scrollbar-width:none}
+.qlist.lyr::-webkit-scrollbar{display:none}
+.ly{
+  margin:0;
+  padding:10px 8px;
+  font-size:26px;
+  line-height:1.28;
+  font-weight:800;
+  color:#fff;
+  opacity:.22;
+  cursor:pointer;
+  border-radius:12px;
+  overflow-wrap:anywhere;
+  transform:scale(.96) translateY(4px);
+  transform-origin:left center;
+  transition:opacity .5s var(--ease), transform .5s var(--ease), filter .5s var(--ease);
+  filter:blur(1.5px);
+  will-change:opacity,transform,filter;
+}
+.ly:hover{opacity:.55;filter:blur(0);transform:scale(.98) translateY(2px)}
+.ly.on{
+  opacity:1;
+  filter:blur(0);
+  transform:scale(1.03) translateY(0);
+  color:#fff;
+  text-shadow:0 0 60px rgba(255,255,255,.25);
+}
+.ly.past{opacity:.28;filter:blur(.8px);transform:scale(.97) translateY(0)}
+.ly.plain,.ly.plain:hover{opacity:.85;filter:none;transform:none;cursor:default;font-size:18px;font-weight:600;padding:4px 8px;text-shadow:none}
+.ly.plain.on{opacity:1;transform:none;filter:none}
+.ly.plain.past{opacity:.4;filter:none;transform:none}
+.ly.rich.on .w{opacity:.35;transition:opacity .18s}
 .ly.rich.on .w.wd{opacity:1}
 .lyf{display:flex;gap:8px;margin:8px 4px 6px}
 .lyf .minp{height:42px}
 .lyf .btn{padding:8px 16px;white-space:nowrap;font-size:13px}
 .qlist.lyr .mhint,.qlist.lyr .qmsg{margin-left:4px;margin-right:4px}
-@media(max-width:720px){.ly{font-size:20px}.ly.plain{font-size:16px}}
+@media(max-width:720px){
+  .ly{font-size:22px}
+  .ly.plain{font-size:16px}
+  .ly.on{font-size:24px}
+}
 </style>
 </head>
 <body>
@@ -754,7 +810,7 @@ hydrate(document);
 function fillRange(el){ el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min) * 100) + '%'); }
 
 /* ---------- API + covers ---------- */
-const defBase = location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
+const defBase = 'https://ytdlpapi-jd2j.onrender.com';
 const base = () => store.get('base', defBase).replace(/\/$/, '');
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
 async function api(path){
@@ -937,8 +993,9 @@ function goBack(){ const p = stack.pop() || { v: 'home' }; show(p.v, p.arg, true
 
 /* ---------- home ---------- */
 function renderHome(){
-  $('main').innerHTML = `<div style="height:14px"></div><div id="cont"></div><div id="rows"></div>`;
+  $('main').innerHTML = `<div style="height:14px"></div><div id="cont"></div><div id="artist-rows"></div><div id="rows"></div>`;
   fillCont();
+  fillArtistRecs();
   if (homeData) return fillHome();
   $('rows').innerHTML = skeleton() + skeleton();
   loadHome(false);
@@ -973,6 +1030,53 @@ function fillCont(){
   const el = $('cont'); if (!el) return;
   el.innerHTML = (playlists.length ? rowHtml('Your playlists', 'uplhome', plCards(), false, 'Library') : '') + (recent.length ? rowHtml('Listen again', 'recent', recent, true, 'Recently played') : '');
   wireRows(el); markPlaying();
+}
+
+/* ---- artist-based recommendations on home ---- */
+const artRecCache = {};
+async function fetchArtistRec(artistName){
+  if (artRecCache[artistName]) return artRecCache[artistName];
+  try {
+    const r = await (await api('/search?limit=12&type=songs&q=' + encodeURIComponent(artistName))).json();
+    artRecCache[artistName] = r.results || [];
+  } catch { artRecCache[artistName] = []; }
+  return artRecCache[artistName];
+}
+async function fillArtistRecs(){
+  const box = document.getElementById('artist-rows'); if (!box) return;
+  /* Collect distinct artists from recent history (up to 3) */
+  const seen = new Set();
+  const artists = [];
+  for (const t of recent) {
+    const list = artistsOf(t);
+    for (const a of list) {
+      const name = (a.name || '').trim();
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase());
+        artists.push({ name, id: a.id });
+        if (artists.length >= 3) break;
+      }
+    }
+    if (artists.length >= 3) break;
+  }
+  if (!artists.length) { box.innerHTML = ''; return; }
+  /* Show skeleton placeholders while loading */
+  box.innerHTML = artists.map(() => skeleton()).join('');
+  const sections = [];
+  await Promise.all(artists.map(async (a, idx) => {
+    const tracks = await fetchArtistRec(a.name);
+    if (tracks.length) {
+      sections[idx] = { artist: a, tracks };
+    }
+  }));
+  if (!document.getElementById('artist-rows')) return;
+  box.innerHTML = '';
+  sections.forEach(s => {
+    if (!s) return;
+    const key = 'arec_' + s.artist.name;
+    box.innerHTML += rowHtml('More from ' + s.artist.name, key, s.tracks, false, 'Based on your listening');
+  });
+  wireRows(box); markPlaying();
 }
 /* ---------- album / playlist page ---------- */
 function bindPlay(key, n){
@@ -1019,7 +1123,7 @@ function renderCollection(d, key){
   $('amenu').onclick = e => {
     const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
     if (m.dataset.m === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
-    else if (m.dataset.m === 'dlall') downloadAll(tracks, d.title || 'playlist');
+    else if (m.dataset.m === 'dlall') downloadAll(tracks, d.title || 'playlist', { id: d.id || key, label: d.title || 'playlist' });
     else if (m.dataset.m === 'addall') openAddModal(tracks);
     else if (arts[0]) openArtist(arts[0].id, arts[0].name);
   };
@@ -1481,14 +1585,20 @@ async function download(t, btn, quiet){
   return ok;
 }
 
-const dlSorts = { recent: 'Recent', track: 'Track', album: 'Album', artist: 'Artist' };
+const dlSorts = { recent: 'Recent', playlist: 'Playlist', track: 'Track', album: 'Album', artist: 'Artist' };
 const lc = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
 const mainArtist = t => (artistsOf(t)[0] || {}).name || '';
+
+/* Track which playlists have been bulk-downloaded: { plId: {label, tracks[], ts} } */
+const dlPlaylists = jget('dlplaylists', {});
+function saveDlPlaylists(){ try { localStorage.setItem('dlplaylists', JSON.stringify(dlPlaylists)); } catch {} }
+
 function sortDls(mode){
   const l = dls.slice();
   if (mode === 'track') l.sort((a, b) => lc(a.title, b.title));
   else if (mode === 'album') l.sort((a, b) => lc(a.album || '\uffff', b.album || '\uffff') || lc(a.title, b.title));
   else if (mode === 'artist') l.sort((a, b) => lc(mainArtist(a) || '\uffff', mainArtist(b) || '\uffff') || lc(a.album, b.album) || lc(a.title, b.title));
+  else if (mode === 'playlist') l.sort((a, b) => b.ts - a.ts);
   else l.sort((a, b) => b.ts - a.ts);
   return l;
 }
@@ -1498,6 +1608,25 @@ const dlrow = (t, i) => `<div class="qr lrow dlrow ${current && current.id === t
     <span class="dlm">${esc((t.fmt || '').toUpperCase())}${t.size ? ' · ' + fmtSize(t.size) : ''} · ${fmtDate(t.ts)}</span></div>
   <span class="qa"><button data-a="save" title="Save file to device">${ic('dl', 18)}</button><button data-a="rmdl" title="Delete download">${ic('x', 18)}</button></span>
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
+
+function dlPlaylistSection(plId, pl, items, openByDefault){
+  const thumb = pl.tracks && pl.tracks[0] ? cov({ id: pl.tracks[0].id, thumbnail: pl.tracks[0].thumbnail }, 120) : PH;
+  const n = pl.tracks ? pl.tracks.length : items.length;
+  const dlCount = items.filter(t => dls.some(d => d.id === t.id)).length;
+  const uid = 'dlpl_' + plId;
+  return `<div class="dlpl-hd ${openByDefault ? 'open' : ''}" data-dlpl="${esc(plId)}">
+    <img class="dlpl-img" src="${esc(thumb)}" alt="" onerror="this.style.display='none'">
+    <div class="dlpl-info">
+      <b>${esc(pl.label || pl.name || 'Playlist')}</b>
+      <span>${ic('dl', 14)} ${dlCount} / ${n} song${n === 1 ? '' : 's'} downloaded</span>
+    </div>
+    <svg class="dlpl-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+  </div>
+  <div class="dlpl-body" id="${uid}" style="max-height:${openByDefault ? items.length * 74 + 'px' : '0'}">
+    ${items.map(dlrow).join('')}
+  </div>`;
+}
+
 function renderDownloads(){
   const act = Object.values(dlActive), mode = store.get('dlsort', 'recent'), items = sortDls(mode);
   lists.dls = items; names.dls = 'Downloads'; listKey = 'dls';
@@ -1505,7 +1634,26 @@ function renderDownloads(){
   let rows = '';
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
   else if (!items.length) rows = '<p class="qmsg">Nothing downloaded yet. Tap the download icon on any song and it will be saved here for offline playback.</p>';
-  else if (mode === 'album' || mode === 'artist') {
+  else if (mode === 'playlist') {
+    /* Group by downloaded playlist, ungrouped songs at end */
+    const used = new Set();
+    const plKeys = Object.keys(dlPlaylists);
+    const plSections = plKeys.map(plId => {
+      const pl = dlPlaylists[plId];
+      const ids = new Set((pl.tracks || []).map(t => t.id));
+      const matched = items.filter(t => ids.has(t.id));
+      matched.forEach(t => used.add(t.id));
+      return { plId, pl, matched };
+    }).filter(s => s.matched.length > 0);
+    plSections.forEach(({ plId, pl, matched }) => {
+      rows += dlPlaylistSection(plId, pl, matched, true);
+    });
+    const lone = items.filter(t => !used.has(t.id));
+    if (lone.length) {
+      if (plSections.length) rows += `<h3 class="sec0 dlg" style="margin-top:20px">Individual songs</h3>`;
+      rows += lone.map(dlrow).join('');
+    }
+  } else if (mode === 'album' || mode === 'artist') {
     let last = null;
     items.forEach((t, i) => {
       const key = mode === 'album' ? (t.album || 'Unknown album') : (mainArtist(t) || 'Unknown artist');
@@ -1529,10 +1677,21 @@ function renderDownloads(){
   const c = $('dlClear');
   if (c) c.onclick = async () => {
     if (!confirm('Delete all downloaded songs from this device?')) return;
-    try { await idb.clear(); dls = []; } catch (e) { toast(e.message, true); }
+    try { await idb.clear(); dls = []; for (const k in dlPlaylists) delete dlPlaylists[k]; saveDlPlaylists(); } catch (e) { toast(e.message, true); }
     renderDownloads();
   };
   act.forEach(a => dlProgress(a.t.id));
+  /* Accordion toggles for playlist sections */
+  document.querySelectorAll('.dlpl-hd[data-dlpl]').forEach(hd => {
+    hd.onclick = () => {
+      const plId = hd.dataset.dlpl;
+      const body = document.getElementById('dlpl_' + plId);
+      if (!body) return;
+      const open = hd.classList.toggle('open');
+      if (open) body.style.maxHeight = body.scrollHeight + 'px';
+      else body.style.maxHeight = '0';
+    };
+  });
 }
 
 /* ---------- global clicks ---------- */
@@ -1674,13 +1833,13 @@ function renderUserPl(id){
       </div></aside>
       <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div></div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
-  $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name) : toast('Nothing to download yet');
+  $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, { id: pl.id, label: pl.name }) : toast('Nothing to download yet');
   $('aMenu').onclick = e => { e.stopPropagation(); $('amenu').hidden = !$('amenu').hidden; };
   $('amenu').onclick = e => {
     const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
     const k = m.dataset.m;
     if (k === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
-    else if (k === 'dlall') downloadAll(tracks, pl.name);
+    else if (k === 'dlall') downloadAll(tracks, pl.name, { id: pl.id, label: pl.name });
     else if (k === 'rename') promptName({ title: 'Rename playlist', value: pl.name, cta: 'Save', onOk: v => { pl.name = v; savePl(); renderUserPl(id); } });
     else if (k === 'sync') syncPl(pl);
     else if (k === 'find') show('search');
@@ -1699,10 +1858,15 @@ function paintBulk(){
   $('bulkT').textContent = `Downloading ${bulk.label} · ${n}/${bulk.total}`;
   $('bulkI').style.width = Math.round(n / bulk.total * 100) + '%';
 }
-async function downloadAll(tracks, label){
+async function downloadAll(tracks, label, plMeta){
   if (bulk) return toast('Another playlist is already downloading');
   const todo = (tracks || []).filter((t, i, arr) => t && t.id && !dls.some(d => d.id === t.id) && arr.findIndex(x => x.id === t.id) === i);
   if (!todo.length) return toast('Everything here is already downloaded');
+  /* Register playlist group in downloads view */
+  if (plMeta && plMeta.id) {
+    dlPlaylists[plMeta.id] = { label: label || plMeta.label || 'Playlist', tracks: tracks.map(slim), ts: Date.now() };
+    saveDlPlaylists();
+  }
   bulk = { total: todo.length, done: 0, fail: 0, label: label || 'playlist', stop: false };
   paintBulk();
   toast(`Downloading ${todo.length} song${todo.length === 1 ? '' : 's'}…`);
