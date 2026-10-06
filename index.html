@@ -707,7 +707,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 </section>
 <div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
 <div id="modal" hidden><div class="msheet glass"></div></div>
-<audio id="audio"></audio>
+<video id="audio" playsinline webkit-playsinline preload="auto" style="display:none" aria-hidden="true"></video>
 <div id="toast"></div>
 
 <script>
@@ -1225,7 +1225,11 @@ function playFrom(key, i, open = true){
   setTab('queue', true); playCurrent();
   if (open && !isMobile()) openNP();
 }
-let a = $('audio'), standby = new Audio(), pending = false;
+// Playback uses hidden <video> elements: the server's /audio/<id> returns an mp4 (album art + AAC),
+// so the browser can start streaming straight away; only the audio is used, the video is never shown.
+const mkMedia = () => { const v = document.createElement('video'); v.playsInline = true; v.preload = 'auto'; v.style.display = 'none'; return v; };
+const audioUrl = id => base() + '/audio/' + encodeURIComponent(id) + (store.get('key', '') ? '?key=' + encodeURIComponent(store.get('key', '')) : '');
+let a = $('audio'), standby = mkMedia(), pending = false;
 standby.preload = 'auto';
 const resetSeek = () => { $('seek').value = $('mseek').value = 0; fillRange($('seek')); fillRange($('mseek')); $('mprog').style.width = '0'; };
 async function playCurrent(){
@@ -1243,7 +1247,7 @@ async function playCurrent(){
     if (my !== token) return;
     let url, blobUrl = null;
     if (blob) url = blobUrl = URL.createObjectURL(blob);
-    else { url = (await (await api('/stream/' + t.id)).json()).audio_url; if (my !== token) return; }
+    else url = audioUrl(t.id);
     const n = standby;
     n.volume = a.volume; n.src = url;
     await new Promise((res, rej) => {
@@ -1294,7 +1298,7 @@ const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHT
 const wire = el => {
   el.onplay = el.onpause = () => { if (el === a) setPP(); };
   el.onended = () => { if (el === a) repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true); };
-  el.onerror = () => { if (el === a && el.src) toast('Playback failed. The stream may have expired; try again.', true); };
+  el.onerror = () => { if (el === a && el.src) toast('Playback failed. Check that the server is running and try again.', true); };
   el.ontimeupdate = () => {
     if (el === a && !pending && npTab === 'lyrics') lyUpdate();
     if (el !== a || pending) return;
