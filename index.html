@@ -2411,6 +2411,11 @@ $('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW:', err));
+    /* keep a copy of this page so a cold start while offline still opens the app */
+    if (window.caches) caches.open('isai-shell-v1').then(async c => {
+      const r = await fetch(location.href, { cache: 'reload' }); if (!r.ok) return;
+      await c.put(location.href, r.clone()); await c.put(location.origin + '/__isai_shell__', r);
+    }).catch(() => {});
   });
 }
 
