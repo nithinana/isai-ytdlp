@@ -197,7 +197,7 @@ body>#backBtn:hover{background:none;color:#fff}
 .aht .eb{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 .aht h1{margin:6px 0 0;font-size:clamp(34px,5.4vw,72px);line-height:1.02;font-weight:800;letter-spacing:-.03em;overflow-wrap:anywhere}
 .aht p{margin:10px 0 0;color:#e6e6ee;font-size:14px}
-.aht .aar{margin:20px 0 0}
+.aht .aar{margin:26px 0 0;gap:22px}
 .abody{max-width:1140px;margin:0 auto;padding:0 24px}
 .aar{display:flex;align-items:center;gap:16px;margin:18px 0 10px}
 .acols{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:44px;margin-bottom:34px}
@@ -346,7 +346,7 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
   .ahrow{flex-direction:column;align-items:center;text-align:center;gap:16px}
   .ava{width:min(180px,46vw)}
   .aht h1{font-size:clamp(30px,10vw,44px)}
-  .aht .aar{justify-content:center;margin-top:16px}
+  .aht .aar{justify-content:center;margin-top:22px;gap:18px}
   .abody{padding-left:16px;padding-right:16px}
   .aar{margin:14px 0 6px;gap:12px}
   .acols{gap:14px;margin-bottom:22px}
@@ -665,7 +665,12 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .plr .plc img{width:100%;height:100%;object-fit:cover}
 .plr.new{font-weight:700}
 #bulk{position:fixed;top:calc(var(--topH) + 8px);left:50%;transform:translateX(-50%);z-index:45;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 16px;border-radius:16px;width:min(420px,calc(100vw - 24px));background:rgba(26,26,32,.92)}
-#bulk[hidden]{display:none}
+#bulk[hidden],#bulk{display:none!important}
+.dlbulk{display:flex;align-items:center;gap:14px;padding:12px 14px 12px 18px;margin:0 0 16px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+.dlbulk>div{flex:1;min-width:0}.dlbulk b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dlbulk .dlbar{height:4px;margin-top:8px}.dlbulk .btn{padding:7px 14px;font-size:13px}
+#nav button.busy{position:relative}#nav button.busy::after{content:'';position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:#fff;animation:navpulse 1.2s ease-in-out infinite alternate}
+@keyframes navpulse{from{opacity:.25}to{opacity:1}}
 #bulk>div{flex:1;min-width:0}
 #bulk b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cbar{margin:0 0 10px}
@@ -1403,7 +1408,7 @@ function renderArtist(d){
       <div class="ahrow"><div class="ava">${d.thumbnail ? imgTag(av, 600) : ''}</div>
         <div class="aht"><span class="eb">Artist</span><h1>${esc(d.name || '')}</h1><p>${esc(d.subtitle || '')}</p>
           <div class="aar">${songs.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button><button class="rb" id="lShuf" title="Shuffle">${ic('shuffle')}</button>` : ''}
-            <button class="btn ghost" id="aSave">${isSaved(pageEnt) ? 'Saved' : 'Save'}</button><button class="btn ghost" id="aDl">Download</button></div></div></div></div>
+            <button class="rb sm ${isSaved(pageEnt) ? 'on' : ''}" id="aSave" title="Save to library">${ic('bookmark', 18)}</button><button class="rb sm" id="aDl" title="Download popular songs">${ic('dl', 18)}</button></div></div></div></div>
     <div class="abody">
       <div class="acols"><div>${songs.length ? `<h3 class="sec">Popular</h3><div id="pop"></div><button class="linkb" id="popMore">See more</button>` : ''}</div>${about}</div>
     </div>${disc.all.length ? discHtml() : ''}`;
@@ -1417,7 +1422,7 @@ function renderArtist(d){
   if ($('popMore')) $('popMore').onclick = () => paintPop(true);
   if ($('abtMore')) $('abtMore').onclick = () => { const a = $('abt'); const c = a.classList.toggle('clamp'); $('abtMore').textContent = c ? 'Show more' : 'Show less'; };
   $('aDl').onclick = () => downloadArtist(d.id, d.name || 'Artist', songs);
-  $('aSave').onclick = () => { $('aSave').textContent = toggleSave(pageEnt) ? 'Saved' : 'Save'; };
+  $('aSave').onclick = () => $('aSave').classList.toggle('on', toggleSave(pageEnt));
   if (songs[0]) tintFrom(songs[0]);
 }
 
@@ -1944,6 +1949,8 @@ function renderDownloads(){
     items = sortDls(mode === 'home' ? 'recent' : mode).filter(t => !q || [t.title, t.artist, t.album].some(x => String(x || '').toLowerCase().includes(q)));
   lists.dls = items; names.dls = 'Downloads'; listKey = 'dls';
   const total = dls.reduce((n, d) => n + (d.size || 0), 0);
+  const bn = bulk ? bulk.done + bulk.fail : 0;
+  const bulkCard = bulk ? `<div class="dlbulk" id="dlBulk"><div><b id="dlBulkT">Downloading ${esc(bulk.label)} · ${bn}/${bulk.total}</b><div class="dlbar"><i id="dlBulkI" style="width:${Math.round(bn / bulk.total * 100)}%"></i></div></div><button class="btn ghost" id="dlStop">Stop</button></div>` : '';
   let rows = '';
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
   else if (!items.length && q) rows = `<p class="qmsg">No downloads match “${esc(dlQ)}”.</p>`;
@@ -2019,11 +2026,13 @@ function renderDownloads(){
     ${navigator.onLine ? '' : '<div class="offb"><i></i>Offline · playing from your downloads</div>'}
     <label class="dlq">${ic('search', 18)}<input id="dlq" placeholder="Search your downloads" autocomplete="off" value="${esc(dlQ)}"></label>
     <div class="dltabs">${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode && !q ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
-    ${act.length ? `<h3 class="sec0">In progress</h3>${act.map(a => `<div class="qr dlrow"><div class="qt">${imgTag(a.t, 160)}</div>
+    ${bulkCard}
+    ${act.length && !bulk ? `<h3 class="sec0">In progress</h3>${act.map(a => `<div class="qr dlrow"><div class="qt">${imgTag(a.t, 160)}</div>
       <div class="qm"><b>${esc(a.t.title)}</b><span>${esc(a.t.artist || '')}</span>
       <span class="dlm"><span data-dls="${esc(a.t.id)}">Preparing…</span> · ${esc(a.fmt.toUpperCase())}</span>
       <div class="dlbar ${a.total ? '' : 'ind'}" data-dlp="${esc(a.t.id)}"><i></i></div></div></div>`).join('')}` : ''}
     ${rows}</div>`;
+  if ($('dlStop')) $('dlStop').onclick = () => { if (bulk) bulk.stop = true; };
   const dq = $('dlq');
   dq.oninput = () => { dlQ = dq.value; dlFocus = true; renderDownloads(); };
   if (dlFocus) { dq.focus(); dq.setSelectionRange(dq.value.length, dq.value.length); dlFocus = false; }
@@ -2049,7 +2058,8 @@ document.addEventListener('click', e => {
   const dc = e.target.closest('[data-disc]'); if (dc) return setDisc(dc);
   const rsb = e.target.closest('[data-rs]'); if (rsb) { $('hq').value = rsb.dataset.rs; if ($('sq')) $('sq').value = rsb.dataset.rs; return submitSearch(); }
   const al = e.target.closest('a[data-artist],a[data-aname]');
-  if (al) { e.preventDefault(); return openArtist(al.dataset.artist, al.dataset.aname || al.textContent); }
+  if (al && al.closest('.lrow')) e.preventDefault();
+  else if (al) { e.preventDefault(); return openArtist(al.dataset.artist, al.dataset.aname || al.textContent); }
   if (e.target.closest('[data-go="album"]')) return current && openAlbumOf(current);
   const hl = e.target.closest('[data-list]'); if (hl) return show('list', hl.dataset.list);
   const b = e.target.closest('[data-a]');
@@ -2187,7 +2197,7 @@ function renderUserPl(id){
     else if (k === 'rename') promptName({ title: 'Rename playlist', value: pl.name, cta: 'Save', onOk: v => { pl.name = v; savePl(); renderUserPl(id); } });
     else if (k === 'sync') syncPl(pl);
     else if (k === 'find') show('search');
-    else if (k === 'del' && confirm(`Delete "${pl.name}"?`)) { playlists = playlists.filter(p => p.id !== id); savePl(); toast('Playlist deleted'); goBack(); }
+    else if (k === 'del' && confirm(`Delete "${pl.name}"?`)) { playlists = playlists.filter(p => p.id !== id); savePl(); if (dlPlaylists[id]) { delete dlPlaylists[id]; saveDlPlaylists(); } toast('Playlist deleted'); goBack(); }
   };
   if (tracks[0]) tintFrom(tracks[0]);
   markPlaying();
@@ -2196,11 +2206,14 @@ function renderUserPl(id){
 /* ---------- download whole playlists ---------- */
 let bulk = null;
 function paintBulk(){
-  if (!bulk) { $('bulk').hidden = true; return; }
+  $('bulk').hidden = true;
+  document.querySelectorAll('#nav [data-view="downloads"]').forEach(b => b.classList.toggle('busy', !!bulk));
+  const c = $('dlBulk');
+  if (!bulk) { if (c) c.remove(); return; }
+  if (!c) { if (view === 'downloads') renderDownloads(); return; }
   const n = bulk.done + bulk.fail;
-  $('bulk').hidden = false;
-  $('bulkT').textContent = `Downloading ${bulk.label} · ${n}/${bulk.total}`;
-  $('bulkI').style.width = Math.round(n / bulk.total * 100) + '%';
+  $('dlBulkT').textContent = `Downloading ${bulk.label} · ${n}/${bulk.total}`;
+  $('dlBulkI').style.width = Math.round(n / bulk.total * 100) + '%';
 }
 async function downloadAll(tracks, label, plMeta){
   if (bulk) return toast('Another playlist is already downloading');
