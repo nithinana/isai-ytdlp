@@ -759,6 +759,9 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .qa,.qt,.qr em,.tr em,.ix,.ixp{flex:none}
 .pg,.abody,.acols>*,.alb>*,.alb-r,#rows,#pop,#main>*{min-width:0}
 .qm b .dlb{display:inline-block;vertical-align:-2px;margin-left:7px;color:#3ddc84;flex:none}
+.qm b.dlw{display:flex;align-items:center}
+.qm b .tt{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;font-size:inherit}
+.qm b.dlw .dlb{flex:none}
 /* search spacing */
 .chips{margin:0 0 12px}
 #st{min-height:0;margin:0 0 10px}
@@ -1618,7 +1621,12 @@ function syncBadges(){
   document.querySelectorAll('.lrow[data-id],.qr[data-id]').forEach(r => {
     const b = r.querySelector('.qm b'); if (!b) return;
     const el = b.querySelector('.dlb'), want = have.has(r.dataset.id);
-    if (want && !el) b.insertAdjacentHTML('beforeend', DLB); else if (!want && el) el.remove();
+    if (want && !el) {
+      /* keep the icon outside the ellipsised text so long titles can't push it out of view */
+      if (!b.children.length) { b.innerHTML = `<span class="tt">${b.innerHTML}</span>`; b.classList.add('dlw'); }
+      else if (b.querySelector('.tt')) b.classList.add('dlw');
+      b.insertAdjacentHTML('beforeend', DLB);
+    } else if (!want && el) el.remove();
   });
 }
 function markPlaying(){
