@@ -844,6 +844,36 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .offb i{width:8px;height:8px;border-radius:50%;background:#ffb454}
 @media(max-width:380px){#lkBoxes{gap:6px}#lkBoxes input{height:52px}}
 </style>
+<style>
+/* ---- activity + artist-profile update ---- */
+.updb{display:flex;gap:14px;align-items:center;padding:14px 16px;margin:6px 0 16px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid var(--line)}
+.updb>div{flex:1;min-width:0}.updb b{display:block;font-size:14px}.updb .ut{display:block;color:var(--mute);font-size:12.5px;margin-top:2px}
+.spin{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.act .chips{margin-top:8px}
+.astats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:4px 0 6px}
+.astat{padding:14px 16px;border-radius:16px}
+.astat b{display:block;font-size:22px;font-weight:700;letter-spacing:-.01em}
+.astat span{color:var(--mute);font-size:12px}
+.apanel{padding:18px 18px 12px;border-radius:18px}
+.atot{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}.atot b{font-size:26px}.atot span{color:var(--mute);font-size:13px}
+.achart{display:flex;gap:4px;align-items:flex-end}
+.abar{flex:1;min-width:0;text-align:center}
+.atr{height:130px;display:flex;align-items:flex-end;border-radius:6px;background:rgba(255,255,255,.05)}
+.atr i{display:block;width:100%;border-radius:6px;background:linear-gradient(180deg,#fff,rgba(255,255,255,.5));transition:height .4s}
+.abar:hover .atr i{background:#fff}
+.abar>span{display:block;font-size:11px;color:var(--mute);margin-top:6px;height:14px;white-space:nowrap}
+.achart.h .atr{height:80px}
+.acd .cv{position:relative}.acd>a{display:block}
+.acd .rk{position:absolute;left:8px;top:8px;min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);font-style:normal;font-size:12px;font-weight:700;display:grid;place-items:center}
+.acrow .abw{height:3px;border-radius:2px;background:rgba(255,255,255,.14);margin-top:7px;overflow:hidden;max-width:260px}
+.acrow .abw i{display:block;height:100%;background:#fff;border-radius:2px}
+.acrow>em{min-width:64px;text-align:right}
+.hday{color:var(--mute);font-size:13px;font-weight:600;margin:20px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+.hrow{cursor:pointer}
+.amore{display:block;margin:14px auto 0}
+@media(max-width:720px){.astats{grid-template-columns:repeat(2,minmax(0,1fr))}.astat:last-child{grid-column:1/-1}.atr{height:100px}.achart{gap:2px}}
+</style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -918,6 +948,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   <button data-view="home" title="Home" aria-label="Home"><span data-ic="home"></span></button>
   <button data-view="search" title="Search" aria-label="Search"><span data-ic="search"></span></button>
   <button data-view="liked" title="Library" aria-label="Library"><span data-ic="heart"></span></button>
+  <button data-view="activity" title="Activity" aria-label="Activity"><span data-ic="chart"></span></button>
   <button data-view="downloads" title="Downloads" aria-label="Downloads"><span data-ic="dl"></span></button>
   <button data-view="settings" title="Settings" aria-label="Settings"><span data-ic="sliders"></span></button>
   <button id="pwaInstall" title="Install App" aria-label="Install App"><span data-ic="install"></span></button>
@@ -1206,7 +1237,7 @@ function show(v, arg, back){
   $('main').classList.remove('flush');
   scrollTo(0, 0);
   { const m = $('main'); m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter'); }
-  ({ home: renderHome, search: renderSearch, liked: renderLiked, downloads: renderDownloads, settings: renderSettings,
+  ({ home: renderHome, search: renderSearch, liked: renderLiked, downloads: renderDownloads, activity: renderActivity, settings: renderSettings,
      list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderHome, mood: () => renderMood(arg), upl: () => renderUserPl(arg) })[v]();
   markPlaying();
   histSync();
@@ -1715,12 +1746,13 @@ if (MS) {
 }
 const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
 const wire = el => {
-  el.onplay = el.onpause = () => { if (el === a) setPP(); };
+  el.onplay = el.onpause = () => { if (el === a) { setPP(); actSave(true); } };
   el.onended = () => { if (el === a) repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true); };
   el.onerror = () => { if (el === a && el.src) toast('Playback failed. Check that the server is running and try again.', true); };
   el.ontimeupdate = () => {
     if (el === a && !pending && npTab === 'lyrics') lyUpdate();
     if (el === a) msPos();
+    if (el === a) actTick();
     if (el !== a || pending) return;
     const d = a.duration || (current && current.duration) || 0, p = d ? a.currentTime / d : 0;
     $('cur').textContent = $('mcur').textContent = fmt(a.currentTime);
@@ -1852,8 +1884,8 @@ const idb = (() => {
   let p;
   const open = () => p || (p = new Promise((res, rej) => {
     if (!window.indexedDB) return rej(new Error('IndexedDB is not available in this browser'));
-    const r = indexedDB.open('thirai', 1);
-    r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('meta', { keyPath: 'id' }); d.createObjectStore('blobs'); };
+    const r = indexedDB.open('thirai', 2);
+    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'id' }); if (!d.objectStoreNames.contains('blobs')) d.createObjectStore('blobs'); if (!d.objectStoreNames.contains('artists')) d.createObjectStore('artists', { keyPath: 'key' }); };
     r.onsuccess = () => res(r.result);
     r.onerror = () => { p = null; rej(r.error); };
   }));
@@ -1870,11 +1902,13 @@ const idb = (() => {
     blob: id => run('blobs', 'readonly', t => t.objectStore('blobs').get(id)),
     put: (m, b) => run(['meta', 'blobs'], 'readwrite', t => { t.objectStore('blobs').put(b, m.id); t.objectStore('meta').put(m); }),
     del: id => run(['meta', 'blobs'], 'readwrite', t => { t.objectStore('blobs').delete(id); t.objectStore('meta').delete(id); }),
-    clear: () => run(['meta', 'blobs'], 'readwrite', t => { t.objectStore('blobs').clear(); t.objectStore('meta').clear(); })
+    artists: () => run('artists', 'readonly', t => t.objectStore('artists').getAll()),
+    putArtist: rec => run('artists', 'readwrite', t => { t.objectStore('artists').put(rec); }),
+    clear: () => run(['meta', 'blobs', 'artists'], 'readwrite', t => { t.objectStore('blobs').clear(); t.objectStore('meta').clear(); t.objectStore('artists').clear(); })
   };
 })();
 let dlsReady = false;
-idb.all().then(r => { dls = r || []; }).catch(() => {}).finally(() => { dlsReady = true; if (view === 'downloads') renderDownloads(); else syncBadges(); });
+idb.all().then(r => { dls = r || []; }).catch(() => {}).finally(() => { dlsReady = true; if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); });
 
 /* ---------- download ---------- */
 const fmtSize = b => !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
@@ -1929,6 +1963,7 @@ async function download(t, btn, quiet){
   delete dlActive[t.id];
   if (btn) btn.disabled = false;
   syncBadges();
+  if (ok) queueArt();
   if (view === 'downloads') renderDownloads();
   return ok;
 }
@@ -1961,6 +1996,11 @@ const dlrow = (t, i) => `<div class="qr lrow dlrow ${current && current.id === t
 const dlGroups = {};
 function dlGroupCard(id, g){
   const c = g.tracks[0], pl = g.plId && playlists.find(p => p.id === g.plId);
+  if (g.art && artMigDone) {
+    const p = artProf[akey(g.title)];
+    const im = p && p.url ? `<img loading="lazy" src="${esc(p.url)}" alt="" data-id="${esc(c.id)}" onerror="imgErr(this)">` : imgTag({ id: c.id, thumbnail: c.thumbnail }, 340);
+    return `<div class="card dlcard artist" data-dlg="${esc(id)}"><div class="cv">${im}</div><b>${esc(g.title)}</b><span>${esc(g.sub)}</span></div>`;
+  }
   return `<div class="card dlcard" data-dlg="${esc(id)}"><div class="cv">${pl && pl.thumb ? imgTag({ id: pl.radio || pl.id, kind: 'artist', thumbnail: pl.thumb }, 340) : imgTag({ id: c.id, thumbnail: c.thumbnail }, 340)}</div><b>${esc(g.title)}</b><span>${esc(g.sub)}</span></div>`;
 }
 function openDlGroup(id){
@@ -1993,10 +2033,10 @@ function renderDownloads(){
       const gid = 'h_p' + plId; dlGroups[gid] = { plId, title: (up ? up.name : pl.label) || 'Playlist', sub: `${have.length} of ${tracks.length} downloaded`, tracks };
       pls.push(dlGroupCard(gid, dlGroups[gid]));
     });
-    const group = (keyFn, pre, subFn) => { const m = new Map(); items.forEach(t => { const k = keyFn(t); if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
-      return [...m.entries()].map(([k, tracks], n) => { const gid = pre + n; dlGroups[gid] = { title: k, sub: subFn(tracks), tracks }; return dlGroupCard(gid, dlGroups[gid]); }); };
+    const group = (keyFn, pre, subFn, isArt) => { const m = new Map(); items.forEach(t => { const k = keyFn(t); if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+      return [...m.entries()].map(([k, tracks], n) => { const gid = pre + n; dlGroups[gid] = { title: k, sub: subFn(tracks), tracks, art: !!isArt }; return dlGroupCard(gid, dlGroups[gid]); }); };
     const cnt = a => `${a.length} song${a.length === 1 ? '' : 's'}`;
-    const ars = group(t => mainArtist(t) || 'Unknown artist', 'h_ar', cnt);
+    const ars = group(t => mainArtist(t) || 'Unknown artist', 'h_ar', cnt, true);
     const als = group(t => t.album || 'Unknown album', 'h_al', a => (mainArtist(a[0]) ? mainArtist(a[0]) + ' · ' : '') + cnt(a));
     const rec = items.slice(0, 6); lists.dls = rec;
     rows = sec('Playlists &amp; radios', 'playlist', pls) + sec('Artists', 'artist', ars) + sec('Albums', 'album', als)
@@ -2035,6 +2075,11 @@ function renderDownloads(){
       cards.push(dlGroupCard(gid, dlGroups[gid]));
     });
     rows += `<div class="grid">${cards.join('')}</div>`;
+  } else if (mode === 'artist' && artMigDone) {
+    const m = new Map();
+    items.forEach(t => { const k = mainArtist(t) || 'Unknown artist'; if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+    const cards = [...m.entries()].map(([k, tracks], n) => { const gid = 'a2_' + n; dlGroups[gid] = { title: k, sub: `${tracks.length} song${tracks.length === 1 ? '' : 's'}`, tracks, art: true }; return dlGroupCard(gid, dlGroups[gid]); });
+    rows += `<div class="grid">${cards.join('')}</div>`;
   } else if (mode === 'artist') {
     let last = null;
     items.forEach((t, i) => {
@@ -2047,7 +2092,8 @@ function renderDownloads(){
       rows += dlrow(t, i);
     });
   } else rows = items.map(dlrow).join('');
-  $('main').innerHTML = `<div class="pg"><div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
+  const updBanner = artMig.on ? `<div class="updb" id="updb"><span class="spin"></span><div><b>Updating your downloads…</b><span class="ut" id="updT">Saving artist profiles · ${artMig.done}/${artMig.total}</span><div class="dlbar"><i id="updI" style="width:${Math.round(artMig.done / Math.max(1, artMig.total) * 100)}%"></i></div></div></div>` : '';
+  $('main').innerHTML = `<div class="pg">${updBanner}<div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
       ${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div>
     <p class="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
     ${navigator.onLine ? '' : '<div class="offb"><i></i>Offline · playing from your downloads</div>'}
@@ -2066,12 +2112,235 @@ function renderDownloads(){
   const c = $('dlClear');
   if (c) c.onclick = async () => {
     if (!confirm('Delete all downloaded songs from this device?')) return;
-    try { await idb.clear(); dls = []; for (const k in dlPlaylists) delete dlPlaylists[k]; saveDlPlaylists(); } catch (e) { toast(e.message, true); }
+    try { await idb.clear(); dls = []; for (const k in artProf) delete artProf[k]; for (const k in dlPlaylists) delete dlPlaylists[k]; saveDlPlaylists(); } catch (e) { toast(e.message, true); }
     renderDownloads();
   };
   act.forEach(a => dlProgress(a.t.id));
   markPlaying();
 }
+
+/* ---------- offline artist profiles ---------- */
+const akey = n => String(n || '').trim().toLowerCase();
+const artProf = {};                       // key -> { url, id, name, thumb }
+let artMigDone = store.get('artmig', '') === '1';
+const artMig = { on: false, total: 0, done: 0, busy: false };
+let profilesP = null, artT = 0;
+function setProf(r){
+  const old = artProf[r.key]; if (old && old.obj) URL.revokeObjectURL(old.obj);
+  const obj = r.blob ? URL.createObjectURL(r.blob) : '';
+  artProf[r.key] = { url: obj || r.thumb || '', obj, id: r.id, name: r.name, thumb: r.thumb };
+}
+function loadArtProfiles(){
+  return profilesP || (profilesP = (async () => { try { (await idb.artists() || []).forEach(setProf); } catch {} })());
+}
+function missingArtists(){
+  const m = new Map();
+  dls.forEach(t => { const a = artistsOf(t)[0]; const n = a && a.name; if (!n) return; const k = akey(n); if (!artProf[k] && !m.has(k)) m.set(k, { key: k, name: n, id: a.id }); });
+  return [...m.values()];
+}
+async function saveProfile(rec){
+  rec.ts = Date.now();
+  if (rec.thumb) {
+    try {
+      const r = await fetch(cov({ thumbnail: rec.thumb, kind: 'artist', id: rec.id }, 600));
+      if (r.ok) { const b = await r.blob(); if (/^image\//.test(b.type)) rec.blob = b; }
+    } catch {}
+  }
+  await idb.putArtist(rec); setProf(rec);
+}
+async function fetchProfile(a){
+  let d = null;
+  if (a.id) { try { d = await (await api('/artist/' + encodeURIComponent(a.id))).json(); } catch {} }
+  if (!d || !d.thumbnail) { const r = await firstResult('artists', a.name); if (r) d = { id: r.id, name: r.title, thumbnail: r.thumbnail }; }
+  await saveProfile({ key: a.key, id: (d && d.id) || a.id || '', name: a.name, thumb: (d && d.thumbnail) || '' });
+}
+function paintMig(){
+  const t = $('updT'), i = $('updI');
+  if (t) t.textContent = `Saving artist profiles · ${artMig.done}/${artMig.total}`;
+  if (i) i.style.width = Math.round(artMig.done / Math.max(1, artMig.total) * 100) + '%';
+}
+const queueArt = () => { clearTimeout(artT); artT = setTimeout(ensureArtistProfiles, 1500); };
+async function ensureArtistProfiles(){
+  if (!dlsReady) return;
+  if (artMig.busy) return queueArt();
+  await loadArtProfiles();
+  const todo = missingArtists();
+  if (!todo.length) {
+    if (!artMigDone) { artMigDone = true; store.set('artmig', '1'); if (view === 'downloads') renderDownloads(); }
+    return;
+  }
+  if (!window.__unlocked || !navigator.onLine) return;
+  const migrating = !artMigDone;
+  artMig.busy = true; artMig.on = migrating; artMig.total = todo.length; artMig.done = 0;
+  if (migrating && view === 'downloads') renderDownloads();
+  let errs = 0; const q = todo.slice();
+  const worker = async () => { while (q.length) { const a = q.shift(); try { await fetchProfile(a); } catch { errs++; } artMig.done++; paintMig(); } };
+  await Promise.all([worker(), worker(), worker()]);
+  artMig.busy = false; artMig.on = false;
+  if (migrating) {
+    if (!errs) { artMigDone = true; store.set('artmig', '1'); }
+    else toast('Couldn\'t finish updating downloads. It will retry next time.', true);
+  }
+  if (view === 'downloads') renderDownloads(); else if (view === 'activity') renderActivity();
+}
+
+/* ---------- activity: tracking ---------- */
+let lplays = jget('lplays', []);                       // [[trackId, timestamp], ...]
+let ltracks = jget('ltracks', {});                     // trackId -> slim track
+let ltime = jget('ltime', {});                         // { d: { 'YYYY-MM-DD': seconds }, h: [24 x seconds] }
+if (!ltime.d || typeof ltime.d !== 'object') ltime.d = {};
+if (!Array.isArray(ltime.h) || ltime.h.length !== 24) ltime.h = new Array(24).fill(0);
+const pad2 = n => String(n).padStart(2, '0');
+const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
+const sod = ts => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const addDays = (ts, n) => { const d = new Date(ts); d.setDate(d.getDate() + n); return d.getTime(); };
+const fmtDur = s => { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+let sess = { id: null, sec: 0, logged: false, last: 0 }, ldirty = false, lsaved = 0;
+function actSave(force){
+  if (!ldirty) return;
+  const n = Date.now(); if (!force && n - lsaved < 8000) return;
+  lsaved = n; ldirty = false; store.set('ltime', JSON.stringify(ltime));
+}
+function logPlay(t, ts){
+  ltracks[t.id] = slim(t);
+  lplays.push([t.id, ts]);
+  if (lplays.length > 20000) lplays = lplays.slice(-20000);
+  store.set('lplays', JSON.stringify(lplays)); store.set('ltracks', JSON.stringify(ltracks));
+}
+function actTick(){
+  const t = current; if (!t || !a || a.paused || pending) return;
+  const ct = a.currentTime;
+  if (sess.id !== t.id || (sess.logged && ct + 2 < sess.last)) { actSave(true); sess = { id: t.id, sec: 0, logged: false, last: ct }; }
+  const dl = ct - sess.last; sess.last = ct;
+  if (dl <= 0 || dl > 2.5) return;
+  sess.sec += dl;
+  const now = Date.now(), dk = dayKey(now);
+  ltime.d[dk] = (ltime.d[dk] || 0) + dl; ltime.h[new Date(now).getHours()] += dl; ldirty = true;
+  if (!sess.logged && sess.sec >= Math.min(30, (t.duration || a.duration || 60) / 2)) { sess.logged = true; logPlay(t, now); }
+  actSave();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) actSave(true); });
+addEventListener('pagehide', () => actSave(true));
+
+/* ---------- activity: view ---------- */
+const RANGES = { week: ['7 days', 7], month: ['30 days', 30], year: ['12 months', 365], all: ['All time', 0] };
+let actRange = store.get('actrange', 'week'), actTopN = 10, actHistN = 30;
+function renderActivity(){
+  const main = $('main');
+  if (!lplays.length && !Object.keys(ltime.d).length) {
+    main.innerHTML = `<div class="pg act"><h1 class="t">Activity</h1><p class="qmsg">Nothing here yet. Play some music and your listening history, top artists and listening time will show up here.</p></div>`;
+    return;
+  }
+  if (!RANGES[actRange]) actRange = 'week';
+  const [rlabel, days] = RANGES[actRange], nowTs = Date.now();
+  const fromTs = days ? sod(addDays(nowTs, -(days - 1))) : 0, fromKey = dayKey(fromTs);
+  const pls = lplays.filter(p => p[1] >= fromTs);
+  let secs = 0; for (const k in ltime.d) if (k >= fromKey) secs += ltime.d[k];
+  const songs = new Map(), arts = new Map();
+  for (const [id] of pls) {
+    const t = ltracks[id]; if (!t) continue;
+    songs.set(id, (songs.get(id) || 0) + 1);
+    const an = mainArtist(t); if (!an) continue;
+    const k = akey(an), o = arts.get(k) || { name: an, id: (artistsOf(t)[0] || {}).id, n: 0, sec: 0, tid: id };
+    o.n++; o.sec += t.duration || 0; arts.set(k, o);
+  }
+  let streak = 0; { let d = sod(nowTs); if (!(ltime.d[dayKey(d)] > 0)) d = addDays(d, -1); while (ltime.d[dayKey(d)] > 0) { streak++; d = addDays(d, -1); } }
+
+  /* time chart buckets */
+  const buckets = [];
+  if (days && days <= 30) {
+    for (let i = days - 1; i >= 0; i--) {
+      const ts = addDays(nowTs, -i), d = new Date(ts);
+      buckets.push({ sec: ltime.d[dayKey(ts)] || 0, label: days === 7 ? d.toLocaleDateString([], { weekday: 'short' }) : String(d.getDate()), tip: d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }), show: days === 7 || i % 5 === 0 });
+    }
+  } else {
+    const cur = new Date(nowTs), min = new Date(cur.getFullYear(), cur.getMonth() - 5, 1);
+    let start;
+    if (days) start = new Date(cur.getFullYear(), cur.getMonth() - 11, 1);
+    else { const ks = Object.keys(ltime.d).sort(); const f = ks[0] ? new Date(+ks[0].slice(0, 4), +ks[0].slice(5, 7) - 1, 1) : min; start = f < min ? f : min; }
+    for (let m = new Date(start); m <= cur; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
+      const pre = m.getFullYear() + '-' + pad2(m.getMonth() + 1); let s = 0;
+      for (const k in ltime.d) if (k.startsWith(pre)) s += ltime.d[k];
+      buckets.push({ sec: s, label: m.toLocaleDateString([], { month: 'short' }), tip: m.toLocaleDateString([], { month: 'long', year: 'numeric' }), show: true });
+    }
+    if (buckets.length > 12) { const st = Math.ceil(buckets.length / 10); buckets.forEach((b, i) => { b.show = i % st === 0; }); }
+  }
+  const mx = Math.max(...buckets.map(b => b.sec), 1);
+  const bar = b => `<div class="abar" title="${esc(b.tip + ' · ' + fmtDur(b.sec))}"><div class="atr"><i style="height:${b.sec ? Math.max(4, b.sec / mx * 100) : 0}%"></i></div><span>${b.show ? esc(b.label) : ''}</span></div>`;
+  const nb = buckets.filter(b => b.sec > 0).length || 1;
+  const perDay = days && days <= 30 ? secs / days : secs / Math.max(1, days ? 365 : Math.max(1, Object.keys(ltime.d).filter(k => ltime.d[k] > 0).length));
+
+  /* hour of day */
+  const hmx = Math.max(...ltime.h, 1), peak = ltime.h.indexOf(Math.max(...ltime.h));
+  const hl = h => h === 0 ? '12a' : h < 12 ? h + 'a' : h === 12 ? '12p' : (h - 12) + 'p';
+  const hbar = (s, h) => `<div class="abar" title="${esc(hl(h) + ' · ' + fmtDur(s))}"><div class="atr"><i style="height:${s ? Math.max(4, s / hmx * 100) : 0}%"></i></div><span>${h % 6 === 0 ? hl(h) : ''}</span></div>`;
+
+  /* top artists */
+  const topArts = [...arts.values()].sort((x, y) => y.n - x.n || y.sec - x.sec).slice(0, 12);
+  const artCard = (o, i) => {
+    const p = artProf[akey(o.name)], tr = ltracks[o.tid] || {};
+    const im = p && p.url ? `<img loading="lazy" src="${esc(p.url)}" alt="" data-id="${esc(o.tid)}" onerror="imgErr(this)">` : imgTag({ id: o.tid, thumbnail: tr.thumbnail }, 340);
+    const link = o.id ? `data-artist="${esc(o.id)}"` : `data-aname="${esc(o.name)}"`;
+    return `<div class="card artist acd"><a ${link}><div class="cv">${im}<em class="rk">${i + 1}</em></div><b>${esc(o.name)}</b><span>${o.n} play${o.n === 1 ? '' : 's'}${o.sec ? ' · ' + fmtDur(o.sec) : ''}</span></a></div>`;
+  };
+
+  /* top songs */
+  const ranked = [...songs.entries()].sort((x, y) => y[1] - x[1]);
+  const topT = ranked.slice(0, actTopN).map(([id, n]) => ({ ...ltracks[id], _n: n }));
+  const tmax = topT[0] ? topT[0]._n : 1;
+  lists.act_top = topT; names.act_top = 'Most played'; listKey = 'act_top';
+  const songRow = (t, i) => `<div class="qr lrow acrow ${current && current.id === t.id ? 'cur' : ''}" data-i="${i}" data-id="${esc(t.id)}">
+    <div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
+    <div class="qm"><b>${esc(t.title)}</b><span>${artistLinks(t)}${t.album ? ' · ' + esc(t.album) : ''}</span><div class="abw"><i style="width:${Math.round(t._n / tmax * 100)}%"></i></div></div>
+    ${qaBtns(t)}<em>${t._n} play${t._n === 1 ? '' : 's'}</em></div>`;
+
+  /* history */
+  const hist = []; for (let i = lplays.length - 1; i >= 0 && hist.length < actHistN; i--) { const t = ltracks[lplays[i][0]]; if (t) hist.push({ ...t, _ts: lplays[i][1] }); }
+  lists.act_hist = hist; names.act_hist = 'Listen history';
+  const dlabel = ts => { const k = dayKey(ts); return k === dayKey(nowTs) ? 'Today' : k === dayKey(addDays(nowTs, -1)) ? 'Yesterday' : new Date(ts).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }); };
+  let hh = '', lastDay = '';
+  hist.forEach((t, i) => {
+    const dl = dlabel(t._ts); if (dl !== lastDay) { lastDay = dl; hh += `<div class="hday">${esc(dl)}</div>`; }
+    hh += `<div class="qr hrow" data-i="${i}" data-id="${esc(t.id)}"><div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
+      <div class="qm"><b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(x => x.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
+      <em>${new Date(t._ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</em></div>`;
+  });
+  const histTotal = lplays.filter(p => ltracks[p[0]]).length;
+
+  main.innerHTML = `<div class="pg act"><div class="dlh"><h1 class="t" style="margin:6px 0 4px">Activity</h1><button class="btn ghost" id="actClr">Clear activity</button></div>
+    <div class="chips">${Object.entries(RANGES).map(([k, v]) => `<button class="chip ${k === actRange ? 'on' : ''}" data-actr="${k}">${k === 'all' ? v[0] : 'Last ' + v[0]}</button>`).join('')}</div>
+    <div class="astats">
+      <div class="astat glass"><b>${fmtDur(secs)}</b><span>Listening time</span></div>
+      <div class="astat glass"><b>${pls.length}</b><span>Plays</span></div>
+      <div class="astat glass"><b>${songs.size}</b><span>Different songs</span></div>
+      <div class="astat glass"><b>${arts.size}</b><span>Artists</span></div>
+      <div class="astat glass"><b>${streak} day${streak === 1 ? '' : 's'}</b><span>Listening streak</span></div>
+    </div>
+    <h3 class="sec0">Listening time</h3>
+    <div class="apanel glass"><div class="atot"><b>${fmtDur(secs)}</b><span>${days && days <= 30 ? 'avg ' + fmtDur(perDay) + ' a day' : 'in ' + esc(rlabel.toLowerCase())}</span></div>
+      <div class="achart">${buckets.map(bar).join('')}</div></div>
+    ${topArts.length ? `<h3 class="sec0">Top artists</h3><div class="grid">${topArts.map(artCard).join('')}</div>` : ''}
+    ${topT.length ? `<h3 class="sec0">Most played songs</h3><div>${topT.map(songRow).join('')}</div>${ranked.length > actTopN ? '<button class="pill amore" data-actmore="top">Show more</button>' : ''}` : '<p class="qmsg">No plays in this period yet.</p>'}
+    <h3 class="sec0">When you listen</h3>
+    <div class="apanel glass"><div class="atot"><b>${ltime.h[peak] > 0 ? hl(peak).replace('a', ' AM').replace('p', ' PM') : '—'}</b><span>${ltime.h[peak] > 0 ? 'is your most active hour' : 'No data yet'}</span></div>
+      <div class="achart h">${ltime.h.map(hbar).join('')}</div></div>
+    <h3 class="sec0">Listen history</h3>
+    ${hh || '<p class="qmsg">No listens recorded yet.</p>'}
+    ${histTotal > hist.length ? '<button class="pill amore" data-actmore="hist">Show more</button>' : ''}</div>`;
+  markPlaying();
+}
+document.addEventListener('click', e => {
+  const r = e.target.closest('[data-actr]'); if (r) { actRange = r.dataset.actr; store.set('actrange', actRange); return renderActivity(); }
+  const m = e.target.closest('[data-actmore]'); if (m) { if (m.dataset.actmore === 'top') actTopN += 15; else actHistN += 30; return renderActivity(); }
+  if (e.target.closest('#actClr')) {
+    if (!confirm('Clear all listening activity (history, top artists and listening time)?')) return;
+    lplays = []; ltracks = {}; ltime = { d: {}, h: new Array(24).fill(0) }; sess = { id: null, sec: 0, logged: false, last: 0 };
+    store.set('lplays', '[]'); store.set('ltracks', '{}'); store.set('ltime', JSON.stringify(ltime));
+    return renderActivity();
+  }
+  const h = e.target.closest('.hrow');
+  if (h && !e.target.closest('a')) { listKey = 'act_hist'; playFrom('act_hist', +h.dataset.i, false); }
+});
 
 /* ---------- global clicks ---------- */
 document.addEventListener('click', e => {
@@ -2263,6 +2532,7 @@ async function downloadAll(tracks, label, plMeta){
   };
   await Promise.all([worker(), worker()]);
   const b = bulk; bulk = null; paintBulk();
+  queueArt();
   toast(b.stop ? `Stopped · ${b.done} of ${b.total} saved` : `Downloaded ${b.done} of ${b.total} songs` + (b.fail ? ` (${b.fail} failed)` : ''), b.fail > 0 && !b.done);
   if (view === 'downloads') renderDownloads();
 }
@@ -2275,6 +2545,7 @@ async function downloadArtist(id, name, base, thumb){
     r.forEach(t => { if (!seen.has(t.id) && artistsOf(t).some(a => a.id === id || String(a.name).toLowerCase() === nm)) { seen.add(t.id); songs.push(t); } });
   } catch {}
   if (!songs.length) return toast('No songs found for this artist', true);
+  if (thumb) saveProfile({ key: akey(name), id, name, thumb }).then(() => { if (view === 'downloads') renderDownloads(); }).catch(() => {});
   const label = `${name} Radio`;
   let pl = playlists.find(p => p.radio === id);
   if (pl) { addTracks(pl, songs); if (thumb && pl.thumb !== thumb) { pl.thumb = thumb; savePl(); } }
@@ -2478,6 +2749,7 @@ updateInstallBtn();
     if (started) return;
     started = true;
     show(navigator.onLine ? 'home' : 'downloads');
+    loadArtProfiles().then(() => ensureArtistProfiles());
   }
   function showLock(){
     window.__unlocked = false;
