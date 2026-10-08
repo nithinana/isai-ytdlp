@@ -668,6 +668,14 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .dlbulk{display:flex;align-items:center;gap:14px;padding:12px 14px 12px 18px;margin:0 0 16px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
 .dlbulk>div{flex:1;min-width:0}.dlbulk b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dlbulk .dlbar{height:4px;margin-top:8px}.dlbulk .btn{padding:7px 14px;font-size:13px}
+/* download queue panel */
+.btn[hidden]{display:none}
+.dlhb{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dlbulk[data-dlq]{cursor:pointer}
+.dqj{padding:14px 0;border-top:1px solid var(--line)}.dqj:first-of-type{border-top:0;padding-top:4px}
+.dqh{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.dqh>div{min-width:0;flex:1}.dqh b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dqj .dlbar{margin-top:8px}.dqj .qr{padding:8px 0 0;cursor:default}.dqj .qr:hover{background:none}
 #nav button.busy{position:relative}#nav button.busy::after{content:'';position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:#fff;animation:navpulse 1.2s ease-in-out infinite alternate}
 @keyframes navpulse{from{opacity:.25}to{opacity:1}}
 #bulk>div{flex:1;min-width:0}
@@ -1160,6 +1168,7 @@ let homeData = null, view = 'home', viewArg = null, stack = [], listKey = '', en
 let searchType = 'songs', lastSearch = { q: '', type: 'songs', items: [] };
 let recent = jget('recent', []), liked = jget('liked', []), saved = jget('saved', []), playlists = jget('playlists', []);
 let dls = []; const dlActive = {}; let offUrl = null;
+const dlJobs = []; let dlRunning = false, dlStale = false, dlPanelT = 0;   // download queue: playlist jobs + stale-list flag
 let queue = [], qi = -1, token = 0, current = null;
 let shuffle = false, repeat = 'off', queueName = '', npTab = 'queue', seeking = false;
 const isLiked = id => liked.some(t => t.id === id);
@@ -1630,10 +1639,12 @@ const mkMedia = () => { const v = document.createElement('video'); v.playsInline
 const audioUrl = id => base() + '/audio/' + encodeURIComponent(id) + (store.get('key', '') ? '?key=' + encodeURIComponent(store.get('key', '')) : '');
 let a = $('audio'), standby = mkMedia(), pending = false;
 standby.preload = 'auto';
+let resume = { id: null, n: 0 }, lastAuto = 0;   // guards against streams that report 'ended' early
 const resetSeek = () => { $('seek').value = $('mseek').value = 0; fillRange($('seek')); fillRange($('mseek')); $('mprog').style.width = '0'; };
-async function playCurrent(){
+async function playCurrent(startAt = 0){
   const t = queue[qi]; if (!t) return;
   const my = ++token; current = t;
+  if (!startAt) resume = { id: t.id, n: 0 };
 
   // Immediately pause currently playing audio so it stops when switching songs
   try {
@@ -1675,6 +1686,7 @@ async function playCurrent(){
     $('pp').classList.remove('loading');
     $('mpp').classList.remove('loading');
     resetSeek(); $('dur').textContent = $('mdur').textContent = '-' + fmt(n.duration || t.duration);
+    if (startAt > 1) { try { a.currentTime = startAt; } catch {} }
     await a.play(); setPP(); addRecent(t);
   } catch (e) {
     if (my === token) {
@@ -1693,6 +1705,7 @@ function addRecent(t){
 }
 function step(d, auto){
   if (!queue.length) return;
+  if (auto) { const now = Date.now(); if (now - lastAuto < 1500) return; lastAuto = now; }   // never double-advance
   if (shuffle && d > 0 && queue.length > 1) { let n; do { n = Math.floor(Math.random() * queue.length) } while (n === qi); qi = n; }
   else { const n = qi + d; if (auto && n >= queue.length && repeat === 'off') return; qi = (n + queue.length) % queue.length; }
   playCurrent();
@@ -1747,7 +1760,15 @@ if (MS) {
 const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
 const wire = el => {
   el.onplay = el.onpause = () => { if (el === a) { setPP(); actSave(true); } };
-  el.onended = () => { if (el === a) repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true); };
+  el.onended = () => {
+    if (el !== a) return;
+    /* a dropped connection can look like 'ended'. If we're far short of the song's real length, resume it instead of skipping */
+    const want = (current && +current.duration) || 0, at = a.currentTime || 0;
+    if (want > 30 && at < want - 10 && current && resume.id === current.id && resume.n < 2) {
+      resume.n++; toast('Connection dropped · resuming…'); return playCurrent(Math.max(at, 1.5));
+    }
+    repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true);
+  };
   el.onerror = () => { if (el === a && el.src) toast('Playback failed. Check that the server is running and try again.', true); };
   el.ontimeupdate = () => {
     if (el === a && !pending && npTab === 'lyrics') lyUpdate();
@@ -1930,12 +1951,12 @@ function dlProgress(id){
     el.textContent = a.total ? `${fmtSize(a.loaded)} of ${fmtSize(a.total)}` : a.loaded ? fmtSize(a.loaded) : 'Preparing…';
   });
 }
-async function download(t, btn, quiet){
+async function download(t, btn, quiet, job){
   if (dlActive[t.id]) { if (!quiet) toast('Already downloading'); return false; }
-  const f = store.get('fmt', 'mp3'), a = dlActive[t.id] = { t: slim(t), loaded: 0, total: 0, fmt: f };
+  const f = store.get('fmt', 'mp3'), a = dlActive[t.id] = { t: slim(t), loaded: 0, total: 0, fmt: f, job: job || null };
   if (btn) btn.disabled = true;
   if (!quiet) toast('Preparing download… this can take a moment');
-  if (view === 'downloads') renderDownloads();
+  dlTick();
   let ok = false;
   try {
     const r = await api(`/download/${t.id}?fmt=${f}`);
@@ -1964,7 +1985,7 @@ async function download(t, btn, quiet){
   if (btn) btn.disabled = false;
   syncBadges();
   if (ok) queueArt();
-  if (view === 'downloads') renderDownloads();
+  dlTick(ok);
   return ok;
 }
 
@@ -2016,8 +2037,8 @@ function renderDownloads(){
     items = sortDls(mode === 'home' ? 'recent' : mode).filter(t => !q || [t.title, t.artist, t.album].some(x => String(x || '').toLowerCase().includes(q)));
   lists.dls = items; names.dls = 'Downloads'; listKey = 'dls';
   const total = dls.reduce((n, d) => n + (d.size || 0), 0);
-  const bn = bulk ? bulk.done + bulk.fail : 0;
-  const bulkCard = bulk ? `<div class="dlbulk" id="dlBulk"><div><b id="dlBulkT">Downloading ${esc(bulk.label)} · ${bn}/${bulk.total}</b><div class="dlbar"><i id="dlBulkI" style="width:${Math.round(bn / bulk.total * 100)}%"></i></div></div><button class="btn ghost" id="dlStop">Stop</button></div>` : '';
+
+
   let rows = '';
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
   else if (!items.length && q) rows = `<p class="qmsg">No downloads match “${esc(dlQ)}”.</p>`;
@@ -2094,18 +2115,13 @@ function renderDownloads(){
   } else rows = items.map(dlrow).join('');
   const updBanner = artMig.on ? `<div class="updb" id="updb"><span class="spin"></span><div><b>Updating your downloads…</b><span class="ut" id="updT">Saving artist profiles · ${artMig.done}/${artMig.total}</span><div class="dlbar"><i id="updI" style="width:${Math.round(artMig.done / Math.max(1, artMig.total) * 100)}%"></i></div></div></div>` : '';
   $('main').innerHTML = `<div class="pg">${updBanner}<div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
-      ${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div>
-    <p class="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
+      <div class="dlhb"><button class="btn ghost" id="dlNew" data-dlnew hidden>↻ Refresh list</button><button class="btn ghost" id="dlProg" data-dlq>See progress</button>${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div></div>
+    <p class="dlsub" id="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
     ${navigator.onLine ? '' : '<div class="offb"><i></i>Offline · playing from your downloads</div>'}
     <label class="dlq">${ic('search', 18)}<input id="dlq" placeholder="Search your downloads" autocomplete="off" value="${esc(dlQ)}"></label>
     <div class="dltabs">${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode && !q ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
-    ${bulkCard}
-    ${act.length && !bulk ? `<h3 class="sec0">In progress</h3>${act.map(a => `<div class="qr dlrow"><div class="qt">${imgTag(a.t, 160)}</div>
-      <div class="qm"><b>${esc(a.t.title)}</b><span>${esc(a.t.artist || '')}</span>
-      <span class="dlm"><span data-dls="${esc(a.t.id)}">Preparing…</span> · ${esc(a.fmt.toUpperCase())}</span>
-      <div class="dlbar ${a.total ? '' : 'ind'}" data-dlp="${esc(a.t.id)}"><i></i></div></div></div>`).join('')}` : ''}
+    <div id="dlSum"></div>
     ${rows}</div>`;
-  if ($('dlStop')) $('dlStop').onclick = () => { if (bulk) bulk.stop = true; };
   const dq = $('dlq');
   dq.oninput = () => { dlQ = dq.value; dlFocus = true; renderDownloads(); };
   if (dlFocus) { dq.focus(); dq.setSelectionRange(dq.value.length, dq.value.length); dlFocus = false; }
@@ -2115,7 +2131,7 @@ function renderDownloads(){
     try { await idb.clear(); dls = []; for (const k in artProf) delete artProf[k]; for (const k in dlPlaylists) delete dlPlaylists[k]; saveDlPlaylists(); } catch (e) { toast(e.message, true); }
     renderDownloads();
   };
-  act.forEach(a => dlProgress(a.t.id));
+  dlStale = false; paintDlSummary();
   markPlaying();
 }
 
@@ -2181,7 +2197,7 @@ async function ensureArtistProfiles(){
     if (!errs) { artMigDone = true; store.set('artmig', '1'); }
     else toast('Couldn\'t finish updating downloads. It will retry next time.', true);
   }
-  if (view === 'downloads') renderDownloads(); else if (view === 'activity') renderActivity();
+  if (view === 'downloads') { if (migrating) renderDownloads(); } else if (view === 'activity') renderActivity();
 }
 
 /* ---------- activity: tracking ---------- */
@@ -2347,6 +2363,14 @@ document.addEventListener('click', e => {
   if (e.target.closest('[data-mc]') || e.target.id === 'modal') return closeModal();
   const menu = $('amenu'); if (menu && !menu.hidden && !e.target.closest('#amenu,#aMenu')) menu.hidden = true;
   if (e.target.closest('#backBtn')) return goBack();
+  if (e.target.closest('[data-dlq]')) return openDlPanel();
+  if (e.target.closest('[data-dlnew]')) return renderDownloads();
+  const jc = e.target.closest('[data-dljc]');
+  if (jc) {
+    const ji = +jc.dataset.dljc, j = dlJobs[ji];
+    if (j) { if (j.active) { j.stop = true; toast('Stopping after the current songs…'); } else { dlJobs.splice(ji, 1); toast('Removed from queue'); } dlTick(); paintDlPanel(); }
+    return;
+  }
   const dg = e.target.closest('[data-dlg]'); if (dg) return openDlGroup(dg.dataset.dlg);
   const md = e.target.closest('[data-mood]'); if (md) return show('mood', md.dataset.mood);
   const nav = e.target.closest('[data-view]'); if (nav) return show(nav.dataset.view);
@@ -2500,44 +2524,98 @@ function renderUserPl(id){
 }
 
 /* ---------- download whole playlists ---------- */
-let bulk = null;
-function paintBulk(){
-  $('bulk').hidden = true;
-  document.querySelectorAll('#nav [data-view="downloads"]').forEach(b => b.classList.toggle('busy', !!bulk));
-  const c = $('dlBulk');
-  if (!bulk) { if (c) c.remove(); return; }
-  if (!c) { if (view === 'downloads') renderDownloads(); return; }
-  const n = bulk.done + bulk.fail;
-  $('dlBulkT').textContent = `Downloading ${bulk.label} · ${n}/${bulk.total}`;
-  $('dlBulkI').style.width = Math.round(n / bulk.total * 100) + '%';
+/* ---------- download queue ----------
+   Playlists/artist radios are queued as jobs and run one after another (2 songs at a time inside a job).
+   Single-song downloads still run straight away. Nothing here re-renders the Downloads page: it only
+   updates the small progress card, the song count, and the "See progress" panel. */
+const dlBusy = () => dlJobs.length > 0 || Object.keys(dlActive).length > 0;
+const dlSingles = () => Object.values(dlActive).filter(x => !x.job);
+
+function paintDlHead(){
+  const s = $('dlsub');
+  if (s) { const total = dls.reduce((n, d) => n + (d.size || 0), 0); s.textContent = `${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device`; }
+  const n = $('dlNew'); if (n) n.hidden = !dlStale;
 }
-async function downloadAll(tracks, label, plMeta){
-  if (bulk) return toast('Another playlist is already downloading');
+function paintDlSummary(){
+  const host = $('dlSum'); if (!host) return;
+  const singles = dlSingles(), j = dlJobs[0], count = dlJobs.length + singles.length;
+  const pb = $('dlProg'); if (pb) pb.textContent = count ? `See progress · ${count}` : 'See progress';
+  if (!j && !singles.length) { host.innerHTML = ''; return; }
+  let card = host.firstElementChild;
+  if (!card) { host.innerHTML = '<div class="dlbulk" data-dlq><div><b></b><div class="dlbar"><i></i></div></div><span class="btn ghost">See progress</span></div>'; card = host.firstElementChild; }
+  const n = j ? j.done + j.fail : 0;
+  card.querySelector('b').textContent = j
+    ? `Downloading ${j.label} · ${n}/${j.total}` + (count > 1 ? ` · +${count - 1} more` : '')
+    : `Downloading ${singles.length} song${singles.length === 1 ? '' : 's'}`;
+  card.querySelector('.dlbar').classList.toggle('ind', !j);
+  card.querySelector('i').style.width = j ? Math.round(n / j.total * 100) + '%' : '';
+}
+const dqRow = a => `<div class="qr dlrow"><div class="qt">${imgTag(a.t, 160)}</div>
+  <div class="qm"><b>${esc(a.t.title)}</b><span>${esc(a.t.artist || '')}</span>
+  <span class="dlm"><span data-dls="${esc(a.t.id)}">Preparing…</span> · ${esc(a.fmt.toUpperCase())}</span>
+  <div class="dlbar ${a.total ? '' : 'ind'}" data-dlp="${esc(a.t.id)}"><i></i></div></div></div>`;
+function dlPanelHtml(){
+  const singles = dlSingles();
+  let h = '<div data-dlpanel><h3>Download progress</h3>';
+  if (!dlJobs.length && !singles.length) return h + '<p class="mhint">Nothing is downloading right now.</p><div class="mbtns"><button class="btn ghost" data-mc>Close</button></div></div>';
+  dlJobs.forEach((j, ji) => {
+    const n = j.done + j.fail, left = j.todo.length, act = Object.values(dlActive).filter(x => x.job === j);
+    const status = !j.active ? `Queued · ${j.total} song${j.total === 1 ? '' : 's'}` : j.stop ? 'Stopping…' : `${n} of ${j.total} done` + (left ? ` · ${left} waiting` : '');
+    h += `<div class="dqj"><div class="dqh"><div><b>${esc(j.label)}</b><span class="dlm">${status}${j.fail ? ` · ${j.fail} failed` : ''}</span></div>
+      <button class="pill" data-dljc="${ji}">${j.active ? 'Stop' : 'Remove'}</button></div>
+      <div class="dlbar"><i style="width:${j.active ? Math.round(n / j.total * 100) : 0}%"></i></div>${act.map(dqRow).join('')}</div>`;
+  });
+  if (singles.length) h += `<div class="dqj"><div class="dqh"><div><b>Individual songs</b></div></div>${singles.map(dqRow).join('')}</div>`;
+  return h + '<div class="mbtns"><button class="btn ghost" data-mc>Close</button></div></div>';
+}
+function paintDlPanel(){
+  const m = $('modal'); if (m.hidden) return;
+  const sh = m.querySelector('.msheet'); if (!sh.querySelector('[data-dlpanel]')) return;
+  const top = sh.scrollTop; sh.innerHTML = dlPanelHtml(); sh.scrollTop = top;
+  Object.values(dlActive).forEach(a => dlProgress(a.t.id));
+}
+const schedPanel = () => { if (dlPanelT) return; dlPanelT = setTimeout(() => { dlPanelT = 0; paintDlPanel(); }, 250); };
+function openDlPanel(){ openModal(dlPanelHtml()); Object.values(dlActive).forEach(a => dlProgress(a.t.id)); }
+function dlTick(listChanged){
+  const busy = dlBusy();
+  document.querySelectorAll('#nav [data-view="downloads"]').forEach(b => b.classList.toggle('busy', busy));
+  if (view === 'downloads') { if (listChanged) dlStale = true; paintDlHead(); paintDlSummary(); }
+  schedPanel();
+}
+async function runDlQueue(){
+  if (dlRunning) return; dlRunning = true;
+  while (dlJobs.length) {
+    const job = dlJobs[0]; job.active = true; dlTick();
+    const worker = async () => {
+      while (!job.stop) {
+        const t = job.todo.shift(); if (!t) break;
+        if (dls.some(d => d.id === t.id) || dlActive[t.id]) { job.done++; dlTick(); continue; }   // already saved / being saved elsewhere
+        const ok = await download(t, null, true, job);
+        ok ? job.done++ : job.fail++; dlTick();
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    dlJobs.shift(); queueArt();
+    toast(job.stop ? `Stopped · ${job.done} of ${job.total} saved` : `Downloaded ${job.done} of ${job.total} songs` + (job.fail ? ` (${job.fail} failed)` : ''), job.fail > 0 && !job.done);
+    dlTick(true);
+  }
+  dlRunning = false; dlTick(true);
+}
+function downloadAll(tracks, label, plMeta){
   const todo = (tracks || []).filter((t, i, arr) => t && t.id && !dls.some(d => d.id === t.id) && arr.findIndex(x => x.id === t.id) === i);
   if (!todo.length) return toast('Everything here is already downloaded');
-  /* Register playlist group in downloads view */
-  if (plMeta && plMeta.id) {
-    dlPlaylists[plMeta.id] = { label: label || plMeta.label || 'Playlist', tracks: tracks.map(slim), ts: Date.now() };
+  const pid = plMeta && plMeta.id;
+  if (pid && dlJobs.some(j => j.pid === pid && !j.stop)) return toast('Already in the download queue');
+  if (pid) {
+    dlPlaylists[pid] = { label: label || plMeta.label || 'Playlist', tracks: tracks.map(slim), ts: Date.now() };
     saveDlPlaylists();
   }
-  bulk = { total: todo.length, done: 0, fail: 0, label: label || 'playlist', stop: false };
-  paintBulk();
-  toast(`Downloading ${todo.length} song${todo.length === 1 ? '' : 's'}…`);
-  const worker = async () => {
-    while (bulk && !bulk.stop) {
-      const t = todo.shift(); if (!t) break;
-      const ok = await download(t, null, true);
-      if (bulk) { ok ? bulk.done++ : bulk.fail++; paintBulk(); }
-    }
-  };
-  await Promise.all([worker(), worker()]);
-  const b = bulk; bulk = null; paintBulk();
-  queueArt();
-  toast(b.stop ? `Stopped · ${b.done} of ${b.total} saved` : `Downloaded ${b.done} of ${b.total} songs` + (b.fail ? ` (${b.fail} failed)` : ''), b.fail > 0 && !b.done);
-  if (view === 'downloads') renderDownloads();
+  const ahead = dlJobs.length;
+  dlJobs.push({ pid, label: label || 'playlist', total: todo.length, done: 0, fail: 0, todo, stop: false, active: false });
+  toast(ahead ? `Added to queue · ${ahead} ahead of it` : `Downloading ${todo.length} song${todo.length === 1 ? '' : 's'}…`);
+  runDlQueue();
 }
 async function downloadArtist(id, name, base, thumb){
-  if (bulk) return toast('Another playlist is already downloading');
   toast(`Collecting ${name}'s popular songs…`);
   const songs = base.slice(), seen = new Set(songs.map(x => x.id)), nm = name.toLowerCase();
   try {
@@ -2545,7 +2623,7 @@ async function downloadArtist(id, name, base, thumb){
     r.forEach(t => { if (!seen.has(t.id) && artistsOf(t).some(a => a.id === id || String(a.name).toLowerCase() === nm)) { seen.add(t.id); songs.push(t); } });
   } catch {}
   if (!songs.length) return toast('No songs found for this artist', true);
-  if (thumb) saveProfile({ key: akey(name), id, name, thumb }).then(() => { if (view === 'downloads') renderDownloads(); }).catch(() => {});
+  if (thumb) saveProfile({ key: akey(name), id, name, thumb }).then(() => { dlTick(true); }).catch(() => {});
   const label = `${name} Radio`;
   let pl = playlists.find(p => p.radio === id);
   if (pl) { addTracks(pl, songs); if (thumb && pl.thumb !== thumb) { pl.thumb = thumb; savePl(); } }
@@ -2553,7 +2631,6 @@ async function downloadArtist(id, name, base, thumb){
   toast(`Playlist "${label}" created`);
   downloadAll(pl.tracks, label, { id: pl.id, label });
 }
-$('bulkX').onclick = () => { if (bulk) bulk.stop = true; };
 
 /* ---------- moods ---------- */
 const MOOD_DEF = [
