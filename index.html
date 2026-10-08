@@ -1204,6 +1204,7 @@ function show(v, arg, back){
   ({ home: renderHome, search: renderSearch, liked: renderLiked, downloads: renderDownloads, settings: renderSettings,
      list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderHome, mood: () => renderMood(arg), upl: () => renderUserPl(arg) })[v]();
   markPlaying();
+  histSync();
 }
 /* lift the page's Back button out of #main so it sits fixed in the top bar, level with the logo */
 new MutationObserver(() => {
@@ -1212,6 +1213,27 @@ new MutationObserver(() => {
   document.body.appendChild(b);
 }).observe($('main'), { childList: true, subtree: true });
 function goBack(){ const p = stack.pop() || { v: 'home' }; show(p.v, p.arg, true); }
+
+/* ---------- browser / swipe-back: step through the app's own pages, only exit from Home ---------- */
+let hHave = 0, hSkip = false, hPop = false, hFirst = true;
+const hWant = () => ((stack[0] ? stack[0].v : view) === 'home' ? 0 : 1) + stack.length;
+function histSync(){
+  const w = hWant();
+  try {
+    if (hFirst) { hFirst = false; history.replaceState({ d: w }, ''); hHave = w; return; }
+    if (hPop) { hHave = w; return; }
+    if (w > hHave) { for (let i = hHave + 1; i <= w; i++) history.pushState({ d: i }, ''); }
+    else if (w < hHave) { hSkip = true; history.go(w - hHave); }
+    hHave = w;
+  } catch {}
+}
+window.addEventListener('popstate', e => {
+  if (hSkip) { hSkip = false; return; }
+  const d = e.state && typeof e.state.d === 'number' ? e.state.d : null;
+  if (d === null || d >= hHave) return;
+  hPop = true;
+  try { if (stack.length) goBack(); else if (view !== 'home') show('home'); } finally { hPop = false; }
+});
 
 /* ---------- home ---------- */
 function renderHome(){
