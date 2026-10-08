@@ -823,6 +823,13 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 #lock .ok{width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 20px;color:#fff}
 #lkMsg,#lkRegErr,#lkRegGErr,#lkBuyErr{min-height:20px;margin:0 0 10px;font-size:13px;color:#ff7a90}
 #lkLoad{display:none;margin:0 0 12px;font-size:13px;color:var(--mute)}
+.dlq{display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);margin:0 0 14px;max-width:440px;color:var(--mute)}
+.dlq:focus-within{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
+.dlq input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--fg)}
+.dltabs{display:flex;gap:8px;margin:0 0 6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.dltabs .pill{flex:none}
+.dlsh{display:flex;align-items:baseline;justify-content:space-between;margin-top:28px}.dlsh .sec0{margin:0}
+.offb{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);font-size:13px;font-weight:600}
+.offb i{width:8px;height:8px;border-radius:50%;background:#ffb454}
 @media(max-width:380px){#lkBoxes{gap:6px}#lkBoxes input{height:52px}}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1037,7 +1044,7 @@ function imgErr(el){
   if (el.dataset.e) return;
   const id = el.dataset.id;
   if (!el.src.includes('/cover/')) { el.onerror = () => imgErr(el); el.src = `${base()}/cover/${id}?s=320`; }
-  else el.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg';
+  else { el.onerror = () => { el.onerror = null; el.src = PH; }; el.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg'; }
 }
 const imgTag = (t, s, extra = '') => `<img ${extra} loading="lazy" src="${esc(cov(t, s))}" alt="" data-id="${esc(t.id)}" ${t.kind ? 'data-e="1"' : ''} onerror="imgErr(this)">`;
 function setImg(el, t, s){
@@ -1387,7 +1394,7 @@ function renderArtist(d){
       <div class="ahrow"><div class="ava">${d.thumbnail ? imgTag(av, 600) : ''}</div>
         <div class="aht"><span class="eb">Artist</span><h1>${esc(d.name || '')}</h1><p>${esc(d.subtitle || '')}</p>
           <div class="aar">${songs.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button><button class="rb" id="lShuf" title="Shuffle">${ic('shuffle')}</button>` : ''}
-            <button class="btn ghost" id="aSave">${isSaved(pageEnt) ? 'Saved' : 'Save'}</button></div></div></div></div>
+            <button class="btn ghost" id="aSave">${isSaved(pageEnt) ? 'Saved' : 'Save'}</button><button class="btn ghost" id="aDl">Download</button></div></div></div></div>
     <div class="abody">
       <div class="acols"><div>${songs.length ? `<h3 class="sec">Popular</h3><div id="pop"></div><button class="linkb" id="popMore">See more</button>` : ''}</div>${about}</div>
     </div>${disc.all.length ? discHtml() : ''}`;
@@ -1400,6 +1407,7 @@ function renderArtist(d){
   paintPop(false);
   if ($('popMore')) $('popMore').onclick = () => paintPop(true);
   if ($('abtMore')) $('abtMore').onclick = () => { const a = $('abt'); const c = a.classList.toggle('clamp'); $('abtMore').textContent = c ? 'Show more' : 'Show less'; };
+  $('aDl').onclick = () => downloadArtist(d.id, d.name || 'Artist', songs);
   $('aSave').onclick = () => { $('aSave').textContent = toggleSave(pageEnt) ? 'Saved' : 'Save'; };
   if (songs[0]) tintFrom(songs[0]);
 }
@@ -1851,7 +1859,8 @@ async function download(t, btn, quiet){
   return ok;
 }
 
-const dlSorts = { recent: 'Recent', playlist: 'Playlist', track: 'Track', album: 'Album', artist: 'Artist' };
+const dlSorts = { home: 'Home', recent: 'Recent', track: 'Songs', playlist: 'Playlists', album: 'Albums', artist: 'Artists' };
+let dlQ = '', dlFocus = false;
 const lc = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
 const mainArtist = t => (artistsOf(t)[0] || {}).name || '';
 
@@ -1889,12 +1898,34 @@ function openDlGroup(id){
 }
 
 function renderDownloads(){
-  const act = Object.values(dlActive), mode = store.get('dlsort', 'recent'), items = sortDls(mode);
+  const act = Object.values(dlActive), mode = store.get('dlsort', 'home'), q = dlQ.trim().toLowerCase(),
+    items = sortDls(mode === 'home' ? 'recent' : mode).filter(t => !q || [t.title, t.artist, t.album].some(x => String(x || '').toLowerCase().includes(q)));
   lists.dls = items; names.dls = 'Downloads'; listKey = 'dls';
   const total = dls.reduce((n, d) => n + (d.size || 0), 0);
   let rows = '';
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
+  else if (!items.length && q) rows = `<p class="qmsg">No downloads match “${esc(dlQ)}”.</p>`;
   else if (!items.length) rows = '<p class="qmsg">Nothing downloaded yet. Tap the download icon on any song and it will be saved here for offline playback.</p>';
+  else if (q) rows = items.map(dlrow).join('');
+  else if (mode === 'home') {
+    const sec = (title, tab, cards) => cards.length ? `<div class="dlsh"><h3 class="sec0">${title}</h3>${cards.length > 6 ? `<button class="linkb" data-dlsort="${tab}">See all</button>` : ''}</div><div class="grid">${cards.slice(0, 6).join('')}</div>` : '';
+    const pls = [];
+    Object.keys(dlPlaylists).forEach(plId => {
+      const pl = dlPlaylists[plId], ids = new Set((pl.tracks || []).map(t => t.id)), have = items.filter(t => ids.has(t.id));
+      const up = playlists.find(p => p.id === plId), tracks = up ? up.tracks : pl.tracks;
+      if (!have.length || !tracks.length) return;
+      const gid = 'h_p' + plId; dlGroups[gid] = { plId, title: (up ? up.name : pl.label) || 'Playlist', sub: `${have.length} of ${tracks.length} downloaded`, tracks };
+      pls.push(dlGroupCard(gid, dlGroups[gid]));
+    });
+    const group = (keyFn, pre, subFn) => { const m = new Map(); items.forEach(t => { const k = keyFn(t); if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+      return [...m.entries()].map(([k, tracks], n) => { const gid = pre + n; dlGroups[gid] = { title: k, sub: subFn(tracks), tracks }; return dlGroupCard(gid, dlGroups[gid]); }); };
+    const cnt = a => `${a.length} song${a.length === 1 ? '' : 's'}`;
+    const ars = group(t => mainArtist(t) || 'Unknown artist', 'h_ar', cnt);
+    const als = group(t => t.album || 'Unknown album', 'h_al', a => (mainArtist(a[0]) ? mainArtist(a[0]) + ' · ' : '') + cnt(a));
+    const rec = items.slice(0, 6); lists.dls = rec;
+    rows = sec('Playlists &amp; radios', 'playlist', pls) + sec('Artists', 'artist', ars) + sec('Albums', 'album', als)
+      + `<div class="dlsh"><h3 class="sec0">Recently downloaded</h3>${items.length > 6 ? '<button class="linkb" data-dlsort="track">See all</button>' : ''}</div>` + rec.map(dlrow).join('');
+  }
   else if (mode === 'playlist') {
     /* Playlists as cards that open the playlist page; loose songs below */
     const used = new Set(), cards = [];
@@ -1943,12 +1974,17 @@ function renderDownloads(){
   $('main').innerHTML = `<div class="pg"><div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
       ${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div>
     <p class="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
-    <div class="dlsort"><span class="lab">Sort by</span>${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
+    ${navigator.onLine ? '' : '<div class="offb"><i></i>Offline · playing from your downloads</div>'}
+    <label class="dlq">${ic('search', 18)}<input id="dlq" placeholder="Search your downloads" autocomplete="off" value="${esc(dlQ)}"></label>
+    <div class="dltabs">${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode && !q ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
     ${act.length ? `<h3 class="sec0">In progress</h3>${act.map(a => `<div class="qr dlrow"><div class="qt">${imgTag(a.t, 160)}</div>
       <div class="qm"><b>${esc(a.t.title)}</b><span>${esc(a.t.artist || '')}</span>
       <span class="dlm"><span data-dls="${esc(a.t.id)}">Preparing…</span> · ${esc(a.fmt.toUpperCase())}</span>
       <div class="dlbar ${a.total ? '' : 'ind'}" data-dlp="${esc(a.t.id)}"><i></i></div></div></div>`).join('')}` : ''}
     ${rows}</div>`;
+  const dq = $('dlq');
+  dq.oninput = () => { dlQ = dq.value; dlFocus = true; renderDownloads(); };
+  if (dlFocus) { dq.focus(); dq.setSelectionRange(dq.value.length, dq.value.length); dlFocus = false; }
   const c = $('dlClear');
   if (c) c.onclick = async () => {
     if (!confirm('Delete all downloaded songs from this device?')) return;
@@ -1967,7 +2003,7 @@ document.addEventListener('click', e => {
   const dg = e.target.closest('[data-dlg]'); if (dg) return openDlGroup(dg.dataset.dlg);
   const md = e.target.closest('[data-mood]'); if (md) return show('mood', md.dataset.mood);
   const nav = e.target.closest('[data-view]'); if (nav) return show(nav.dataset.view);
-  const ds = e.target.closest('[data-dlsort]'); if (ds) { store.set('dlsort', ds.dataset.dlsort); return renderDownloads(); }
+  const ds = e.target.closest('[data-dlsort]'); if (ds) { store.set('dlsort', ds.dataset.dlsort); dlQ = ''; return renderDownloads(); }
   const dc = e.target.closest('[data-disc]'); if (dc) return setDisc(dc);
   const rsb = e.target.closest('[data-rs]'); if (rsb) { $('hq').value = rsb.dataset.rs; if ($('sq')) $('sq').value = rsb.dataset.rs; return submitSearch(); }
   const al = e.target.closest('a[data-artist],a[data-aname]');
@@ -2147,6 +2183,21 @@ async function downloadAll(tracks, label, plMeta){
   const b = bulk; bulk = null; paintBulk();
   toast(b.stop ? `Stopped · ${b.done} of ${b.total} saved` : `Downloaded ${b.done} of ${b.total} songs` + (b.fail ? ` (${b.fail} failed)` : ''), b.fail > 0 && !b.done);
   if (view === 'downloads') renderDownloads();
+}
+async function downloadArtist(id, name, base){
+  if (bulk) return toast('Another playlist is already downloading');
+  toast(`Collecting ${name}'s popular songs…`);
+  const songs = base.slice(), seen = new Set(songs.map(x => x.id)), nm = name.toLowerCase();
+  try {
+    const r = (await (await api('/search?limit=30&type=songs&q=' + encodeURIComponent(name))).json()).results || [];
+    r.forEach(t => { if (!seen.has(t.id) && artistsOf(t).some(a => a.id === id || String(a.name).toLowerCase() === nm)) { seen.add(t.id); songs.push(t); } });
+  } catch {}
+  if (!songs.length) return toast('No songs found for this artist', true);
+  const label = `${name} Radio`;
+  let pl = playlists.find(p => p.radio === id);
+  if (pl) addTracks(pl, songs); else pl = createPlaylist(label, songs, { radio: id });
+  toast(`Playlist "${label}" created`);
+  downloadAll(pl.tracks, label, { id: pl.id, label });
 }
 $('bulkX').onclick = () => { if (bulk) bulk.stop = true; };
 
@@ -2338,7 +2389,7 @@ updateInstallBtn();
     hideLock();
     if (started) return;
     started = true;
-    show('home');
+    show(navigator.onLine ? 'home' : 'downloads');
   }
   function showLock(){
     window.__unlocked = false;
@@ -2479,7 +2530,10 @@ updateInstallBtn();
 
   /* Boot: nothing hits the Isai API until a valid session exists */
   const tok = getTok();
-  if (!tok) { showLock(); return; }
+  window.addEventListener('offline', () => { if (!started) return; toast("You're offline · showing your downloads"); if (view === 'home' || view === 'search') show('downloads'); else if (view === 'downloads') renderDownloads(); });
+  window.addEventListener('online', () => { if (started) { toast('Back online'); if (view === 'downloads') renderDownloads(); } });
+  if (!tok) { showLock(); if (!navigator.onLine) $('lkErr').textContent = "You're offline. Connect to sign in."; return; }
+  if (!navigator.onLine) { startApp(); return; } // offline: skip the check, go straight to downloads
   fetch(SERVER + '/validate-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok }) })
     .then(r => r.json())
     .then(d => {
