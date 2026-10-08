@@ -188,6 +188,8 @@ h1.t{font-size:30px;margin:6px 0 18px;font-weight:800}
 /* ---- artist page ---- */
 .ah{max-width:1140px;margin:0 auto;padding:8px 24px 6px}
 .ah .bk{margin-bottom:6px}
+body>#backBtn{position:fixed;top:calc(var(--sat) + (var(--topH) - var(--sat) - 38px)/2);left:14px;z-index:25;margin:0;width:38px;height:38px;background:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:0;color:#e8e8ef}
+body>#backBtn:hover{background:none;color:#fff}
 .ahrow{display:flex;align-items:flex-end;gap:32px;padding:10px 0 8px}
 .ava{flex:none;width:clamp(150px,17vw,224px);aspect-ratio:1;border-radius:50%;overflow:hidden;background:var(--panel);box-shadow:0 22px 60px rgba(0,0,0,.5)}
 .ava img,.ava .skl{width:100%;height:100%;object-fit:cover;border-radius:50%}
@@ -1185,6 +1187,7 @@ const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="b
 
 function show(v, arg, back){
   closeNP();
+  document.querySelectorAll('body > #backBtn').forEach(b => b.remove());
   const detail = ['list', 'entity', 'mood', 'upl'].includes(v);
   if (!back) { if (detail) stack.push({ v: view, arg: viewArg }); else stack = []; }
   view = v; viewArg = arg;
@@ -1197,6 +1200,12 @@ function show(v, arg, back){
      list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderHome, mood: () => renderMood(arg), upl: () => renderUserPl(arg) })[v]();
   markPlaying();
 }
+/* lift the page's Back button out of #main so it sits fixed in the top bar, level with the logo */
+new MutationObserver(() => {
+  const b = document.querySelector('#main #backBtn'); if (!b) return;
+  document.querySelectorAll('body > #backBtn').forEach(x => x.remove());
+  document.body.appendChild(b);
+}).observe($('main'), { childList: true, subtree: true });
 function goBack(){ const p = stack.pop() || { v: 'home' }; show(p.v, p.arg, true); }
 
 /* ---------- home ---------- */
@@ -1579,7 +1588,7 @@ async function playCurrent(){
   $('pp').classList.add('loading');
   $('mpp').classList.add('loading');
   setPP();
-  markPlaying(); updateNP(); tint(t);
+  markPlaying(); updateNP(); tint(t); msMeta(t);
   try {
     const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
     if (my !== token) return;
@@ -1640,13 +1649,46 @@ $('prev').onclick = $('mprev').onclick = doPrev;
 $('pp').onclick = $('mpp').onclick = doPP;
 $('shuf').onclick = $('mshuf').onclick = doShuf;
 $('rep').onclick = $('mrep').onclick = doRep;
-const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); };
+
+/* ---------- lock-screen / notification controls (Media Session) ---------- */
+const MS = 'mediaSession' in navigator ? navigator.mediaSession : null;
+let msLast = 0;
+function msMeta(t){
+  if (!MS || !t) return;
+  try {
+    const art = artistsOf(t).map(x => x.name).join(', ') || t.artist || '';
+    MS.metadata = new MediaMetadata({ title: t.title || '', artist: art, album: t.album || '',
+      artwork: [96, 192, 256, 384, 512].map(n => ({ src: new URL(cov(t, n), location.href).href, sizes: n + 'x' + n })) });
+    document.title = (t.title ? t.title + ' · ' : '') + art;
+  } catch {}
+}
+function msState(){ if (MS) try { MS.playbackState = !a.src ? 'none' : a.paused ? 'paused' : 'playing'; } catch {} }
+function msPos(force){
+  if (!MS || !MS.setPositionState) return;
+  const now = Date.now(); if (!force && now - msLast < 1000) return; msLast = now;
+  const d = a.duration || (current && current.duration) || 0;
+  if (!isFinite(d) || d <= 0) return;
+  try { MS.setPositionState({ duration: d, playbackRate: a.playbackRate || 1, position: Math.min(Math.max(a.currentTime || 0, 0), d) }); } catch {}
+}
+if (MS) {
+  const set = (n, f) => { try { MS.setActionHandler(n, f); } catch {} };
+  set('play', () => { a.play(); });
+  set('pause', () => { a.pause(); });
+  set('previoustrack', doPrev);
+  set('nexttrack', doNext);
+  set('seekbackward', e => { a.currentTime = Math.max(0, a.currentTime - (e.seekOffset || 10)); msPos(true); });
+  set('seekforward', e => { a.currentTime = Math.min(a.duration || 1e9, a.currentTime + (e.seekOffset || 10)); msPos(true); });
+  set('seekto', e => { if (e.fastSeek && 'fastSeek' in a) a.fastSeek(e.seekTime); else a.currentTime = e.seekTime; msPos(true); });
+  set('stop', () => { a.pause(); });
+}
+const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
 const wire = el => {
   el.onplay = el.onpause = () => { if (el === a) setPP(); };
   el.onended = () => { if (el === a) repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true); };
   el.onerror = () => { if (el === a && el.src) toast('Playback failed. Check that the server is running and try again.', true); };
   el.ontimeupdate = () => {
     if (el === a && !pending && npTab === 'lyrics') lyUpdate();
+    if (el === a) msPos();
     if (el !== a || pending) return;
     const d = a.duration || (current && current.duration) || 0, p = d ? a.currentTime / d : 0;
     $('cur').textContent = $('mcur').textContent = fmt(a.currentTime);
