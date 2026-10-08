@@ -775,10 +775,126 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .ly.on{opacity:1;filter:none;transform:scale(1);text-shadow:none}
 .ly.plain,.ly.plain:hover{font-size:22px;font-weight:700;opacity:.8;transform:none;padding:6px 8px}
 @media(max-width:720px){.ly{font-size:26px}.ly.on{font-size:26px}.ly.plain{font-size:18px}}
+
+/* ---- login gate (uses Isai's own tokens: gradient bg, pill buttons, 12px inputs) ---- */
+#lock{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;padding:calc(20px + var(--sat)) 20px calc(20px + var(--sab));overflow:auto;
+  background:radial-gradient(1100px 650px at 12% -8%,var(--c1),transparent 62%),radial-gradient(900px 600px at 100% 8%,var(--c2),transparent 60%),linear-gradient(180deg,var(--c3) 0%,var(--bg) 78%),var(--bg);
+  opacity:0;transition:opacity .35s ease}
+#lock.on{display:flex}#lock.in{opacity:1}
+#lock .lk{width:min(340px,100%);margin:auto;text-align:center;transform:translateY(14px);opacity:0;transition:transform .45s var(--ease),opacity .35s ease}
+#lock.in .lk{transform:none;opacity:1}
+#lock .lg{position:absolute;top:var(--sat);left:50%;transform:translateX(-50%);height:var(--topH);padding:calc(var(--topH) - var(--sat) - 20px) 0 0;box-sizing:border-box;width:auto;max-width:46vw;object-fit:contain}
+#lock .lg{height:20px;margin-top:calc((var(--topH) - var(--sat) - 20px)/2);padding:0}
+@media(max-width:700px){#lock .lg{height:18px}}
+#lock h1{margin:0 0 8px;font-size:30px;font-weight:800;letter-spacing:-.01em}
+#lock .sub{margin:0 0 26px;color:var(--mute);font-size:13px;line-height:1.5}
+#lkBoxes{display:flex;justify-content:center;gap:8px;margin-bottom:12px}
+#lkBoxes input{width:100%;max-width:48px;height:56px;padding:0;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--fg);font-size:22px;font-weight:700;text-align:center;outline:0;caret-color:#fff;transition:border-color .25s var(--ease),background-color .25s var(--ease)}
+#lkBoxes input:focus{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
+#lkBoxes.err input{border-color:rgba(255,122,144,.55)}
+#lkErr,#lkGErr{min-height:20px;margin:0 0 10px;font-size:13px;color:#ff7a90}
+#lkGErr{margin:10px 0 0}
+#lock .btn{width:100%;height:46px;justify-content:center;font-size:14px}
+#lock .btn:hover{opacity:.92}#lock .btn.ghost:hover{background:rgba(255,255,255,.16);opacity:1}
+#lock .or{display:flex;align-items:center;gap:12px;margin:20px 0;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+#lock .or::before,#lock .or::after{content:'';flex:1;height:1px;background:var(--line)}
+#lkG{position:relative;width:100%;height:46px}
+#lkG .btn{position:absolute;inset:0;pointer-events:none}
+#lkG .real,#lkRegG .real{position:absolute;inset:0;opacity:0;overflow:hidden;border-radius:999px;display:flex;align-items:center;justify-content:center}
+#lock .foot{margin-top:26px;font-size:13px;color:var(--mute)}
+#lock .foot a{color:var(--fg);font-weight:600}#lock .foot a:hover{text-decoration:underline}
+
+#lock .lkv[hidden]{display:none}
+#lock .lbl{display:block;text-align:left;margin:0 0 7px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+#lock .fld{margin-bottom:14px}
+#lock .minp{height:48px}
+#lock .plans{display:flex;flex-direction:column;gap:10px;margin:0 0 20px}
+#lock .plan{width:100%;height:56px;padding:0 18px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:var(--fg);font-weight:700;font-size:14px;text-align:left;display:flex;align-items:center;justify-content:space-between;transition:background-color .2s var(--ease),opacity .2s}
+#lock .plan:hover{background:rgba(255,255,255,.13)}
+#lock .plan.best{background:#fff;color:#000;border-color:#fff}#lock .plan.best:hover{opacity:.92}
+#lock .plan small{display:block;margin-top:1px;font-size:11px;font-weight:600;opacity:.55}
+#lock .plan svg{opacity:.5;flex:none}
+#lock .plan:disabled{opacity:.5;cursor:default}
+#lock .secure{margin-top:4px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--mute);line-height:1.7}
+#lock .secure b{color:var(--fg);letter-spacing:-.02em}
+#lock .secure span{display:block;opacity:.7}
+#lock .lnk{display:inline-block;margin-top:18px;font-size:13px;color:var(--mute);font-weight:600}
+#lock .lnk:hover{color:var(--fg);text-decoration:underline}
+#lock .ok{width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 20px;color:#fff}
+#lkMsg,#lkRegErr,#lkRegGErr,#lkBuyErr{min-height:20px;margin:0 0 10px;font-size:13px;color:#ff7a90}
+#lkLoad{display:none;margin:0 0 12px;font-size:13px;color:var(--mute)}
+@media(max-width:380px){#lkBoxes{gap:6px}#lkBoxes input{height:52px}}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="bg"></div>
+<div id="lock" role="dialog" aria-modal="true" aria-label="Sign in">
+  <img class="lg" src="https://thirai.uk/static/thiraiwhite.png" alt="Thirai">
+  <div class="lk">
+
+    <!-- Sign in -->
+    <div class="lkv" id="v-signin">
+      <h1>Sign in</h1>
+      <p class="sub">Enter your 6-digit PIN to open Isai.</p>
+      <div id="lkBoxes"><input type="tel" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN digit"><input type="tel" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN digit"><input type="tel" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN digit"><input type="tel" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN digit"><input type="tel" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN digit"><input type="tel" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN digit"></div>
+      <div id="lkErr"></div>
+      <button id="lkGo" class="btn" type="button">Unlock</button>
+      <div class="or">or</div>
+      <div id="lkG"><button class="btn ghost" type="button" tabindex="-1"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="currentColor" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="currentColor" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="currentColor" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Continue with Google</button><div class="real" id="lkGBtn"></div></div>
+      <div id="lkGErr"></div>
+      <div class="foot">New here? <a href="#" data-go="buy">Purchase access</a></div>
+    </div>
+
+    <!-- Purchase access -->
+    <div class="lkv" id="v-buy" hidden>
+      <h1>Get access</h1>
+      <p class="sub">Pick a plan and you'll get an <b style="color:var(--fg)">activation key</b> to unlock Isai, downloads and more.</p>
+      <div id="lkBuyErr"></div>
+      <div class="plans">
+        <button class="plan" type="button" data-price="price_1TsQ6sGZEXDdobHJzfIWmeHC"><span>3 months</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+        <button class="plan best" type="button" data-price="price_1TsQ7jGZEXDdobHJWuO0Dvqg"><span>Annual<small>Best value</small></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+        <button class="plan" type="button" data-price="price_1TxwdBGZEXDdobHJCWv7U8mu"><span>Lifetime</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+      </div>
+      <div id="lkLoad">Redirecting to checkout…</div>
+      <div class="secure">Powered securely by <b>Stripe</b><span>Visa · Mastercard · Google Pay · Amazon Pay</span></div>
+      <a class="lnk" href="#" data-go="reg">Request access instead</a><br>
+      <a class="lnk" href="#" data-go="signin">Back to sign in</a>
+    </div>
+
+    <!-- Request access -->
+    <div class="lkv" id="v-reg" hidden>
+      <h1>Request access</h1>
+      <p class="sub">Enter your details and we'll review your request. Your PIN is emailed if approved.</p>
+      <div id="lkRegG" style="position:relative;width:100%;height:46px"><button class="btn ghost" type="button" tabindex="-1" style="position:absolute;inset:0;pointer-events:none"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="currentColor" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="currentColor" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="currentColor" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Request with Google</button><div class="real" id="lkRegBtn"></div></div>
+      <div id="lkRegGErr" style="margin-top:10px"></div>
+      <div class="or">or with name &amp; email</div>
+      <div class="fld"><label class="lbl" for="rgName">Full name</label><input class="minp" id="rgName" type="text" maxlength="80" placeholder="Your name" autocomplete="name"></div>
+      <div class="fld"><label class="lbl" for="rgEmail">Email address</label><input class="minp" id="rgEmail" type="email" maxlength="120" placeholder="you@example.com" autocomplete="email"></div>
+      <div id="lkRegErr"></div>
+      <button id="lkRegGo" class="btn" type="button">Send request</button>
+      <a class="lnk" href="#" data-go="signin">Back to sign in</a>
+    </div>
+
+    <!-- Request sent -->
+    <div class="lkv" id="v-regok" hidden>
+      <div class="ok"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><polyline points="22 4 12 14 9 11"/></svg></div>
+      <h1>Request sent</h1>
+      <p class="sub" id="lkOkMsg"></p>
+      <button class="btn ghost" type="button" data-go="signin">Done</button>
+    </div>
+
+    <!-- Already pending -->
+    <div class="lkv" id="v-pending" hidden>
+      <div class="ok" style="color:var(--mute)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <h1>Already pending</h1>
+      <p class="sub">A request with this email is already waiting for review. You'll be emailed once it's approved.</p>
+      <button class="btn ghost" type="button" data-go="signin">Got it</button>
+    </div>
+
+  </div>
+</div>
+
 <aside id="nav">
   <button data-view="home" title="Home" aria-label="Home"><span data-ic="home"></span></button>
   <button data-view="search" title="Search" aria-label="Search"><span data-ic="search"></span></button>
@@ -898,6 +1014,7 @@ const base = () => {
 };
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
 async function api(path){
+  if (!window.__unlocked) throw new Error('Sign in required');
   let r;
   try { r = await fetch(base() + path, { headers: hd() }); }
   catch { throw new Error('Cannot reach the API at ' + base() + '. Is the server running?'); }
@@ -1382,6 +1499,9 @@ function renderLiked(){
 function renderSettings(){
   const dsz = dls.reduce((n, d) => n + (d.size || 0), 0);
   $('main').innerHTML = `<div class="pg set"><h1 class="t">Settings</h1>
+    <section class="sgrp glass"><h3>Account</h3>
+      <div class="srow"><div><b>Signed in</b><span>Sign out to lock Isai on this device</span></div><button class="btn ghost" id="sOut">Sign out</button></div>
+    </section>
     <section class="sgrp glass"><h3>Server</h3>
       <label class="srow"><div><b>API base URL</b><span>Where your Thirai server is running</span></div><input id="sBase" value="${esc(base())}" spellcheck="false" autocapitalize="off"></label>
       <label class="srow"><div><b>API key</b><span>Only needed if the server has API_KEY set</span></div><input id="sKey" type="password" value="${esc(store.get('key', ''))}" placeholder="Optional" autocomplete="off"></label>
@@ -1394,6 +1514,7 @@ function renderSettings(){
       <div class="srow"><div><b>Refresh home</b><span>Reload recommendations from the server</span></div><button class="btn ghost" id="sRef">Refresh</button></div>
       <div class="srow"><div><b>Listen again</b><span>Clear your recently played history</span></div><button class="btn ghost" id="sClr">Clear</button></div>
     </section></div>`;
+  $('sOut').onclick = () => window.__signOut();
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
   $('sKey').onchange = e => store.set('key', e.target.value);
   $('sFmt').onchange = e => { store.set('fmt', e.target.value); toast('Format set to ' + e.target.value); };
@@ -2203,7 +2324,175 @@ if (pwaBtn) {
 }
 updateInstallBtn();
 
-show('home');
+/* ---------- login gate (logic from Thirai index) ---------- */
+(function(){
+  const SERVER = 'https://account.thirai.uk';
+  const GCID = '729331417188-res9c19bl6r7smj9c2brklh52emjpunf.apps.googleusercontent.com';
+  const TK = 'thirai_access_token';
+  const getTok = () => { try { return localStorage.getItem(TK) || ''; } catch { return ''; } };
+  const lock = $('lock'), boxes = [...document.querySelectorAll('#lkBoxes input')], bx = $('lkBoxes');
+  let started = false, gInit = false, busy = false;
+
+  function startApp(){
+    window.__unlocked = true;
+    hideLock();
+    if (started) return;
+    started = true;
+    show('home');
+  }
+  function showLock(){
+    window.__unlocked = false;
+    document.body.style.overflow = 'hidden';
+    lock.classList.add('on');
+    requestAnimationFrame(() => requestAnimationFrame(() => lock.classList.add('in')));
+    clearPin(); $('lkErr').textContent = ''; $('lkGErr').textContent = '';
+    go('signin');
+  }
+  function hideLock(){
+    lock.classList.remove('in');
+    setTimeout(() => { lock.classList.remove('on'); document.body.style.overflow = ''; }, 300);
+  }
+  function onLoginSuccess(d){
+    try { localStorage.setItem(TK, d.token); } catch {}
+    try { localStorage.setItem('thirai_discover_access', d.discover_access ? 'true' : 'false'); } catch {}
+    startApp();
+  }
+  window.__signOut = function(){
+    try { localStorage.removeItem(TK); localStorage.removeItem('thirai_discover_access'); } catch {}
+    location.reload();
+  };
+
+  const pin = () => boxes.map(b => b.value).join('');
+  function clearPin(){ boxes.forEach(b => b.value = ''); bx.classList.remove('err'); }
+  function setErr(m){
+    const e = $('lkErr'); e.textContent = m; bx.classList.add('err');
+    setTimeout(() => { if (e.textContent === m) { e.textContent = ''; bx.classList.remove('err'); } }, 3000);
+  }
+  function setBusy(on){ busy = on; const b = $('lkGo'); b.disabled = on; b.textContent = on ? 'Verifying…' : 'Unlock'; }
+
+  function submit(){
+    if (busy) return;
+    const p = pin();
+    if (p.length < 6) { setErr('Enter all 6 digits.'); return; }
+    setBusy(true);
+    fetch(SERVER + '/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: p }) })
+      .then(r => r.json())
+      .then(d => { setBusy(false); if (d.valid) onLoginSuccess(d); else { setErr(d.message || 'Incorrect PIN.'); clearPin(); boxes[0].focus(); } })
+      .catch(() => { setBusy(false); setErr('Server unreachable. Try again.'); clearPin(); boxes[0].focus(); });
+  }
+  $('lkGo').onclick = submit;
+
+  boxes.forEach((inp, i) => {
+    inp.addEventListener('input', () => {
+      inp.value = inp.value.replace(/\D/g, '').slice(-1);
+      if (inp.value && i < boxes.length - 1) { boxes[i + 1].focus(); boxes[i + 1].select(); }
+      if (pin().length === 6) submit();
+    });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Backspace') { e.preventDefault(); if (inp.value) inp.value = ''; else if (i > 0) { boxes[i - 1].value = ''; boxes[i - 1].focus(); } }
+      else if (e.key === 'Enter') submit();
+    });
+    inp.addEventListener('click', () => inp.select());
+  });
+  bx.addEventListener('paste', e => {
+    e.preventDefault();
+    const t = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!t) return;
+    boxes.forEach((b, i) => b.value = t[i] || '');
+    boxes[Math.min(t.length, boxes.length - 1)].focus();
+    if (pin().length === 6) submit();
+  });
+
+  /* Google sign-in (shared by sign-in + request-access) */
+  let gMode = 'login';
+  const GERR = { login: 'lkGErr', register: 'lkRegGErr' };
+  function gReady(cb){ if (window.google && google.accounts && google.accounts.id) cb(); else setTimeout(() => gReady(cb), 300); }
+  function renderG(elId, mode){
+    gReady(() => {
+      if (!gInit) {
+        gInit = true;
+        google.accounts.id.initialize({ client_id: GCID, auto_select: false, callback: resp => {
+          const eEl = $(GERR[gMode]); eEl.textContent = '';
+          fetch(SERVER + '/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) })
+            .then(r => r.json())
+            .then(d => {
+              if (d.valid) onLoginSuccess(d);
+              else if (d.pending_request) { $('lkOkMsg').textContent = d.message || "Your request has been submitted. We'll email you a PIN once it's approved."; go('regok'); }
+              else eEl.textContent = d.message || 'Google sign-in failed.';
+            })
+            .catch(() => { eEl.textContent = 'Server unreachable. Try again.'; });
+        }});
+      }
+      gMode = mode;
+      const el = $(elId); el.innerHTML = '';
+      google.accounts.id.renderButton(el, { type: 'standard', theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', width: Math.min(Math.max(el.offsetWidth || 300, 200), 400) });
+    });
+  }
+  const initGoogle = () => renderG('lkGBtn', 'login');
+
+  /* Views: signin / buy / reg / regok / pending */
+  const VIEWS = ['signin', 'buy', 'reg', 'regok', 'pending'];
+  function go(v){
+    VIEWS.forEach(n => { $('v-' + n).hidden = n !== v; });
+    lock.scrollTop = 0;
+    if (v === 'signin') { initGoogle(); setTimeout(() => boxes[0].focus(), 150); }
+    if (v === 'reg') { $('lkRegErr').textContent = ''; $('lkRegGErr').textContent = ''; setTimeout(() => { renderG('lkRegBtn', 'register'); $('rgName').focus(); }, 60); }
+    if (v === 'buy') { $('lkBuyErr').textContent = ''; $('lkLoad').style.display = 'none'; lock.querySelectorAll('.plan').forEach(b => b.disabled = false); }
+  }
+  lock.addEventListener('click', e => {
+    const a = e.target.closest('[data-go]'); if (!a) return;
+    e.preventDefault(); go(a.dataset.go);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && lock.classList.contains('on') && $('v-signin').hidden) go('signin'); });
+
+  /* Purchase: Stripe checkout via the account server */
+  lock.querySelectorAll('.plan').forEach(btn => btn.addEventListener('click', () => {
+    const err = $('lkBuyErr'); err.textContent = '';
+    lock.querySelectorAll('.plan').forEach(b => b.disabled = true);
+    $('lkLoad').style.display = 'block';
+    fetch(SERVER + '/purchase/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price_id: btn.dataset.price }) })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(res => { if (!res.ok || !res.d.url) throw new Error((res.d && res.d.error) || 'Checkout failed'); location.href = res.d.url; })
+      .catch(e => { $('lkLoad').style.display = 'none'; lock.querySelectorAll('.plan').forEach(b => b.disabled = false); err.textContent = e.message || 'Something went wrong. Try again.'; });
+  }));
+
+  /* Request access: name + email */
+  function submitReg(){
+    const name = $('rgName').value.trim(), email = $('rgEmail').value.trim(), err = $('lkRegErr');
+    if (!name) { err.textContent = 'Please enter your name.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email.'; return; }
+    err.textContent = '';
+    const b = $('lkRegGo'); b.disabled = true; b.textContent = 'Submitting…';
+    const done = () => { b.disabled = false; b.textContent = 'Send request'; };
+    fetch(SERVER + '/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email }) })
+      .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
+      .then(res => {
+        done();
+        if (res.status === 409) { go('pending'); return; }
+        if (res.ok) { $('lkOkMsg').textContent = `Your request has been submitted, ${name.split(' ')[0]}. We'll review it and send your PIN to ${email} once approved.`; $('rgName').value = ''; $('rgEmail').value = ''; go('regok'); return; }
+        err.textContent = (res.d && res.d.error) || 'Something went wrong. Try again.';
+      })
+      .catch(() => { done(); err.textContent = 'Server unreachable. Try again later.'; });
+  }
+  $('lkRegGo').onclick = submitReg;
+  ['rgName', 'rgEmail'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') submitReg(); }));
+
+  /* Boot: nothing hits the Isai API until a valid session exists */
+  const tok = getTok();
+  if (!tok) { showLock(); return; }
+  fetch(SERVER + '/validate-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok }) })
+    .then(r => r.json())
+    .then(d => {
+      if (d.valid) {
+        try { localStorage.setItem('thirai_discover_access', d.discover_access ? 'true' : 'false'); } catch {}
+        startApp();
+      } else {
+        try { localStorage.removeItem(TK); localStorage.removeItem('thirai_discover_access'); } catch {}
+        showLock();
+      }
+    })
+    .catch(() => startApp()); // account server unreachable: keep an existing session in (same as index)
+})();
 </script>
 </body>
 </html>
