@@ -3095,7 +3095,7 @@ updateInstallBtn();
     if (started) return;
     started = true;
     const go = () => show(navigator.onLine ? 'home' : 'downloads');
-    if (!store.get('lang', '') && navigator.onLine) pickLang().then(go); else go();
+    go();
     loadArtProfiles().then(() => ensureArtistProfiles());
   }
   function showLock(){
