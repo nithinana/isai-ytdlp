@@ -660,6 +660,15 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .mbtns{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
 .plr{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:8px;border-radius:12px}
 .plr:hover{background:rgba(255,255,255,.1)}
+/* spotify import + youtube music upload */
+.spbar{height:6px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin:14px 0 8px}
+.spbar i{display:block;height:100%;width:0;background:#fff;border-radius:99px;transition:width .25s}
+.spor{text-align:center;color:var(--mute);font-size:12px;margin:14px 0 10px}
+.spfile{width:100%;justify-content:center;cursor:pointer}
+.spcode{font-size:30px;font-weight:800;letter-spacing:.12em;text-align:center;padding:14px;border-radius:14px;background:rgba(255,255,255,.07);margin:10px 0;user-select:all}
+.spdet{margin:10px 0 0;font-size:13px;color:var(--mute)}.spdet summary{cursor:pointer;font-weight:600;color:var(--fg)}
+.spdet ul{margin:8px 0 0;padding-left:18px;max-height:150px;overflow:auto;line-height:1.5}
+.spa a:not(.btn){color:#fff;text-decoration:underline}.spa a.btn{color:#000;text-decoration:none}
 .plr .plc{width:46px;height:46px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.08);display:grid;place-items:center;flex:none}
 .plr .plc img{width:100%;height:100%;object-fit:cover}
 .plr.new{font-weight:700}
@@ -1545,6 +1554,7 @@ async function runSearch(){
   if (st()) { st().className = ''; st().textContent = 'Searching…'; }
   try {
     let m;
+    if (/open\.spotify\.com\/(?:intl-[\w-]+\/)?(?:playlist|album|track)\//.test(input) || /^spotify:(?:playlist|album|track):/.test(input)) { if (st()) st().textContent = ''; return openSpotifyImport(input); }
     if ((m = input.match(/[?&]list=([\w-]+)/)) && !/[?&]v=/.test(input)) return show('entity', { kind: 'playlist', id: m[1], title: 'Playlist' });
     if ((m = input.match(/browse\/(MPREb_[\w-]+)/))) return show('entity', { kind: 'album', id: m[1], title: 'Album' });
     if ((m = input.match(/channel\/(UC[\w-]+)/))) return show('entity', { kind: 'artist', id: m[1], title: 'Artist' });
@@ -1578,7 +1588,7 @@ function renderLiked(){
   lists.liked = liked; names.liked = 'Liked songs'; listKey = 'liked';
   const pc = plCards();
   $('main').innerHTML = `<div class="pg"><h1 class="t">Library</h1>
-    <div class="libact"><button class="btn" id="plNew">${ic('plus', 16)} New playlist</button><button class="btn ghost" id="plImp">Import from YouTube</button></div>
+    <div class="libact"><button class="btn" id="plNew">${ic('plus', 16)} New playlist</button><button class="btn ghost" id="plImp">Import from YouTube</button><button class="btn ghost" id="spImp">Import from Spotify</button></div>
     <h3 class="sec0">Playlists</h3>
     ${pc.length ? gridHtml('uplist', pc) : '<p class="qmsg">No playlists yet. Create one, or paste the link of a public YouTube playlist to import it.</p>'}
     ${saved.length ? `<h3 class="sec0">Saved</h3>${gridHtml('saved', saved)}` : ''}
@@ -1586,6 +1596,7 @@ function renderLiked(){
     ${liked.length ? liked.map(lrow).join('') : '<p class="qmsg">Nothing here yet. Tap the heart on a song, or save an album or artist.</p>'}</div>`;
   $('plNew').onclick = () => promptName({ title: 'New playlist', cta: 'Create', onOk: v => { createPlaylist(v); toast(`Created "${v}"`); if (view === 'liked') renderLiked(); } });
   $('plImp').onclick = openImport;
+  $('spImp').onclick = () => openSpotifyImport();
   if ($('dlLiked')) $('dlLiked').onclick = () => downloadAll(liked, 'Liked songs');
 }
 function renderSettings(){
@@ -2480,6 +2491,171 @@ function openImport(){
   };
   ok.onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
 }
+/* ---------- Spotify import + upload to YouTube Music ---------- */
+async function apiPost(path, body){
+  if (!window.__unlocked) throw new Error('Sign in required');
+  let r;
+  try { r = await fetch(base() + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...hd() }, body: JSON.stringify(body) }); }
+  catch { throw new Error('Cannot reach the API at ' + base() + '. Is the server running?'); }
+  if (!r.ok) {
+    let m = r.statusText;
+    try { const d = await r.json(); m = d.detail || m; } catch {}
+    const e = new Error(typeof m === 'string' ? m : 'Request was rejected'); e.status = r.status; throw e;
+  }
+  return r.json();
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let spRun = 0;   // each Spotify/upload modal gets a run id so a closed or replaced modal stops its own loop
+const spAlive = run => !$('modal').hidden && !!$('spRoot') && $('spRoot').dataset.run == run;
+const spShell = (run, html) => openModal(`<div id="spRoot" class="spa" data-run="${run}">${html}</div>`);
+const spSet = (run, html) => { if (spAlive(run)) $('spRoot').innerHTML = html; };
+const spClose = '<button class="btn ghost" data-mc>Close</button>';
+const spBar = (n, total) => `<div class="spbar"><i style="width:${total ? Math.round(n / total * 100) : 0}%"></i></div>`;
+
+/* Spotify's "Download your data" files: Playlist1.json (many playlists) and YourLibrary.json (liked songs) */
+function parseSpotifyExport(json){
+  const out = [], mk = (title, artist, album) => ({ title, artists: artist ? [artist] : [], album: album || null, duration: null });
+  if (json && Array.isArray(json.playlists)) for (const p of json.playlists) {
+    const tr = (p.items || []).map(i => i && i.track).filter(t => t && t.trackName).map(t => mk(t.trackName, t.artistName, t.albumName));
+    if (tr.length) out.push({ name: p.name || 'Spotify playlist', tracks: tr });
+  }
+  if (json && Array.isArray(json.tracks)) {
+    const tr = json.tracks.filter(t => t && t.track).map(t => mk(t.track, t.artist, t.album));
+    if (tr.length) out.push({ name: 'Spotify Liked Songs', tracks: tr });
+  }
+  return out;
+}
+
+function openSpotifyImport(prefill = ''){
+  const run = ++spRun;
+  spShell(run, `<h3>Import from Spotify</h3>
+    <p class="mhint">Paste a public Spotify playlist, album or song link. No Spotify login needed. Songs are matched on YouTube Music and saved as a playlist in your library.</p>
+    <input id="spIn" class="minp" placeholder="https://open.spotify.com/playlist/…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(prefill)}">
+    <p class="err" id="spErr" style="margin:10px 0 0"></p>
+    <div class="spor">or import a full playlist from your Spotify data</div>
+    <label class="btn ghost spfile">Choose Playlist1.json or YourLibrary.json<input id="spFile" type="file" accept=".json,application/json" hidden></label>
+    <p class="mhint" style="margin-top:10px">Request it at spotify.com/account/privacy (Download your data). It can take a few days to arrive, but it has every track with no size limit. Public links only show the first part of long playlists.</p>
+    <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="spGo">Import</button></div>`);
+  const inp = $('spIn'), err = m => { if (spAlive(run)) $('spErr').textContent = m; };
+  inp.focus();
+  const go = async () => {
+    const v = inp.value.trim(); if (!v) return inp.focus();
+    err(''); const b = $('spGo'); b.disabled = true; b.textContent = 'Reading…';
+    try {
+      const d = await (await api('/spotify/import?url=' + encodeURIComponent(v))).json();
+      if (spAlive(run)) spMatchAndSave(run, d.title, d.tracks, { partial: d.maybe_partial, spotifyId: d.id });
+    } catch (e) { err(e.message); if (spAlive(run)) { b.disabled = false; b.textContent = 'Import'; } }
+  };
+  $('spGo').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('spFile').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    let lists;
+    try { lists = parseSpotifyExport(JSON.parse(await f.text())); } catch { return err("That file isn't valid JSON."); }
+    if (!lists.length) return err("No playlists found in that file. Choose Playlist1.json or YourLibrary.json.");
+    if (lists.length === 1) return spMatchAndSave(run, lists[0].name, lists[0].tracks, {});
+    spSet(run, `<h3>Choose a playlist</h3><p class="mhint">${lists.length} found in your export.</p>`
+      + lists.map((l, i) => `<button class="plr" data-i="${i}"><span class="qm"><b>${esc(l.name)}</b><span>${l.tracks.length} song${l.tracks.length === 1 ? '' : 's'}</span></span></button>`).join('')
+      + `<div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
+    $('spRoot').onclick = ev => {
+      const b = ev.target.closest('[data-i]'); if (!b) return;
+      $('spRoot').onclick = null; const l = lists[+b.dataset.i];
+      spMatchAndSave(run, l.name, l.tracks, {});
+    };
+  };
+}
+
+async function spMatchAndSave(run, name, tracks, extra){
+  const seen = new Set();
+  tracks = tracks.filter(t => { const k = (t.title + '|' + (t.artists[0] || '')).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  const total = tracks.length, matched = [], missed = [], shaky = [];
+  let stopped = null, errored = 0;
+  const paint = n => spSet(run, `<h3>Matching on YouTube Music…</h3><p class="mhint">${esc(name)}</p>${spBar(n, total)}<p class="mhint">${n} of ${total} songs checked</p><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
+  paint(0);
+  try {
+    for (let i = 0; i < total; i += 20) {
+      if (!spAlive(run)) return;
+      const batch = tracks.slice(i, i + 20); let res;
+      for (let tries = 0; ; tries++) {
+        try { res = (await apiPost('/spotify/match', { tracks: batch.map(t => ({ title: t.title, artists: t.artists, duration: t.duration })) })).results; break; }
+        catch (e) { if (tries >= 2 || [400, 401, 403, 501].includes(e.status)) throw e; await sleep(1500 * (tries + 1)); }
+      }
+      res.forEach((r, j) => {
+        const t = batch[j];
+        if (r.match) { matched.push(r.match); if (r.score < 0.75) shaky.push({ from: t, to: r.match }); }
+        else { missed.push(t); if (r.error) errored++; }
+      });
+      paint(Math.min(i + 20, total));
+    }
+  } catch (e) { stopped = e.message; }
+  if (!spAlive(run)) return;
+  if (!matched.length) return spSet(run, `<h3>${stopped ? 'Import failed' : 'No songs matched'}</h3><p class="${stopped ? 'err' : 'mhint'}">${esc(stopped || "None of those songs could be found on YouTube Music.")}</p><div class="mbtns">${spClose}</div>`);
+  const pl = createPlaylist(name, matched, { spotifyId: extra.spotifyId || '' });
+  spDone(run, pl, { total, missed, shaky, partial: extra.partial, stopped, errored });
+}
+
+function spDone(run, pl, o){
+  const nm = t => esc(t.title + (t.artists.length ? ' · ' + t.artists.join(', ') : ''));
+  const list = (title, rows) => rows.length ? `<details class="spdet"><summary>${title} (${rows.length})</summary><ul>${rows.map(r => `<li>${r}</li>`).join('')}</ul></details>` : '';
+  spSet(run, `<h3>Imported “${esc(pl.name)}”</h3>
+    <p class="mhint">${pl.tracks.length} of ${o.total} songs added to your library.
+      ${o.stopped ? `<span class="err">Stopped early: ${esc(o.stopped)}</span> ` : ''}
+      ${o.errored ? `${o.errored} couldn't be searched just now (run the import again to retry). ` : ''}
+      ${o.partial ? 'Spotify only shares the first part of long playlists publicly, so this may be incomplete. Use the data-export option for the full list.' : ''}</p>
+    ${list('Not found on YouTube Music', o.missed.map(nm))}
+    ${list('Worth a check: closest matches', o.shaky.map(s => `${nm(s.from)} → ${esc(s.to.title)}${s.to.artist ? ' · ' + esc(s.to.artist) : ''}`))}
+    <div class="mbtns"><button class="btn ghost" id="spUp" style="display:none">Upload to YouTube Music</button><button class="btn" id="spOpen">Open playlist</button></div>`);
+  $('spOpen').onclick = () => { closeModal(); show('upl', pl.id); };
+  $('spUp').onclick = () => ytmUpload(pl);
+  api('/ytm/status').then(r => r.json()).then(s => { if (s.configured && spAlive(run) && $('spUp')) $('spUp').style.display = ''; }).catch(() => {});
+}
+
+/* Google device-code sign-in for the user's OWN YouTube Music (token stays in this browser) */
+async function ytmConnect(run){
+  const d = await apiPost('/ytm/auth/start', {});
+  const url = /^https:\/\/(www\.)?google\.com\//.test(d.verification_url || '') ? d.verification_url : 'https://www.google.com/device';
+  spSet(run, `<h3>Connect YouTube Music</h3>
+    <p class="mhint">1. Open <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace(/^https?:\/\//, ''))}</a> and sign in to the Google account you use for YouTube Music.<br>2. Enter this code:</p>
+    <div class="spcode">${esc(d.user_code)}</div><p class="mhint">Waiting for you to approve…</p>
+    <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
+  const every = Math.max(d.interval || 5, 3) * 1000, until = Date.now() + (d.expires_in || 300) * 1000;
+  while (Date.now() < until) {
+    await sleep(every);
+    if (!spAlive(run)) return null;
+    const r = await apiPost('/ytm/auth/poll', { device_code: d.device_code });
+    if (r.status === 'ok') { try { localStorage.setItem('ytm_oauth', JSON.stringify(r.token)); } catch {} return r.token; }
+  }
+  throw new Error('That code expired. Try again.');
+}
+
+async function ytmUpload(pl){
+  const ids = (pl.tracks || []).map(t => t.id).filter(Boolean);
+  if (!ids.length) return toast('Nothing to upload yet', true);
+  if (pl.ytmId && !confirm(`"${pl.name}" was already uploaded to YouTube Music. Upload another copy?`)) return;
+  const run = ++spRun;
+  const msg = (h, body, btns = spClose) => spSet(run, `<h3>${h}</h3>${body}<div class="mbtns">${btns}</div>`);
+  const link = u => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">Open in YouTube Music</a>`;
+  spShell(run, '<h3>Upload to YouTube Music</h3><p class="mhint">Checking…</p>');
+  let pid = null, added = 0, failed = 0;
+  try {
+    const st = await (await api('/ytm/status')).json();
+    if (!st.configured) return msg('Not set up yet', '<p class="mhint">The server needs YTM_OAUTH_CLIENT_ID and YTM_OAUTH_CLIENT_SECRET (a Google OAuth client of type “TVs and Limited Input devices”) before it can upload to YouTube Music.</p>');
+    let tok = jget('ytm_oauth', null) || await ytmConnect(run);
+    if (!tok || !spAlive(run)) return;
+    for (let i = 0; i < ids.length; i += 100) {
+      if (!spAlive(run)) return;
+      msg('Uploading…', `${spBar(i, ids.length)}<p class="mhint">${i} of ${ids.length} songs</p>`, '');
+      let r;
+      try { r = await apiPost('/ytm/playlist/create', { token: tok, title: pl.name, description: 'Imported with Thirai', video_ids: ids.slice(i, i + 100), playlist_id: pid }); }
+      catch (e) { if (e.status === 401) { try { localStorage.removeItem('ytm_oauth'); } catch {} } throw e; }
+      pid = r.playlist_id; added += r.added; failed += r.failed.length;
+    }
+    pl.ytmId = pid; savePl();
+    msg('Uploaded', `<p class="mhint">${added} of ${ids.length} songs added to a new <b>private</b> playlist in your YouTube Music library.${failed ? ` ${failed} couldn't be added.` : ''}</p>`, spClose + link(`https://music.youtube.com/playlist?list=${pid}`));
+  } catch (e) {
+    msg('Upload failed', `<p class="err">${esc(e.message)}</p>${pid ? `<p class="mhint">${added} songs were added before it stopped.</p>` : ''}`, spClose + (pid ? link(`https://music.youtube.com/playlist?list=${pid}`) : ''));
+  }
+}
+
 async function syncPl(pl){
   toast('Syncing from YouTube…');
   try {
@@ -2510,7 +2686,7 @@ function renderUserPl(id){
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
+          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length ? '<button data-m="ytmup">Upload to YouTube Music</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
         </div>
       </div></aside>
       <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div></div></div>`;
@@ -2524,6 +2700,7 @@ function renderUserPl(id){
     else if (k === 'dlall') downloadAll(tracks, pl.name, { id: pl.id, label: pl.name });
     else if (k === 'rename') promptName({ title: 'Rename playlist', value: pl.name, cta: 'Save', onOk: v => { pl.name = v; savePl(); renderUserPl(id); } });
     else if (k === 'sync') syncPl(pl);
+    else if (k === 'ytmup') ytmUpload(pl);
     else if (k === 'find') show('search');
     else if (k === 'del' && confirm(`Delete "${pl.name}"?`)) { playlists = playlists.filter(p => p.id !== id); savePl(); if (dlPlaylists[id]) { delete dlPlaylists[id]; saveDlPlaylists(); } toast('Playlist deleted'); goBack(); }
   };
