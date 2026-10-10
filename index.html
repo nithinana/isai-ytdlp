@@ -1035,6 +1035,7 @@ body.offline .tr.nodl{opacity:.38}
 .pmore{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.07);color:var(--mute);font-size:13px;font-weight:600}
 .pmore:hover{background:rgba(255,255,255,.13);color:#fff}
 .pmore svg{transition:transform .3s cubic-bezier(.32,.72,0,1)}.pmore.open svg{transform:rotate(180deg)}
+.alib{display:flex;justify-content:center;margin-top:14px}.alib .btn{gap:8px}
 .psc{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;padding-bottom:4px}
 .psc::-webkit-scrollbar{display:none}
 .psc .card{width:112px;flex:none}
@@ -3335,15 +3336,24 @@ async function renderShared(slug){
       <h1>${esc(d.name)}</h1>
       <p class="plby">${visPill(d.visibility)}${d.owner ? ` by <a data-uname="${esc(d.owner)}">@${esc(d.owner)}</a>` : ''}</p><p>${meta}</p>
       <div class="aact">
-        ${mine ? '' : `<button class="rb sm" id="shSave" title="${sv[1]}">${ic(sv[2], 18)}</button>`}
+        <button class="rb sm" id="shShare" title="Share">${ic('share', 18)}</button>
+        ${tracks.length ? `<button class="rb sm" id="shDl" title="Download all">${ic('dl', 18)}</button>` : ''}
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
           ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button><button data-m="addall">Add all to playlist</button>' : ''}${d.visibility !== 'private' ? '<button data-m="copylink">Copy link</button>' : ''}
         </div>
-      </div></aside>
+      </div>
+      ${mine ? '' : `<div class="alib"><button class="btn ${copy ? 'ghost' : ''}" id="shSave" title="${sv[1]}">${ic(copy ? 'check' : 'plus', 16)} ${copy ? 'In your library' : 'Add to library'}</button></div>`}</aside>
       <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true)).join('') : '<p class="qmsg">This playlist is empty.</p>'}</div></div></div>`;
   hydrate(main); bindPlay(key, tracks.length);
+  $('shShare').onclick = async () => {
+    if (mine) return openShare(mine);
+    const url = slugUrl(slug);
+    if (navigator.share) { try { await navigator.share({ title: d.name, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    toast(await copyText(url) ? 'Link copied' : "Couldn't copy the link", false);
+  };
+  if ($('shDl')) $('shDl').onclick = () => downloadAll(tracks, d.name, { id: key, label: d.name });
   if ($('shSave')) $('shSave').onclick = () => {
     if (copy) return toast('Already in your library');
     const p = createPlaylist(d.name, tracks, { thumb: d.thumb || '', copyOf: slug });
