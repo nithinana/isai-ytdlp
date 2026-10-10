@@ -752,8 +752,10 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .ly.plain,.ly.plain:hover{opacity:.85;filter:none;transform:none;cursor:default;font-size:18px;font-weight:600;padding:4px 8px;text-shadow:none}
 .ly.plain.on{opacity:1;transform:none;filter:none}
 .ly.plain.past{opacity:.4;filter:none;transform:none}
-.ly.rich.on .w{opacity:.35;transition:opacity .18s}
-.ly.rich.on .w.wd{opacity:1}
+.ly.rich.on .w{color:rgba(255,255,255,.38);transition:color .18s}
+.ly.rich.on .w.wd{color:#fff}
+.ly.rich.on .w.wc{color:transparent;-webkit-text-fill-color:transparent;transition:none;-webkit-background-clip:text;background-clip:text;
+  background-image:linear-gradient(90deg,#fff var(--p,-10%),rgba(255,255,255,.38) calc(var(--p,-10%) + 10%))}
 .lyf{display:flex;gap:8px;margin:8px 4px 6px}
 .lyf .minp{height:42px}
 .lyf .btn{padding:8px 16px;white-space:nowrap;font-size:13px}
@@ -1167,6 +1169,64 @@ body.offline .tr.nodl{opacity:.38}
 .merr{color:#ff7a90!important;min-height:1em}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style id="lyfull-css">
+/* ======== full-screen lyrics (phone): Apple Music-style, with transport docked underneath ======== */
+#lybg,#lyhead,#lyctl{display:none}
+#npv.lyfull .nptop{opacity:0;pointer-events:none}
+#npv.lyfull .npr{height:100%;top:0;bottom:0;padding:0;border-radius:0;border-color:transparent;background:transparent;box-shadow:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;overflow:hidden}
+#npv.lyfull #lybg{display:block;position:absolute;inset:0;z-index:-1;background:
+  radial-gradient(130% 55% at 0% 0%,var(--c1),transparent 72%),
+  radial-gradient(110% 60% at 100% 38%,var(--c2),transparent 72%),
+  radial-gradient(130% 55% at 15% 100%,var(--c1),transparent 72%),
+  linear-gradient(180deg,var(--c3) 0%,var(--bg) 100%)}
+#npv.lyfull #lybg::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.18)}
+#npv.lyfull .tabs,#npv.lyfull .npf,#npv.lyfull .lyhd{display:none}
+#npv.lyfull .grab{position:absolute;top:calc(var(--sat) + 8px);left:50%;transform:translateX(-50%);margin:0;z-index:4;width:40px;height:5px;background:rgba(255,255,255,.38)}
+#npv.lyfull .grab::before{content:'';position:absolute;inset:-14px -34px -10px}
+
+/* header: cover · title/artist · star · more */
+#npv.lyfull #lyhead{display:flex;align-items:center;gap:13px;flex:none;position:relative;z-index:3;touch-action:none;
+  padding:calc(var(--sat) + 26px) 20px 12px}
+#lyart{width:58px;height:58px;border-radius:9px;object-fit:cover;flex:none;background:var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.lyti{flex:1;min-width:0;cursor:pointer}
+.lyti b,.lyti span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lyti b{font-size:17px;font-weight:700;line-height:1.25}
+.lyti span{font-size:15px;color:rgba(255,255,255,.58);margin-top:1px}
+#lylike,#lymore{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;
+  background:rgba(255,255,255,.2);transition:background-color .25s var(--ease),color .25s var(--ease),transform .25s var(--ease)}
+#lylike:active,#lymore:active{transform:scale(.92)}
+#lylike.on{background:#fff;color:#111}
+#lylike svg,#lymore svg{width:18px;height:18px}
+
+/* lyrics */
+#npv.lyfull #npq.lyr{flex:1;min-height:0;padding:6px 24px 38% 24px;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 82%,transparent 100%)}
+#npv.lyfull .ly{font-size:clamp(26px,8.2vw,34px);line-height:1.2;font-weight:800;letter-spacing:-.015em;padding:10px 0;border-radius:0;
+  transform-origin:left center;transform:scale(.95);
+  opacity:max(.16, .5 - var(--d,4)*.08);
+  filter:blur(min(var(--d,4)*.7px, 4px))}
+#npv.lyfull .ly.past{opacity:max(.16, .5 - var(--d,4)*.08);filter:blur(min(var(--d,4)*.7px, 4px));transform:scale(.95)}
+#npv.lyfull .ly.on{opacity:1;filter:none;transform:scale(1)}
+#npv.lyfull .ly.bgv{font-size:clamp(19px,5.8vw,24px);font-weight:700;line-height:1.25;padding:2px 0 12px}
+#npv.lyfull .ly.plain,#npv.lyfull .ly.plain.past{font-size:19px;font-weight:700;line-height:1.35;opacity:.85;filter:none;transform:none;padding:5px 0}
+#npv.lyfull .qlist.lyr .qmsg,#npv.lyfull .qlist.lyr .mhint{margin-left:0;margin-right:0}
+
+/* transport underneath */
+#npv.lyfull #lyctl{display:block;flex:none;position:relative;z-index:3;padding:4px 26px calc(var(--sab) + 12px)}
+#lyctlin{display:flex;flex-direction:column;gap:8px}
+#lyctl .npseek input{height:22px}
+#lyctl .npctl{justify-content:center;gap:38px;margin:0}
+#lyctl .npctl #mshuf,#lyctl .npctl #mrep{display:none}
+#lyctl .npctl button{width:56px;height:56px;border-radius:50%}
+#lyctl .npctl .big{width:76px;height:76px}
+#lyctl .npctl button svg{width:30px;height:30px}
+#lyctl .npctl .big svg{width:38px;height:38px}
+.lyfoot{display:flex;justify-content:center;gap:10px;margin-top:2px}
+.lyfoot button{padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;color:rgba(255,255,255,.8);background:rgba(255,255,255,.12)}
+.lyfoot button:active{background:rgba(255,255,255,.22)}
+</style>
 </head>
 <body>
 <div id="bg"></div>
@@ -1294,11 +1354,19 @@ body.offline .tr.nodl{opacity:.38}
     </div>
   </div>
   <div class="npr glass" id="npr">
+    <div id="lybg"></div>
     <div class="grab" id="grab"></div>
+    <div id="lyhead">
+      <img id="lyart" alt="">
+      <div class="lyti" id="lyti"><b id="lytitle"></b><span id="lyartist"></span></div>
+      <button id="lylike" aria-label="Like"></button>
+      <button id="lymore" aria-label="More"></button>
+    </div>
     <div class="tabs"><button data-tab="queue" class="on">UP NEXT</button><button data-tab="related">RELATED</button><button data-tab="lyrics">LYRICS</button></div>
     <div class="npf"><div><small>Playing from</small><b id="npfrom"></b></div><div class="dsk npfb"><button class="btn ghost" id="npAdd">Add to playlist</button><button class="btn ghost" id="npDl">Download</button><button class="btn" id="npLike">Like</button></div></div>
     <div id="lyhd" class="lyhd" hidden></div>
     <div id="npq" class="qlist"></div>
+    <div id="lyctl"><div id="lyctlin"></div><div class="lyfoot"><button id="lyq">Up next</button><button id="lyback">Player</button></div></div>
   </div>
 </section>
 <div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
@@ -2374,6 +2442,7 @@ function syncLike(){
   $('npLike').textContent = $('mLike').textContent = isLiked(current.id) ? '♥ Liked' : '♡ Like';
   syncNpDl();
   const pb = $('npPlus'); if (pb) { const l = isLiked(current.id); pb.classList.toggle('on', l); pb.innerHTML = ic(l ? 'check' : 'plus', 20); }
+  lyHeadSync();
 }
 function updateNP(){
   const t = current; if (!t) return;
@@ -2520,7 +2589,7 @@ dragOn(document.querySelector('.nptop'), {
 let sheetUp = false;
 dragOn($('npr'), {
   axes: ['y'],
-  ok: e => isMobile() && !!e.target.closest('#grab, .tabs'),
+  ok: e => isMobile() && (!!e.target.closest('#grab, .tabs') || (!!e.target.closest('#lyhead') && !e.target.closest('button'))),
   start: () => { sheetUp = $('npr').classList.contains('up'); $('npr').style.transition = 'none'; },
   move: (dx, dy) => { $('npr').style.transform = sheetUp ? `translateY(${Math.max(0, dy)}px)` : `translateY(calc(100% - 66px - var(--sab) + ${Math.min(0, dy)}px))`; },
   end: (dx, dy, ax, ms) => {
@@ -4393,7 +4462,8 @@ function paintLyrics(d, t){
   lyCur = d; lyProbeSources(t);
   const rich = d.syncType === 'richsync';
   box.innerHTML = d.lines.map((l, i) => {
-    const cls = ['ly', d.synced ? '' : 'plain', rich && l.words ? 'rich' : ''].filter(Boolean).join(' ');
+    const raw = rich && l.words ? l.words.map(w => w.w).join('') : (l.text || '');
+    const cls = ['ly', d.synced ? '' : 'plain', rich && l.words ? 'rich' : '', /^\s*[(\[].*[)\]]\s*$/.test(raw) ? 'bgv' : ''].filter(Boolean).join(' ');
     const body = rich && l.words ? l.words.map(w => `<span class="w">${esc(w.w)}</span>`).join('') : (esc(l.text) || '♪');
     return `<p class="${cls}" data-i="${i}">${body}</p>`;
   }).join('');
@@ -4407,18 +4477,30 @@ function lyUpdate(){
   let lo = 0, hi = L.length - 1, i = -1;
   while (lo <= hi) { const m = (lo + hi) >> 1; if (L[m].t <= tm + 0.08) { i = m; lo = m + 1; } else hi = m - 1; }
   if (i !== lyIdx) {
-    lyEls.forEach((el, k) => { el.classList.toggle('on', k === i); el.classList.toggle('past', k < i); });
+    lyEls.forEach((el, k) => { el.classList.toggle('on', k === i); el.classList.toggle('past', k < i); el.style.setProperty('--d', Math.min(Math.abs(k - i), 6)); });
     lyIdx = i; lyWn = -1;
-    if (i >= 0 && Date.now() - lyUserTs > 3500) {
-      const box = $('npq');
-      box.scrollTo({ top: Math.max(0, lyEls[i].offsetTop - box.clientHeight * .38), behavior: 'smooth' });
-    }
+    if (i >= 0 && Date.now() - lyUserTs > 3500) lyCenter(true);
   }
   if (i >= 0 && L[i].words) {
     const ws = L[i].words; let n = 0;
     while (n < ws.length && ws[n].t <= tm) n++;
-    if (n !== lyWn) { lyWn = n; lyEls[i].querySelectorAll('.w').forEach((s, k) => s.classList.toggle('wd', k < n)); }
+    const sp = lyEls[i].querySelectorAll('.w');
+    if (n !== lyWn) {
+      lyWn = n;
+      sp.forEach((s, k) => { s.classList.toggle('wd', k < n - 1); s.classList.toggle('wc', k === n - 1); if (k !== n - 1) s.style.removeProperty('--p'); });
+    }
+    if (n > 0 && sp[n - 1]) {   // fill the word being sung left-to-right
+      const w0 = ws[n - 1], nx = ws[n] ? ws[n].t : (L[i + 1] ? L[i + 1].t : w0.t + 1);
+      const end = (typeof w0.e === 'number' && w0.e > w0.t) ? w0.e : nx;
+      const p = Math.min(1, Math.max(0, (tm - w0.t) / Math.max(.12, Math.min(end - w0.t, 1.4))));
+      sp[n - 1].style.setProperty('--p', (p * 110 - 10).toFixed(1) + '%');
+    }
   }
+}
+function lyCenter(smooth){
+  if (lyIdx < 0 || !lyEls[lyIdx]) return;
+  const box = $('npq'), full = $('npv').classList.contains('lyfull');
+  box.scrollTo({ top: Math.max(0, lyEls[lyIdx].offsetTop - box.clientHeight * (full ? .24 : .38)), behavior: smooth ? 'smooth' : 'auto' });
 }
 function lyKick(){
   if (!lyRaf && npTab === 'lyrics' && lyCur && lyCur.synced && !a.paused && $('npv').classList.contains('open')) lyRaf = requestAnimationFrame(lyLoop);
@@ -4436,6 +4518,39 @@ function lySeek(i){
 }
 $('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList.add('up'); };
 syncLyTab();   // lyrics tab starts hidden
+
+/* ---------- full-screen lyrics (phone) ---------- */
+const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="12 2.8 14.9 8.7 21.4 9.6 16.7 14.2 17.8 20.7 12 17.6 6.2 20.7 7.3 14.2 2.6 9.6 9.1 8.7"/></svg>';
+const STAR0 = STAR.replace('fill="currentColor"', 'fill="none"');
+const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18.5" cy="12" r="2"/></svg>';
+function lyHeadSync(){
+  const t = current; if (!t) return;
+  const l = isLiked(t.id);
+  setImg($('lyart'), t, 200);
+  $('lytitle').textContent = t.title || ''; $('lyartist').textContent = t.artist || '';
+  $('lylike').classList.toggle('on', l); $('lylike').innerHTML = l ? STAR : STAR0;
+}
+(() => {
+  const npv = $('npv'), npr = $('npr'), seekBox = document.querySelector('.npseek'), ctlBox = document.querySelector('.npctl'),
+        card = document.querySelector('.npcard'), dock = $('lyctlin');
+  $('lymore').innerHTML = DOTS; $('lylike').innerHTML = STAR0;
+  let on = false;
+  /* full-screen = phone + sheet open + Lyrics tab. The seek bar and transport are moved (not copied) into the dock, so all existing wiring keeps working. */
+  function sync(){
+    const want = isMobile() && npr.classList.contains('up') && npr.classList.contains('lyrmode');
+    if (want === on) return; on = want;
+    npv.classList.toggle('lyfull', want);
+    if (want) { dock.append(seekBox, ctlBox); lyHeadSync(); requestAnimationFrame(() => lyCenter(false)); }
+    else card.append(seekBox, ctlBox);
+  }
+  new MutationObserver(sync).observe(npr, { attributes: true, attributeFilter: ['class'] });
+  matchMedia('(max-width:720px)').addEventListener('change', sync);
+  $('lylike').onclick = () => current && toggleLike(current);
+  $('lymore').onclick = () => $('npmore').click();
+  $('lyti').onclick = $('lyart').onclick = $('lyback').onclick = () => npr.classList.remove('up');
+  $('lyq').onclick = () => setTab('queue');
+  sync();
+})();
 
 /* ---------- PWA & install ---------- */
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
