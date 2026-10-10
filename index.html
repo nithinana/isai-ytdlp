@@ -898,11 +898,16 @@ body.offline .tr.nodl{opacity:.38}
   .npr{transition:transform .42s var(--ease),background-color .45s var(--ease),border-color .45s var(--ease),box-shadow .45s var(--ease)}
 }
 @media(max-width:380px){#lkBoxes{gap:6px}#lkBoxes input{height:52px}}
-.nplogo,.npdlm{display:none}
+.npdlm{display:none}
 .npbtns{display:flex;gap:10px;flex:none}
-.npdlm.busy{opacity:.5;pointer-events:none}
+.npdlm.busy{opacity:.5;pointer-events:none;animation:npdlp 1s ease-in-out infinite}
+@keyframes npdlp{50%{opacity:.25}}
 @media(max-width:720px){
-  .nplogo{display:block;height:18px;width:auto;max-width:40vw;object-fit:contain;opacity:.95;pointer-events:none}
+  .npbtns{gap:4px;align-items:center}
+  .npbtns .npplus{width:44px;height:44px;border:0;background:none;box-shadow:none}
+  .npbtns .npplus svg{width:28px;height:28px}
+  .npbtns .npplus.on{background:none;color:#fff}
+  .npbtns .npdlm.on{color:#3ddc84}
   .npdlm{display:grid}
   #mDl{display:none}
 }
@@ -1068,7 +1073,7 @@ body.offline .tr.nodl{opacity:.38}
 </div>
 
 <section id="npv">
-  <div class="nptop"><button id="npclose" data-ic="down" title="Close"></button><img class="nplogo" src="https://thirai.uk/static/thiraiwhite.png" alt="Thirai"><button id="npmore" data-ic="dots" title="More"></button></div>
+  <div class="nptop"><button id="npclose" data-ic="down" title="Close"></button><button id="npmore" data-ic="dots" title="More"></button></div>
   <div class="npl">
     <img id="npcover" alt="">
     <div class="npcard glass">
@@ -2146,7 +2151,7 @@ function syncNpDl(){
   const b = $('npDlM'); if (!b) return;
   const have = !!current && dls.some(d => d.id === current.id), busy = !!current && !!dlActive[current.id];
   b.classList.toggle('on', have); b.classList.toggle('busy', busy);
-  b.innerHTML = ic(have ? 'check' : 'dl', 20);
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>';
   b.title = have ? 'Downloaded' : 'Download';
 }
 $('npAlbum').onclick = () => current && openAlbumOf(current);
