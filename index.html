@@ -1140,7 +1140,12 @@ async function api(path){
   return r;
 }
 const GOOG = /googleusercontent\.com|ggpht\.com/;
+const extras = {};                       // trackId -> { url, obj, cover, lyrics, v }  (offline cover + lyrics for downloads)
 const cov = (t, s = 320) => {
+  if (!t.kind && t.id && extras[t.id] && extras[t.id].url) return extras[t.id].url;
+  return rawCov(t, s);
+};
+const rawCov = (t, s = 320) => {
   const u = t.thumbnail || '';
   if (GOOG.test(u)) return u.replace(/=[wsh]\d+[^/]*$/, `=w${s}-h${s}-l90-rj`);
   if (t.kind) return u;
@@ -1819,8 +1824,8 @@ if (MS) {
   set('pause', () => { a.pause(); });
   set('previoustrack', doPrev);
   set('nexttrack', doNext);
-  set('seekbackward', e => { a.currentTime = Math.max(0, a.currentTime - (e.seekOffset || 10)); msPos(true); });
-  set('seekforward', e => { a.currentTime = Math.min(a.duration || 1e9, a.currentTime + (e.seekOffset || 10)); msPos(true); });
+  set('seekbackward', null);   // seek-by-seconds buttons would replace the previous/next song buttons on the lock screen / notification
+  set('seekforward', null);
   set('seekto', e => { if (e.fastSeek && 'fastSeek' in a) a.fastSeek(e.seekTime); else a.currentTime = e.seekTime; msPos(true); });
   set('stop', () => { a.pause(); });
 }
@@ -1972,8 +1977,8 @@ const idb = (() => {
   let p;
   const open = () => p || (p = new Promise((res, rej) => {
     if (!window.indexedDB) return rej(new Error('IndexedDB is not available in this browser'));
-    const r = indexedDB.open('thirai', 2);
-    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'id' }); if (!d.objectStoreNames.contains('blobs')) d.createObjectStore('blobs'); if (!d.objectStoreNames.contains('artists')) d.createObjectStore('artists', { keyPath: 'key' }); };
+    const r = indexedDB.open('thirai', 3);
+    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'id' }); if (!d.objectStoreNames.contains('blobs')) d.createObjectStore('blobs'); if (!d.objectStoreNames.contains('artists')) d.createObjectStore('artists', { keyPath: 'key' }); if (!d.objectStoreNames.contains('extras')) d.createObjectStore('extras', { keyPath: 'id' }); };
     r.onsuccess = () => res(r.result);
     r.onerror = () => { p = null; rej(r.error); };
   }));
@@ -1989,14 +1994,105 @@ const idb = (() => {
     all: () => run('meta', 'readonly', t => t.objectStore('meta').getAll()),
     blob: id => run('blobs', 'readonly', t => t.objectStore('blobs').get(id)),
     put: (m, b) => run(['meta', 'blobs'], 'readwrite', t => { t.objectStore('blobs').put(b, m.id); t.objectStore('meta').put(m); }),
-    del: id => run(['meta', 'blobs'], 'readwrite', t => { t.objectStore('blobs').delete(id); t.objectStore('meta').delete(id); }),
+    del: id => run(['meta', 'blobs', 'extras'], 'readwrite', t => { t.objectStore('blobs').delete(id); t.objectStore('meta').delete(id); t.objectStore('extras').delete(id); }),
+    extras: () => run('extras', 'readonly', t => t.objectStore('extras').getAll()),
+    putExtra: rec => run('extras', 'readwrite', t => { t.objectStore('extras').put(rec); }),
     artists: () => run('artists', 'readonly', t => t.objectStore('artists').getAll()),
     putArtist: rec => run('artists', 'readwrite', t => { t.objectStore('artists').put(rec); }),
-    clear: () => run(['meta', 'blobs', 'artists'], 'readwrite', t => { t.objectStore('blobs').clear(); t.objectStore('meta').clear(); t.objectStore('artists').clear(); })
+    clear: () => run(['meta', 'blobs', 'artists', 'extras'], 'readwrite', t => { t.objectStore('blobs').clear(); t.objectStore('meta').clear(); t.objectStore('artists').clear(); t.objectStore('extras').clear(); })
   };
 })();
 let dlsReady = false;
-idb.all().then(r => { dls = r || []; }).catch(() => {}).finally(() => { dlsReady = true; if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); });
+idb.all().then(r => { dls = r || []; }).catch(() => {}).then(() => loadExtras()).finally(() => { dlsReady = true; if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); ensureExtras(); });
+
+/* ---------- offline album art + lyrics for downloads ---------- */
+const EXTRA_VER = 1;
+const exMig = { on: false, total: 0, done: 0, busy: false };
+const exInflight = {};
+let extrasP = null;
+function setExtra(r){
+  const old = extras[r.id]; if (old && old.obj) URL.revokeObjectURL(old.obj);
+  const obj = r.cover ? URL.createObjectURL(r.cover) : '';
+  extras[r.id] = { url: obj, obj, cover: r.cover || null, lyrics: r.lyrics || null, v: r.v || 0 };
+}
+function dropExtra(id){ const o = extras[id]; if (o && o.obj) URL.revokeObjectURL(o.obj); delete extras[id]; }
+function dropAllExtras(){ Object.keys(extras).forEach(dropExtra); }
+function loadExtras(){ return extrasP || (extrasP = (async () => { try { (await idb.extras() || []).forEach(setExtra); } catch {} })()); }
+async function fetchCoverBlob(t){
+  const urls = [rawCov(t, 800), `${base()}/cover/${t.id}?s=800`];
+  for (const u of urls) {
+    try { const r = await fetch(u); if (!r.ok) continue; const b = await r.blob(); if (/^image\//.test(b.type) && b.size > 500) return b; } catch {}
+  }
+  return null;
+}
+async function fetchLyricsData(t){
+  const isrc = isrcs[t.id] || '';
+  const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, album: t.album || '', duration: Math.round(t.duration || 0) || '', source: 'auto' }).filter(([, v]) => v));
+  return await (await api(`/lyrics/${t.id}?${qs}`)).json();
+}
+/* downloads a song's cover + lyrics and stores them next to the audio; resolves true when everything that exists was saved */
+function saveExtras(t){
+  if (exInflight[t.id]) return exInflight[t.id];
+  return exInflight[t.id] = (async () => {
+    const old = extras[t.id] || {};
+    const rec = { id: t.id, cover: old.cover || null, lyrics: old.lyrics || null, v: 0 };
+    let err = false;
+    if (!rec.cover) { try { rec.cover = await fetchCoverBlob(t); } catch {} if (!rec.cover) err = true; }
+    if (!rec.lyrics && !(old.v >= EXTRA_VER)) {
+      try { const d = await fetchLyricsData(t); if (d && d.found && d.lines && d.lines.length) rec.lyrics = d; }
+      catch { err = true; }
+    }
+    rec.v = err ? 0 : EXTRA_VER;
+    if (rec.cover || rec.lyrics || rec.v) { await idb.putExtra(rec); setExtra(rec); }
+    return !err;
+  })().finally(() => { delete exInflight[t.id]; });
+}
+async function saveExtraLyrics(t, d){
+  const old = extras[t.id] || {};
+  const rec = { id: t.id, cover: old.cover || null, lyrics: d, v: Math.max(old.v || 0, EXTRA_VER) };
+  try { await idb.putExtra(rec); setExtra(rec); } catch {}
+}
+const missingExtras = () => dls.filter(t => !dlActive[t.id] && !(extras[t.id] && extras[t.id].v >= EXTRA_VER && extras[t.id].cover));
+function paintExMig(){
+  const t = $('updT'), i = $('updI');
+  if (t) t.textContent = `Saving album art & lyrics · ${exMig.done}/${exMig.total}`;
+  if (i) i.style.width = Math.round(exMig.done / Math.max(1, exMig.total) * 100) + '%';
+}
+async function ensureExtras(){
+  if (!dlsReady) return;
+  if (exMig.busy) return;
+  await loadExtras();
+  const todo = missingExtras();
+  if (!todo.length) return;
+  if (!window.__unlocked || !navigator.onLine) return;
+  exMig.busy = true; exMig.on = todo.length > 1; exMig.total = todo.length; exMig.done = 0;
+  if (exMig.on && view === 'downloads') renderDownloads();
+  const q = todo.slice(), swapped = [];
+  const worker = async () => { while (q.length) { const t = q.shift(); try { await saveExtras(t); swapped.push(t.id); } catch {} exMig.done++; paintExMig(); } };
+  await Promise.all([worker(), worker(), worker()]);
+  const wasOn = exMig.on;
+  exMig.busy = false; exMig.on = false;
+  if (view === 'downloads') { if (wasOn) renderDownloads(); }
+  else if (current && swapped.includes(current.id)) { try { setImg($('npcover'), current, 800); } catch {} }
+}
+function toLrc(d){
+  if (!d || !d.lines) return '';
+  const tag = x => { const m = Math.floor(x / 60), sec = x - m * 60; return `[${String(m).padStart(2, '0')}:${sec.toFixed(2).padStart(5, '0')}]`; };
+  return d.lines.map(l => {
+    const txt = l.text || (l.words ? l.words.map(w => w.w).join('') : '');
+    return d.synced && typeof l.t === 'number' ? tag(l.t) + txt : txt;
+  }).join('\n');
+}
+const baseName = f => String(f || '').replace(/\.[^.\/]+$/, '');
+/* "Save file to device": the audio plus its cover image and .lrc lyrics */
+async function saveWithExtras(t){
+  const bl = await idb.blob(t.id); if (!bl) return toast('File not found', true);
+  const fname = t.file || `${t.title}.${t.fmt || 'mp3'}`, bn = baseName(fname);
+  saveFile(bl, fname);
+  const ex = extras[t.id];
+  if (ex && ex.cover) { const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' })[ex.cover.type] || 'jpg'; await new Promise(r => setTimeout(r, 450)); saveFile(ex.cover, `${bn}.${ext}`); }
+  if (ex && ex.lyrics) { const lrc = toLrc(ex.lyrics); if (lrc) { await new Promise(r => setTimeout(r, 450)); saveFile(new Blob([lrc], { type: 'text/plain;charset=utf-8' }), `${bn}.lrc`); } }
+}
 
 /* ---------- download ---------- */
 const fmtSize = b => !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
@@ -2042,7 +2138,9 @@ async function download(t, btn, quiet, job){
       await idb.put(meta, blob);
       dls = [meta, ...dls.filter(d => d.id !== t.id)];
       navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {});
-      ok = true; if (!quiet) toast('Saved to Downloads');
+      ok = true;
+      try { await saveExtras(t); } catch {}
+      if (!quiet) toast('Saved to Downloads');
     } catch (e) {
       if (quiet) throw e;
       saveFile(blob, fname); ok = true; toast('Could not store offline, saved as a file instead', true);
@@ -2180,7 +2278,8 @@ function renderDownloads(){
       rows += dlrow(t, i);
     });
   } else rows = items.map(dlrow).join('');
-  const updBanner = artMig.on ? `<div class="updb" id="updb"><span class="spin"></span><div><b>Updating your downloads…</b><span class="ut" id="updT">Saving artist profiles · ${artMig.done}/${artMig.total}</span><div class="dlbar"><i id="updI" style="width:${Math.round(artMig.done / Math.max(1, artMig.total) * 100)}%"></i></div></div></div>` : '';
+  const bn_ = exMig.on ? { l: 'Saving album art & lyrics', d: exMig.done, n: exMig.total } : { l: 'Saving artist profiles', d: artMig.done, n: artMig.total };
+  const updBanner = (artMig.on || exMig.on) ? `<div class="updb" id="updb"><span class="spin"></span><div><b>Updating your downloads…</b><span class="ut" id="updT">${bn_.l} · ${bn_.d}/${bn_.n}</span><div class="dlbar"><i id="updI" style="width:${Math.round(bn_.d / Math.max(1, bn_.n) * 100)}%"></i></div></div></div>` : '';
   $('main').innerHTML = `<div class="pg">${updBanner}<div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
       <div class="dlhb"><button class="btn ghost" id="dlNew" data-dlnew hidden>↻ Refresh list</button><button class="btn ghost" id="dlProg" data-dlq>See progress</button>${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div></div>
     <p class="dlsub" id="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
@@ -2195,7 +2294,7 @@ function renderDownloads(){
   const c = $('dlClear');
   if (c) c.onclick = async () => {
     if (!confirm('Delete all downloaded songs from this device?')) return;
-    try { await idb.clear(); dls = []; for (const k in artProf) delete artProf[k]; for (const k in dlPlaylists) delete dlPlaylists[k]; saveDlPlaylists(); } catch (e) { toast(e.message, true); }
+    try { await idb.clear(); dropAllExtras(); dls = []; for (const k in artProf) delete artProf[k]; for (const k in dlPlaylists) delete dlPlaylists[k]; saveDlPlaylists(); } catch (e) { toast(e.message, true); }
     renderDownloads();
   };
   dlStale = false; paintDlSummary();
@@ -2238,6 +2337,7 @@ async function fetchProfile(a){
   await saveProfile({ key: a.key, id: (d && d.id) || a.id || '', name: a.name, thumb: (d && d.thumbnail) || '' });
 }
 function paintMig(){
+  if (exMig.on) return;
   const t = $('updT'), i = $('updI');
   if (t) t.textContent = `Saving artist profiles · ${artMig.done}/${artMig.total}`;
   if (i) i.style.width = Math.round(artMig.done / Math.max(1, artMig.total) * 100) + '%';
@@ -2458,8 +2558,8 @@ document.addEventListener('click', e => {
   if (lr) {
     const t = (lists[listKey] || [])[lr.dataset.i]; if (!t) return;
     if (!b) return playFrom(listKey, +lr.dataset.i, false);
-    if (b.dataset.a === 'rmdl') { idb.del(t.id).then(() => { dls = dls.filter(d => d.id !== t.id); renderDownloads(); syncBadges(); }).catch(err => toast(err.message, true)); return; }
-    if (b.dataset.a === 'save') { idb.blob(t.id).then(bl => bl ? saveFile(bl, t.file || `${t.title}.${t.fmt || 'mp3'}`) : toast('File not found', true)).catch(err => toast(err.message, true)); return; }
+    if (b.dataset.a === 'rmdl') { idb.del(t.id).then(() => { dropExtra(t.id); dls = dls.filter(d => d.id !== t.id); renderDownloads(); syncBadges(); }).catch(err => toast(err.message, true)); return; }
+    if (b.dataset.a === 'save') { saveWithExtras(t).catch(err => toast(err.message, true)); return; }
     if (b.dataset.a === 'pl') return openAddModal([t]);
     if (b.dataset.a === 'rmpl') return removeFromPl(t);
     return b.dataset.a === 'dl' ? download(t, b) : toggleLike(t);
@@ -2974,11 +3074,14 @@ async function loadLyrics(){
   const isrc = isrcs[t.id] || '', key = `${t.id}|${lySrc()}|${isrc}`;
   lyCur = null; lyHeader(null);
   if (lyCache[key]) return paintLyrics(lyCache[key], t);
+  const ex = extras[t.id];
+  if (ex && ex.lyrics && lySrc() === 'auto' && !isrc) { lyCache[key] = ex.lyrics; return paintLyrics(ex.lyrics, t); }
   box.innerHTML = '<p class="qmsg">Finding lyrics…</p>';
   const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, album: t.album || '', duration: Math.round(t.duration || 0) || '', source: lySrc() }).filter(([, v]) => v));
   try {
     const d = await (await api(`/lyrics/${t.id}?${qs}`)).json();
     lyCache[key] = d;
+    if (d.found && d.lines && d.lines.length && lySrc() === 'auto' && dls.some(x => x.id === t.id) && !(extras[t.id] && extras[t.id].lyrics)) saveExtraLyrics(t, d);
     if (npTab !== 'lyrics' || current !== t) return;
     paintLyrics(d, t);
   } catch (e) { if (npTab === 'lyrics' && current === t) box.innerHTML = `<p class="qmsg err">${esc(e.message)}</p>`; }
@@ -3120,6 +3223,7 @@ updateInstallBtn();
     const go = () => show(navigator.onLine ? 'home' : 'downloads');
     go();
     loadArtProfiles().then(() => ensureArtistProfiles());
+    loadExtras().then(() => ensureExtras());
   }
   function showLock(){
     window.__unlocked = false;
