@@ -1036,6 +1036,11 @@ body.offline .tr.nodl{opacity:.38}
 .pmore:hover{background:rgba(255,255,255,.13);color:#fff}
 .pmore svg{transition:transform .3s cubic-bezier(.32,.72,0,1)}.pmore.open svg{transform:rotate(180deg)}
 .alib{display:flex;justify-content:center;margin-top:14px}.alib .btn{gap:8px}
+.aauto{gap:10px!important}
+.sw{position:relative;display:inline-block;width:34px;height:20px;border-radius:999px;background:rgba(255,255,255,.22);transition:background-color .3s var(--ease);flex:none;margin-left:2px}
+.sw i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4);transition:transform .35s var(--ease)}
+.aauto.on .sw{background:#4cd58a}.aauto.on .sw i{transform:translateX(14px)}
+.aauto.on{border-color:rgba(76,213,138,.45)}
 .psc{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;padding-bottom:4px}
 .psc::-webkit-scrollbar{display:none}
 .psc .card{width:112px;flex:none}
@@ -1607,7 +1612,12 @@ function pushPlaylists(){
   }
   for (const pid in plSnap) if (!seen.has(pid)) { acct.send('DELETE', '/isai/playlists/' + enc(pid)); delete plSnap[pid]; }
 }
-function savePl(){ clearTimeout(plT); plT = setTimeout(pushPlaylists, 400); return true; }
+function savePl(){ clearTimeout(plT); plT = setTimeout(pushPlaylists, 400); queueAutoDl(); return true; }
+function queueAutoDl(){ clearTimeout(autoT); autoT = setTimeout(autoDlAll, 1500); }
+function autoDlAll(){
+  if (!acctReady || !dlsReady || !navigator.onLine) return;
+  for (const p of playlists) if (p.autodl && p.tracks.length) downloadAll(p.tracks, p.name, { id: p.id, label: p.name }, true);
+}
 const flushPlaylists = () => { pushPlaylists(); return acct.flushed(); };
 
 /* ---- start-up: send anything queued, move old local data, then load the account's library ---- */
@@ -1622,7 +1632,7 @@ async function initAccount(){
     const d = r.d;
     liked = d.liked || []; saved = d.saved || []; recent = d.recent || [];
     playlists = (d.playlists || []).map(fromServerPl); acctName = d.username || '';
-    snapPl(); applyProfileSummary(d.profile); paintNavAvatar(); acctReady = true;
+    snapPl(); applyProfileSummary(d.profile); paintNavAvatar(); acctReady = true; queueAutoDl();
     if (!acctName) requireUsername();
   } catch (e) {
     toast("Couldn't load your library. Retrying…", true);
@@ -1635,7 +1645,8 @@ function requireUsername(){
   askUsername(() => { closeModal(); toast('Welcome, @' + acctName); refreshAccountView(); }, null, true);
 }
 function refreshAccountView(){ if (acctReady && ['home', 'liked', 'upl', 'settings', 'profile'].includes(view)) show(view, viewArg, true); }
-addEventListener('online', () => { if (!acctReady && window.__unlocked) initAccount().then(refreshAccountView); });
+addEventListener('online', () => { if (!acctReady && window.__unlocked) initAccount().then(refreshAccountView); else queueAutoDl(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) queueAutoDl(); });
 
 /* ---- deep links: ?p=<share slug> opens a shared playlist once signed in ---- */
 function openDeepLink(){
@@ -1649,6 +1660,7 @@ function openDeepLink(){
   } catch {}
 }
 let dls = []; const dlActive = {}; let offUrl = null;
+let autoT = 0; const autoFailed = new Set();   // auto-download: debounce timer + songs that failed this session (not retried until reload)
 const dlJobs = []; let dlRunning = false, dlStale = false, dlPanelT = 0;   // download queue: playlist jobs + stale-list flag
 let queue = [], qi = -1, token = 0, current = null;
 let shuffle = false, repeat = 'off', queueName = '', npTab = 'queue', seeking = false;
@@ -2595,7 +2607,7 @@ const idb = (() => {
   };
 })();
 let dlsReady = false;
-idb.all().then(r => { dls = r || []; }).catch(() => {}).then(() => loadExtras()).finally(() => { dlsReady = true; if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); ensureExtras(); });
+idb.all().then(r => { dls = r || []; }).catch(() => {}).then(() => loadExtras()).finally(() => { dlsReady = true; queueAutoDl(); if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); ensureExtras(); });
 
 /* ---------- offline album art + lyrics for downloads ---------- */
 const EXTRA_VER = 1;
@@ -4101,10 +4113,19 @@ function renderUserPl(id){
         <div class="menu glass" id="amenu" hidden>
           ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
         </div>
-      </div></aside>
+      </div>
+      <div class="alib"><button class="btn ghost aauto ${pl.autodl ? 'on' : ''}" id="uAuto" role="switch" aria-checked="${!!pl.autodl}" title="Automatically download every song in this playlist, including ones you add later">${ic('dl', 16)}<span>Auto-download</span><i class="sw"><i></i></i></button></div></aside>
       <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div>`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
   $('uShare').onclick = () => openShare(pl);
+  $('uAuto').onclick = e => {
+    const b = e.currentTarget, on = !pl.autodl;
+    if (on) pl.autodl = true; else delete pl.autodl;
+    b.classList.toggle('on', on); b.setAttribute('aria-checked', on);
+    savePl();
+    if (on) { toast(tracks.length ? 'Auto-download on · songs save to this device' : 'Auto-download on · new songs will save to this device'); autoDlAll(); }
+    else toast('Auto-download off');
+  };
   $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, { id: pl.id, label: pl.name }) : toast('Nothing to download yet');
   $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
   $('amenu').onclick = e => {
@@ -4192,28 +4213,36 @@ async function runDlQueue(){
         const t = job.todo.shift(); if (!t) break;
         if (dls.some(d => d.id === t.id) || dlActive[t.id]) { job.done++; dlTick(); continue; }   // already saved / being saved elsewhere
         const ok = await download(t, null, true, job);
-        ok ? job.done++ : job.fail++; dlTick();
+        if (ok) job.done++; else { job.fail++; if (job.auto) autoFailed.add(t.id); } dlTick();
       }
     };
     await Promise.all([worker(), worker()]);
     dlJobs.shift(); queueArt();
-    toast(job.stop ? `Stopped · ${job.done} of ${job.total} saved` : `Downloaded ${job.done} of ${job.total} songs` + (job.fail ? ` (${job.fail} failed)` : ''), job.fail > 0 && !job.done);
+    if (job.auto && !job.stop && !job.fail) toast(`Auto-downloaded ${job.done} song${job.done === 1 ? '' : 's'} · ${job.label}`); else toast(job.stop ? `Stopped · ${job.done} of ${job.total} saved` : `Downloaded ${job.done} of ${job.total} songs` + (job.fail ? ` (${job.fail} failed)` : ''), job.fail > 0 && !job.done);
     dlTick(true);
   }
   dlRunning = false; dlTick(true);
 }
-function downloadAll(tracks, label, plMeta){
-  const todo = (tracks || []).filter((t, i, arr) => t && t.id && !dls.some(d => d.id === t.id) && arr.findIndex(x => x.id === t.id) === i);
-  if (!todo.length) return toast('Everything here is already downloaded');
+function downloadAll(tracks, label, plMeta, auto){
+  const todo = (tracks || []).filter((t, i, arr) => t && t.id && !dls.some(d => d.id === t.id) && arr.findIndex(x => x.id === t.id) === i
+    && !(auto && (autoFailed.has(t.id) || dlActive[t.id])));
+  if (!todo.length) return auto ? 0 : toast('Everything here is already downloaded');
   const pid = plMeta && plMeta.id;
-  if (pid && dlJobs.some(j => j.pid === pid && !j.stop)) return toast('Already in the download queue');
+  const live = pid && dlJobs.find(j => j.pid === pid && !j.stop);
+  if (live) {
+    if (!auto) return toast('Already in the download queue');
+    const queued = new Set(live.todo.map(x => x.id)), add = todo.filter(t => !queued.has(t.id));
+    if (add.length) { live.todo.push(...add); live.total += add.length; dlTick(); }
+    return;
+  }
   if (pid) {
     dlPlaylists[pid] = { label: label || plMeta.label || 'Playlist', tracks: tracks.map(slim), ts: Date.now() };
     saveDlPlaylists();
   }
   const ahead = dlJobs.length;
-  dlJobs.push({ pid, label: label || 'playlist', total: todo.length, done: 0, fail: 0, todo, stop: false, active: false });
-  toast(ahead ? `Added to queue · ${ahead} ahead of it` : `Downloading ${todo.length} song${todo.length === 1 ? '' : 's'}…`);
+  dlJobs.push({ pid, label: label || 'playlist', total: todo.length, done: 0, fail: 0, todo, stop: false, active: false, auto: !!auto });
+  if (auto) toast(`Auto-downloading ${todo.length} song${todo.length === 1 ? '' : 's'} from "${label}"`);
+  else toast(ahead ? `Added to queue · ${ahead} ahead of it` : `Downloading ${todo.length} song${todo.length === 1 ? '' : 's'}…`);
   runDlQueue();
 }
 async function downloadArtist(id, name, base, thumb){
