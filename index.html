@@ -891,6 +891,16 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .acrow>em{min-width:64px;text-align:right}
 .hday{color:var(--mute);font-size:13px;font-weight:600;margin:20px 0 6px;text-transform:uppercase;letter-spacing:.06em}
 .hrow{cursor:pointer}
+.robar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;padding:8px 12px;opacity:.85;font-size:14px}
+.rrow{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.05);margin-bottom:6px;user-select:none;-webkit-user-select:none}
+.rrow .qt{width:44px;height:44px;flex:none}
+.rrow .qm{flex:1;min-width:0}
+.rrow .qm b,.rrow .qm span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrow.drag{background:rgba(255,255,255,.18);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.rgrip{touch-action:none;cursor:grab;background:none;border:0;color:inherit;padding:10px;opacity:.7}
+.rmv{display:flex;flex:none}
+.rmv button{background:none;border:0;color:inherit;padding:8px;opacity:.7;cursor:pointer}
+.rmv button:hover,.rgrip:hover{opacity:1}
 #langpick{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 #langpick.on{display:flex}
 #langpick .lpbox{width:100%;max-width:420px;padding:26px 22px;border-radius:22px;background:rgba(30,30,34,.92);color:#fff;text-align:center}
@@ -1072,6 +1082,7 @@ const ICONS = {
   check:'M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'
 };
 const STROKES = {
+  grip:'<line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="16" x2="20" y2="16"/>',
   shuffle:'<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>',
   repeat:'<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',
   up:'<polyline points="6 15 12 9 18 15"/>', down:'<polyline points="6 9 12 15 18 9"/>',
@@ -2579,7 +2590,7 @@ function openSpotifyImport(prefill = ''){
     err(''); const b = $('spGo'); b.disabled = true; b.textContent = 'Reading…';
     try {
       const d = await (await api('/spotify/import?url=' + encodeURIComponent(v))).json();
-      if (spAlive(run)) spMatchAndSave(run, d.title, d.tracks, { partial: d.maybe_partial, spotifyId: d.id });
+      if (spAlive(run)) spMatchAndSave(run, d.title, d.tracks, { partial: d.maybe_partial, spotifyId: d.id, thumb: d.thumbnail });
     } catch (e) { err(e.message); if (spAlive(run)) { b.disabled = false; b.textContent = 'Import'; } }
   };
   $('spGo').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
@@ -2625,7 +2636,7 @@ async function spMatchAndSave(run, name, tracks, extra){
   } catch (e) { stopped = e.message; }
   if (!spAlive(run)) return;
   if (!matched.length) return spSet(run, `<h3>${stopped ? 'Import failed' : 'No songs matched'}</h3><p class="${stopped ? 'err' : 'mhint'}">${esc(stopped || "None of those songs could be found on YouTube Music.")}</p><div class="mbtns">${spClose}</div>`);
-  const pl = createPlaylist(name, matched, { spotifyId: extra.spotifyId || '' });
+  const pl = createPlaylist(name, matched, { spotifyId: extra.spotifyId || '', ...(/^https:\/\/[\w.-]*(scdn\.co|spotifycdn\.com)\//.test(extra.thumb || '') ? { thumb: extra.thumb } : {}) });
   spDone(run, pl, { total, missed, shaky, partial: extra.partial, stopped, errored });
 }
 
@@ -2706,6 +2717,40 @@ function removeFromPl(t){
   pl.tracks = pl.tracks.filter(x => x.id !== t.id); savePl();
   renderUserPl(pl.id); toast('Removed from playlist');
 }
+let plReorder = null;
+const roRows = tracks => tracks.map((t, i) => `<div class="rrow" data-id="${esc(t.id)}"><button class="rgrip" title="Drag to reorder" aria-label="Drag to reorder">${ic('grip', 20)}</button><div class="qt">${imgTag(t, 120)}</div><div class="qm"><b>${esc(t.title)}</b><span>${esc((t.artists && t.artists.join(', ')) || t.artist || '')}</span></div><span class="rmv"><button data-mv="-1" title="Move up" aria-label="Move up">${ic('up', 18)}</button><button data-mv="1" title="Move down" aria-label="Move down">${ic('down', 18)}</button></span></div>`).join('');
+function bindReorder(pl){
+  const box = $('roList'); if (!box) return;
+  const commit = () => {
+    const order = [...box.children].map(r => r.dataset.id), by = new Map(pl.tracks.map(t => [t.id, t]));
+    const next = order.map(i => by.get(i)).filter(Boolean);
+    if (next.length === pl.tracks.length) { pl.tracks = next; savePl(); }
+  };
+  box.onclick = e => {
+    const b = e.target.closest('[data-mv]'); if (!b) return;
+    const row = b.closest('.rrow'), d = +b.dataset.mv;
+    const other = d < 0 ? row.previousElementSibling : row.nextElementSibling; if (!other) return;
+    if (d < 0) box.insertBefore(row, other); else box.insertBefore(other, row);
+    commit(); b.focus();
+  };
+  let drag = null;
+  box.onpointerdown = e => {
+    const g = e.target.closest('.rgrip'); if (!g) return;
+    drag = g.closest('.rrow'); drag.classList.add('drag');
+    try { g.setPointerCapture(e.pointerId); } catch {}
+    e.preventDefault();
+  };
+  box.onpointermove = e => {
+    if (!drag) return;
+    const rows = [...box.children].filter(r => r !== drag);
+    const next = rows.find(r => { const b = r.getBoundingClientRect(); return e.clientY < b.top + b.height / 2; });
+    if (next) { if (drag.nextElementSibling !== next) box.insertBefore(drag, next); } else if (box.lastElementChild !== drag) box.appendChild(drag);
+    const b = box.getBoundingClientRect(), sc = document.scrollingElement || document.documentElement;
+    if (e.clientY > innerHeight - 70) sc.scrollTop += 14; else if (e.clientY < 70) sc.scrollTop -= 14;
+  };
+  const end = () => { if (!drag) return; drag.classList.remove('drag'); drag = null; commit(); };
+  box.onpointerup = end; box.onpointercancel = end;
+}
 function renderUserPl(id){
   const pl = playlists.find(p => p.id === id);
   if (!pl) { toast('Playlist not found', true); return show('liked'); }
@@ -2713,7 +2758,8 @@ function renderUserPl(id){
   lists[key] = tracks; names[key] = pl.name; listKey = key; pageEnt = null;
   const total = tracks.reduce((s, t) => s + (t.duration || 0), 0);
   const meta = `${tracks.length} song${tracks.length === 1 ? '' : 's'}` + (total ? ` • ${fmtMin(total)}` : '');
-  const cover = tracks.length ? imgTag({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640, 'class="acover"') : `<div class="acover ph">${ic('note', 72)}</div>`;
+  const fb = tracks.length ? cov({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640) : PH;
+  const cover = pl.thumb ? `<img class="acover" src="${esc(pl.thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(fb)}'">` : tracks.length ? imgTag({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640, 'class="acover"') : `<div class="acover ph">${ic('note', 72)}</div>`;
   $('main').innerHTML = `<div class="bkrow">${backBtn()}</div>
     <div class="alb"><aside class="alb-l">${cover}
       <h1>${esc(pl.name)}</h1><p>${meta}</p>
@@ -2722,10 +2768,10 @@ function renderUserPl(id){
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length ? '<button data-m="ytmup">Upload to YouTube Music</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
+          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length ? '<button data-m="ytmup">Upload to YouTube Music</button>' : ''}${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
         </div>
       </div></aside>
-      <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div></div></div>`;
+      <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div>`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
   $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, { id: pl.id, label: pl.name }) : toast('Nothing to download yet');
   $('aMenu').onclick = e => { e.stopPropagation(); $('amenu').hidden = !$('amenu').hidden; };
@@ -2735,11 +2781,13 @@ function renderUserPl(id){
     if (k === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
     else if (k === 'dlall') downloadAll(tracks, pl.name, { id: pl.id, label: pl.name });
     else if (k === 'rename') promptName({ title: 'Rename playlist', value: pl.name, cta: 'Save', onOk: v => { pl.name = v; savePl(); renderUserPl(id); } });
+    else if (k === 'reorder') { plReorder = id; renderUserPl(id); }
     else if (k === 'sync') syncPl(pl);
     else if (k === 'ytmup') ytmUpload(pl);
     else if (k === 'find') show('search');
     else if (k === 'del' && confirm(`Delete "${pl.name}"?`)) { playlists = playlists.filter(p => p.id !== id); savePl(); if (dlPlaylists[id]) { delete dlPlaylists[id]; saveDlPlaylists(); } toast('Playlist deleted'); goBack(); }
   };
+  if (plReorder === id) { bindReorder(pl); $('roDone').onclick = () => { plReorder = null; renderUserPl(id); }; }
   if (tracks[0]) tintFrom(tracks[0]);
   markPlaying();
 }
