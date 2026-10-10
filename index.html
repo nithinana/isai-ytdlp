@@ -1187,11 +1187,10 @@ body.offline .tr.nodl{opacity:.38}
   /* star + more, top right */
   #lyhead{position:absolute;z-index:8;top:calc(var(--sat) + 38px);right:24px;display:flex;gap:10px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease)}
   #npv.lyfull #lyhead{opacity:1;pointer-events:auto;transition:opacity .4s var(--ease) .2s}
-  #lylike,#lymore{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.2);
-    transition:background-color .25s var(--ease),color .25s var(--ease),transform .25s var(--ease)}
-  #lylike:active,#lymore:active{transform:scale(.92)}
-  #lylike.on{background:#fff;color:#111}
-  #lylike svg,#lymore svg{width:18px;height:18px}
+  #lymore{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.2);
+    transition:background-color .25s var(--ease),transform .25s var(--ease)}
+  #lymore:active{transform:scale(.92)}
+  #lymore svg{width:18px;height:18px}
 
   /* player pieces re-laid out as: [cover | title/artist] on top, seek + transport at the bottom */
   #npv.lyfull .npl{inset:0;overflow:hidden;padding:calc(var(--sat) + 26px) 24px calc(var(--sab) + 14px);
@@ -1199,14 +1198,13 @@ body.offline .tr.nodl{opacity:.38}
     column-gap:13px;row-gap:0;align-items:center;justify-content:stretch;align-content:stretch}
   #npv.lyfull .npcard{display:contents}
   #npv.lyfull #npcover{--cs:58px;grid-column:1;grid-row:1;width:58px;height:58px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
-  #npv.lyfull .npinfo{grid-column:2;grid-row:1;min-width:0;padding-right:40px;touch-action:none}
+  #npv.lyfull .npinfo{grid-column:2;grid-row:1;min-width:0;touch-action:none}
   #npv.lyfull #mtitle{font-size:17px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #npv.lyfull #martist{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .npbtns{transition:opacity .25s var(--ease)}
   #npv.lyfull .npbtns{opacity:0;pointer-events:none}
   #npv.lyfull .npseek{grid-column:1/-1;grid-row:3}
   #npv.lyfull .npctl{grid-column:1/-1;grid-row:4;margin-top:10px}
-  #npv.lyfull #mshuf,#npv.lyfull #mrep{opacity:0;pointer-events:none}
 
   /* lyrics layer sits between header and transport */
   #npv.lyshow .tabs,#npv.lyshow .npf,#npv.lyshow .lyhd,#npv.lyshow .grab{display:none}
@@ -1225,6 +1223,9 @@ body.offline .tr.nodl{opacity:.38}
   #npv.lyshow .ly.bgv{font-size:clamp(19px,5.8vw,24px);font-weight:700;line-height:1.25;padding:2px 0 12px}
   #npv.lyshow .ly.plain,#npv.lyshow .ly.plain.past{font-size:19px;font-weight:700;line-height:1.35;opacity:.85;filter:none;transform:none;padding:5px 0}
   #npv.lyshow .qlist.lyr .qmsg,#npv.lyshow .qlist.lyr .mhint{margin-left:0;margin-right:0}
+  /* while lyrics load / are missing, show nothing in the lyrics area (no 'Finding lyrics…' flash) */
+  #npv.lyfull .qlist.lyr .qmsg:not(.err),#npv.lyfull .qlist.lyr .lyf,#npv.lyfull .qlist.lyr .mhint{opacity:0;pointer-events:none}
+  #npv.lyfull .npl{touch-action:none}
 }
 </style>
 </head>
@@ -1361,7 +1362,7 @@ body.offline .tr.nodl{opacity:.38}
     <div id="lyhd" class="lyhd" hidden></div>
     <div id="npq" class="qlist"></div>
   </div>
-  <div id="lyhead"><button id="lylike" aria-label="Like"></button><button id="lymore" aria-label="More"></button></div>
+  <div id="lyhead"><button id="lymore" aria-label="More"></button></div>
 </section>
 <div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
 <div id="modal" hidden><div class="msheet glass"></div></div>
@@ -1383,8 +1384,6 @@ const jget = (k, d) => { try { return JSON.parse(store.get(k, '')) ?? d } catch 
 /* lyrics-mode helpers */
 const lyFull = () => $('npv').classList.contains('lyfull');
 const lyBack = () => $('npr').classList.remove('up');
-const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="12 2.8 14.9 8.7 21.4 9.6 16.7 14.2 17.8 20.7 12 17.6 6.2 20.7 7.3 14.2 2.6 9.6 9.1 8.7"/></svg>';
-const STAR0 = STAR.replace('fill="currentColor"', 'fill="none"');
 const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18.5" cy="12" r="2"/></svg>';
 /* ---------- icons ---------- */
 const ICONS = {
@@ -1554,7 +1553,7 @@ async function tint(t){
 /* ---------- state ---------- */
 const lists = {}, names = {}, relCache = {}, entCache = {};
 let homeData = null, view = 'home', viewArg = null, stack = [], listKey = '', entTok = 0, pageEnt = null, disc = {};
-let searchType = 'songs', lastSearch = { q: '', type: 'songs', items: [] };
+let searchType = 'songs', lastSearch = { q: '', type: 'songs', items: [] }, searchKeep = false;
 let recent = [], liked = [], saved = [], playlists = [], acctName = '';   // all of this lives on the Thirai account (see "account storage")
 
 /* ---------- account storage ----------
@@ -1682,7 +1681,7 @@ function pushPlaylists(){
 }
 function savePl(){ clearTimeout(plT); plT = setTimeout(pushPlaylists, 400); queueAutoDl(); return true; }
 function queueAutoDl(){ clearTimeout(autoT); autoT = setTimeout(autoDlAll, 1500); }
-function autoDlAll(){
+function autoDlAll(){ return;   // auto-download removed
   if (!acctReady || !dlsReady || !navigator.onLine) return;
   for (const p of playlists) if (p.autodl && p.tracks.length) downloadAll(p.tracks, p.name, { id: p.id, label: p.name }, true);
 }
@@ -1803,6 +1802,7 @@ function show(v, arg, back){
   document.querySelectorAll('body > #backBtn,body > #amenu').forEach(b => b.remove());
   const detail = ['list', 'entity', 'mood', 'upl', 'shared', 'user', 'settings'].includes(v);
   if (!back) { if (detail) stack.push({ v: view, arg: viewArg }); else stack = []; }
+  if (v === 'search' && !back && view !== 'search' && !searchKeep) resetSearch();
   view = v; viewArg = arg;
   const hl = detail ? (stack[0] ? stack[0].v : (v === 'settings' ? 'profile' : 'home')) : v;
   document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === hl));
@@ -2100,9 +2100,13 @@ function paintResults(){
   else box.innerHTML = gridHtml('search_' + searchType, items);
   markPlaying();
 }
+function resetSearch(){
+  lastSearch = { q: '', type: 'songs', items: [] }; searchType = 'songs';
+  $('hq').value = ''; sbx.classList.remove('open');
+}
 function submitSearch(){
   if (!qval()) return;
-  if (view !== 'search') show('search');
+  if (view !== 'search') { searchKeep = true; try { show('search'); } finally { searchKeep = false; } }
   runSearch();
 }
 async function runSearch(){
@@ -2442,7 +2446,6 @@ function syncLike(){
   $('npLike').textContent = $('mLike').textContent = isLiked(current.id) ? '♥ Liked' : '♡ Like';
   syncNpDl();
   const pb = $('npPlus'); if (pb) { const l = isLiked(current.id); pb.classList.toggle('on', l); pb.innerHTML = ic(l ? 'check' : 'plus', 20); }
-  lyHeadSync();
 }
 function updateNP(){
   const t = current; if (!t) return;
@@ -2575,7 +2578,7 @@ dragOn($('player'), {
 /* 2. album cover: swipe left/right = next / previous; swipe down (mobile) = close now playing */
 dragOn($('npcover'), {
   ok: () => !!current,
-  move: (dx, dy, ax) => { if (ax === 'x') swipeMove($('npcover'), dx); else if (isMobile() && dy > 0 && !lyFull()) npvDrag(dy); },
+  move: (dx, dy, ax) => { if (ax === 'x') swipeMove($('npcover'), dx); else if (isMobile() && dy > 0) { if (lyFull()) { if (dy > 30) lyBack(); } else npvDrag(dy); } },
   end: (dx, dy, ax, ms) => { if (ax === 'x') swipeEnd($('npcover'), dx, ms, 120); else if (isMobile() && dy > 0) { if (lyFull()) { if (dy > 50) lyBack(); } else npvRelease(dy, ms); } }
 });
 /* 3. swipe down from the top bar of now playing (mobile) to close it */
@@ -4183,18 +4186,10 @@ function renderUserPl(id){
           ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
         </div>
       </div>
-      <div class="alib"><button class="btn ghost aauto ${pl.autodl ? 'on' : ''}" id="uAuto" role="switch" aria-checked="${!!pl.autodl}" title="Automatically download every song in this playlist, including ones you add later">${ic('dl', 16)}<span>Auto-download</span><i class="sw"><i></i></i></button></div></aside>
+      </aside>
       <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div>`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
   $('uShare').onclick = () => openShare(pl);
-  $('uAuto').onclick = e => {
-    const b = e.currentTarget, on = !pl.autodl;
-    if (on) pl.autodl = true; else delete pl.autodl;
-    b.classList.toggle('on', on); b.setAttribute('aria-checked', on);
-    savePl();
-    if (on) { toast(tracks.length ? 'Auto-download on · songs save to this device' : 'Auto-download on · new songs will save to this device'); autoDlAll(); }
-    else toast('Auto-download off');
-  };
   $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, { id: pl.id, label: pl.name }) : toast('Nothing to download yet');
   $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
   $('amenu').onclick = e => {
@@ -4410,7 +4405,7 @@ async function lyProbe(t){
   try { d = await lyGet(t, 'auto'); } catch {}
   if (my !== lyTok) return;
   lyState = lyOk(d) ? 'found' : 'none';
-  if (lyState === 'none' && npTab === 'lyrics') setTab('queue');
+  if (lyState === 'none' && npTab === 'lyrics') { if (lyFull()) { setTab('queue', true); lyBack(); } else setTab('queue'); }
   syncLyTab();
 }
 /* which individual sources have lyrics for this song (so the source chips only list real options) */
@@ -4470,6 +4465,7 @@ function paintLyrics(d, t){
   lyEls = [...box.querySelectorAll('.ly')];
   box.scrollTop = 0;
   lyUpdate(); lyKick();
+  if (lyFull()) box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, easing: 'ease-out' });
 }
 function lyUpdate(){
   const d = lyCur; if (!d || !d.synced || !lyEls.length) return;
@@ -4520,14 +4516,9 @@ $('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList
 syncLyTab();   // lyrics tab starts hidden
 
 /* ---------- lyrics mode (phone): player morphs into full-screen lyrics ---------- */
-function lyHeadSync(){
-  const b = $('lylike'); if (!b) return;
-  const l = !!current && isLiked(current.id);
-  b.classList.toggle('on', l); b.innerHTML = l ? STAR : STAR0;
-}
 (() => {
   const npv = $('npv'), npr = $('npr'), q = s => document.querySelector(s);
-  $('lymore').innerHTML = DOTS; $('lylike').innerHTML = STAR0;
+  $('lymore').innerHTML = DOTS;
   let on = false, timer = 0;
   const OPT = { duration: 560, easing: 'cubic-bezier(.32,.72,0,1)' };
   const snap = () => {
@@ -4561,7 +4552,7 @@ function lyHeadSync(){
       morph(A, snap());
       if (want) $('npq').animate([{ opacity: 0, transform: 'translateY(34px)' }, { opacity: 1, transform: 'none' }], Object.assign({ delay: 140, fill: 'backwards' }, OPT));
     }
-    if (want) { lyHeadSync(); requestAnimationFrame(() => lyCenter(false)); return; }
+    if (want) { requestAnimationFrame(() => lyCenter(false)); return; }
     /* leaving: keep the lyrics layer just long enough to fade, then hand the sheet back without sliding it */
     const done = () => {
       if (on) return;
@@ -4574,12 +4565,23 @@ function lyHeadSync(){
   new MutationObserver(sync).observe(npr, { attributes: true, attributeFilter: ['class'] });
   matchMedia('(max-width:720px)').addEventListener('change', sync);
 
-  $('lylike').onclick = () => current && toggleLike(current);
   $('lymore').onclick = () => $('npmore').click();
   /* tap cover or title = back to the player; swipe down on the header = same */
   $('npcover').addEventListener('click', () => { if (lyFull()) lyBack(); });
   q('.npinfo').addEventListener('click', e => { if (!lyFull()) return; e.stopPropagation(); e.preventDefault(); lyBack(); }, true);
-  dragOn(q('.npinfo'), { axes: ['y'], ok: e => lyFull() && !e.target.closest('button'), move: () => {}, end: (dx, dy) => { if (dy > 50) lyBack(); } });
+  /* drag down from the cover / header row (touch or mouse) = back to the album-cover player */
+  let sw = null; const npl = q('.npl');
+  npl.addEventListener('pointerdown', e => {
+    if (!lyFull() || e.target.closest('button, input')) return;
+    if (e.clientY > $('npcover').getBoundingClientRect().bottom + 28) return;
+    sw = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  });
+  npl.addEventListener('pointermove', e => {
+    if (!sw || e.pointerId !== sw.id) return;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    if (dy > 26 && dy > Math.abs(dx) * 1.2) { sw = null; lyBack(); }
+  });
+  ['pointerup', 'pointercancel'].forEach(t => npl.addEventListener(t, () => { sw = null; }));
   sync();
 })();
 
