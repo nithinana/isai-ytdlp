@@ -961,6 +961,88 @@ body.offline .tr.nodl{opacity:.38}
 .amore{display:block;margin:14px auto 0}
 @media(max-width:720px){.astats{grid-template-columns:repeat(2,minmax(0,1fr))}.astat:last-child{grid-column:1/-1}.atr{height:100px}.achart{gap:2px}}
 </style>
+<style>
+/* profiles */
+.prof{max-width:980px;margin:0 auto}
+.phead{display:flex;align-items:flex-end;gap:22px;padding:18px 0 6px;flex-wrap:wrap}
+.pav{--h:210;display:grid;place-items:center;width:96px;height:96px;border-radius:50%;flex:none;font-style:normal;font-weight:800;font-size:38px;color:#fff;background:linear-gradient(135deg,hsl(var(--h) 62% 52%),hsl(calc(var(--h) + 48) 58% 32%));box-shadow:0 10px 36px rgba(0,0,0,.35)}
+.pav.xl{width:150px;height:150px;font-size:60px}
+.pav.sm{width:30px;height:30px;font-size:13px;box-shadow:none}
+#nav .pav.sm{width:28px;height:28px;font-size:12px}
+#nav button.dot{position:relative}#nav button.dot::after{content:'';position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:#ff5a6e;box-shadow:0 0 0 2px rgba(14,14,18,.9)}
+.pinfo{min-width:0;flex:1}
+.pinfo small{color:var(--mute);font-weight:700;font-size:11px;letter-spacing:.6px;text-transform:uppercase}
+.pinfo h1{margin:4px 0 10px;font-size:clamp(28px,5.2vw,52px);line-height:1.05;font-weight:800;letter-spacing:-.02em;overflow-wrap:anywhere}
+.pline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--mute);font-size:14px}
+.pline i{font-style:normal;opacity:.6}
+.plink{font-weight:600;color:#fff;display:inline-flex;align-items:center;gap:8px}.plink:hover{text-decoration:underline}
+.pbadge{font-style:normal;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ff5a6e;color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center}
+.pbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.psec{margin:30px 0 0}
+.psub{margin-top:26px}
+.psh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.psh h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.psh h3{margin:0;font-size:16px;font-weight:700}
+.vbtn{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--mute);font-size:12px;font-weight:600;white-space:nowrap}
+.vbtn:hover{background:rgba(255,255,255,.15);color:#fff}
+.pstat{display:flex;align-items:center;gap:14px;padding:14px;border-radius:18px;cursor:pointer}
+.pstat>img{width:68px;height:68px;border-radius:10px;object-fit:cover;flex:none}
+.pstat .pt{min-width:0;flex:1}
+.pstat .pt small{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;font-weight:600;margin-bottom:2px}
+.pstat .pt b{display:block;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pstat .pt span{display:block;color:var(--mute);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:12px}
+.eq i{width:3px;height:3px;background:#7be0a8;border-radius:2px;animation:eqb .9s ease-in-out infinite alternate}
+.eq i:nth-child(2){animation-delay:.25s}.eq i:nth-child(3){animation-delay:.5s}
+@keyframes eqb{from{height:3px}to{height:12px}}
+.plist{display:flex;flex-direction:column;gap:2px}
+.prow{display:flex;align-items:center;gap:12px;padding:7px 8px;border-radius:12px;cursor:pointer}
+.prow:hover{background:rgba(255,255,255,.07)}.prow.cur b{color:#7be0a8}
+.prow .pn{width:22px;text-align:center;color:var(--mute);font-size:13px;font-variant-numeric:tabular-nums;flex:none}
+.prow>img{width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none}
+.prow .pm{flex:1;min-width:0}
+.prow .pm b{display:block;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .pm span{display:block;color:var(--mute);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow em{font-style:normal;color:var(--mute);font-size:12px;white-space:nowrap}
+.prof .astats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:22px 16px;border:1px dashed rgba(255,255,255,.18);border-radius:16px;color:var(--mute);text-align:center;font-size:13px}
+.pempty p{margin:0}.pempty small{font-size:12px;opacity:.8}
+.seg{display:inline-flex;background:rgba(255,255,255,.08);border-radius:999px;padding:3px;flex:none}
+.seg button{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;color:var(--mute);white-space:nowrap}
+.seg button.on{background:#fff;color:#000}
+.seg.wide{display:flex;margin:4px 0 12px}.seg.wide button{flex:1;padding:8px 10px;font-size:13px}
+.prv{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.prv b{display:block;font-size:14px;font-weight:600}.prv span{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.prvh{margin:18px 0 2px;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+.frow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
+.frow a{display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}
+.frow a b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fra{display:flex;gap:6px;flex:none}
+.frlist{min-height:60px;margin-bottom:8px}
+.fsel.on{background:rgba(255,255,255,.1)}
+@media(max-width:720px){
+  .phead{flex-direction:column;align-items:center;text-align:center;gap:14px}
+  .pline,.pbtns{justify-content:center}
+  .pav.xl{width:124px;height:124px;font-size:50px}
+  .prof .astats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.prof .astat{padding:12px}.prof .astat b{font-size:18px}
+  #nav button>span{width:min(52px,100%)}
+}
+#player:not(.on){pointer-events:none}
+/* account / sharing */
+.plby{display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:center;align-items:center;margin:0 0 6px!important;color:var(--mute)}
+.plby a{cursor:pointer;color:#fff;font-weight:600}.plby a:hover{text-decoration:underline}
+.vpill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(255,255,255,.1);color:var(--mute)}
+.vpill.v-public{background:rgba(80,200,140,.18);color:#7be0a8}
+.vpill.v-unlisted{background:rgba(110,160,255,.18);color:#9ec1ff}
+.vis{display:flex;flex-direction:column;gap:6px;margin:14px 0 4px}
+.vopt{justify-content:space-between;border:1px solid rgba(255,255,255,.1)}
+.vopt.on{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.35)}
+.vopt .qm{flex:1;min-width:0}.vopt .qm span{white-space:normal}
+.vck{width:18px;height:18px;flex:none;font-style:normal}
+.slink{display:flex;gap:8px;margin-top:12px}.slink .minp{flex:1;min-width:0;height:42px;font-size:13px}
+.shacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.merr{color:#ff7a90!important;min-height:1em}
+</style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -1046,6 +1128,7 @@ body.offline .tr.nodl{opacity:.38}
   <button data-view="settings" title="Settings" aria-label="Settings"><span data-ic="sliders"></span></button>
   <button id="pwaInstall" title="Install App" aria-label="Install App"><span data-ic="install"></span></button>
   <span class="sp"></span>
+  <button data-view="profile" id="navProfile" title="Profile" aria-label="Profile"><span data-ic="user"></span></button>
 </aside>
 <header class="top">
   <span id="offpill" class="offpill" role="status" aria-live="polite"><i></i>You're offline</span>
@@ -1138,6 +1221,11 @@ const STROKES = {
   up:'<polyline points="6 15 12 9 18 15"/>', down:'<polyline points="6 9 12 15 18 9"/>',
   back:'<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
   bookmark:'<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-.5A5.5 5.5 0 0 1 8 14h2a5.5 5.5 0 0 1 5.5 5.5v.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.2a5.5 5.5 0 0 1 3.5 5.3V20"/>',
+  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/>',
+  share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/>',
   install:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'
 };
 const ic = (n, s = 20) => STROKES[n]
@@ -1277,7 +1365,167 @@ async function tint(t){
 const lists = {}, names = {}, relCache = {}, entCache = {};
 let homeData = null, view = 'home', viewArg = null, stack = [], listKey = '', entTok = 0, pageEnt = null, disc = {};
 let searchType = 'songs', lastSearch = { q: '', type: 'songs', items: [] };
-let recent = jget('recent', []), liked = jget('liked', []), saved = jget('saved', []), playlists = jget('playlists', []);
+let recent = [], liked = [], saved = [], playlists = [], acctName = '';   // all of this lives on the Thirai account (see "account storage")
+
+/* ---------- account storage ----------
+   Everything Isai remembers about you (liked songs, saved albums/artists, recently played,
+   playlists + their sharing settings, listen history and listening time) is stored on your
+   Thirai account, so it follows you to every device. The browser only keeps the sign-in
+   session, device settings, offline downloads and a small outbox that holds changes made
+   while offline until they can be sent. */
+const ACCT_SERVER = 'https://account.thirai.uk';
+const acctTok = () => { try { return localStorage.getItem('thirai_access_token') || ''; } catch { return ''; } };
+const enc = encodeURIComponent;
+const acct = (() => {
+  const OB = 'isai_outbox', cbs = new WeakMap();
+  let box = [], busy = false, cur = null, retryT = 0, kick = 0, idle = [];
+  try { box = JSON.parse(localStorage.getItem(OB) || '[]'); if (!Array.isArray(box)) box = []; } catch { box = []; }
+  const persist = () => { try { box.length ? localStorage.setItem(OB, JSON.stringify(box)) : localStorage.removeItem(OB); } catch {} };
+  async function raw(method, path, body, tok){
+    let r;
+    try {
+      r = await fetch(ACCT_SERVER + path, { method, headers: { 'Content-Type': 'application/json', 'X-Token': tok === undefined ? acctTok() : tok }, body: body === undefined ? undefined : JSON.stringify(body) });
+    } catch { return { ok: false, status: 0, d: { error: "Can't reach the server." } }; }
+    let d = {}; try { d = await r.json(); } catch {}
+    return { ok: r.ok, status: r.status, d };
+  }
+  async function flush(){
+    if (busy) return;
+    busy = true; clearTimeout(retryT);
+    try {
+      while (box.length) {
+        const op = box[0]; cur = op;
+        const res = await raw(op.m, op.p, op.b, op.t);
+        cur = null;
+        if (box[0] !== op) continue;                                                   // outbox was cleared while this was in flight
+        if (res.status === 0 || res.status >= 500 || res.status === 429) break;       // offline / server trouble: keep it, retry later
+        if (res.status === 401 && op.t === acctTok()) break;                           // our session is invalid: the sign-in gate takes over
+        box.shift(); persist();
+        const cb = cbs.get(op); if (cb) { cbs.delete(op); try { cb(res); } catch {} }
+        if (!res.ok && res.status !== 401) console.warn('Isai sync dropped', op.m, op.p, res.status, res.d && res.d.error);
+      }
+    } finally {
+      busy = false; cur = null;
+      if (box.length) retryT = setTimeout(flush, 12000);
+      const w = idle; idle = []; w.forEach(f => f());
+    }
+  }
+  const flushed = () => new Promise(res => { idle.push(res); flush(); });
+  function send(m, p, b, cb){
+    const op = { m, p, t: acctTok() }; if (b !== undefined) op.b = b;
+    box.push(op); if (cb) cbs.set(op, cb); persist();
+    clearTimeout(kick); kick = setTimeout(flush, 120);
+  }
+  function sendTime(d, h){                                   // merge into a not-yet-sent time op so we don't queue one per tick
+    const last = box[box.length - 1];
+    if (last && last !== cur && last.p === '/isai/time' && last.t === acctTok()) {
+      for (const k in d) last.b.d[k] = (last.b.d[k] || 0) + d[k];
+      h.forEach((x, i) => { last.b.h[i] += x; }); persist(); return;
+    }
+    send('POST', '/isai/time', { d, h });
+  }
+  async function now(m, p, b){ await flushed(); return raw(m, p, b); }   // sends anything queued first, then asks and waits for the answer
+  function sendLatest(m, p, b){                              // keep only the newest of a repeating, not-yet-sent update
+    const last = box[box.length - 1];
+    if (last && last !== cur && last.m === m && last.p === p && last.t === acctTok()) { last.b = b; persist(); return; }
+    send(m, p, b);
+  }
+  const clear = () => { box = []; persist(); };
+  addEventListener('online', () => flush());
+  setTimeout(flush, 0);
+  return { send, sendTime, sendLatest, now, flushed, flush, clear };
+})();
+
+/* ---- one-time move of data older builds kept in this browser ---- */
+const LEGACY_KEYS = ['liked', 'saved', 'playlists', 'recent', 'lplays', 'ltracks', 'ltime'];
+function legacyData(){
+  const out = { liked: jget('liked', []), saved: jget('saved', []), recent: jget('recent', []), playlists: jget('playlists', []),
+                plays: jget('lplays', []), tracks: jget('ltracks', {}), time: jget('ltime', {}) };
+  const has = ['liked', 'saved', 'recent', 'playlists', 'plays'].some(k => Array.isArray(out[k]) && out[k].length) || Object.keys((out.time || {}).d || {}).length;
+  if (!has) return null;
+  out.liked = (out.liked || []).map(slim); out.recent = (out.recent || []).map(slim);
+  return out;
+}
+async function migrateLocal(){
+  const data = legacyData();
+  const wipe = () => { LEGACY_KEYS.concat('isai_import_id').forEach(k => { try { localStorage.removeItem(k); } catch {} }); };
+  if (!data) { wipe(); return true; }
+  let id = store.get('isai_import_id', '');
+  if (!id) { id = 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); store.set('isai_import_id', id); }
+  const r = await acct.now('POST', '/isai/import-local', { import_id: id, ...data });
+  if (!r.ok) return false;                                    // local copy stays put and we try again next time
+  wipe(); return true;
+}
+
+/* ---- playlists: the in-memory list is pushed to the account as small diffs ---- */
+const PL_CORE = ['id', 'name', 'tracks', 'visibility', 'slug'];
+const plExtra = p => { const m = {}; for (const k in p) if (!PL_CORE.includes(k)) m[k] = p[k]; return m; };
+const plName = p => String(p.name || 'Playlist').slice(0, 80);
+const plShape = p => ({ name: plName(p), vis: p.visibility || 'private', meta: JSON.stringify(plExtra(p)), ids: p.tracks.map(t => t.id) });
+const fromServerPl = p => Object.assign({}, p.meta || {}, { id: p.id, name: p.name, tracks: p.tracks || [], visibility: p.visibility || 'private', slug: p.slug });
+let plSnap = {}, plT = 0;                                     // plSnap: what the server is known to have, per playlist
+function snapPl(){ plSnap = {}; for (const p of playlists) plSnap[p.id] = plShape(p); }
+function pushPlaylists(){
+  clearTimeout(plT);
+  const seen = new Set();
+  for (const p of playlists) {
+    seen.add(p.id);
+    const nowS = plShape(p), was = plSnap[p.id], base = '/isai/playlists/' + enc(p.id);
+    plSnap[p.id] = nowS;
+    if (!was) {
+      acct.send('POST', '/isai/playlists', { id: p.id, name: nowS.name, visibility: p.visibility || 'private', meta: plExtra(p), tracks: p.tracks },
+        r => { if (r.ok && r.d.playlist) p.slug = r.d.playlist.slug; });
+      continue;
+    }
+    const patch = {};
+    if (nowS.name !== was.name) patch.name = nowS.name;
+    if (nowS.meta !== was.meta) patch.meta = plExtra(p);
+    if (Object.keys(patch).length) acct.send('PATCH', base, patch);
+    const keep = new Set(nowS.ids), had = new Set(was.ids);
+    const added = p.tracks.filter(t => !had.has(t.id));
+    was.ids.filter(i => !keep.has(i)).forEach(i => acct.send('DELETE', base + '/tracks?id=' + enc(i)));
+    if (added.length) acct.send('POST', base + '/tracks', { tracks: added });
+    const expected = was.ids.filter(i => keep.has(i)).concat(added.map(t => t.id));
+    if (expected.join('\u0001') !== nowS.ids.join('\u0001')) acct.send('POST', base + '/order', { order: nowS.ids });
+  }
+  for (const pid in plSnap) if (!seen.has(pid)) { acct.send('DELETE', '/isai/playlists/' + enc(pid)); delete plSnap[pid]; }
+}
+function savePl(){ clearTimeout(plT); plT = setTimeout(pushPlaylists, 400); return true; }
+const flushPlaylists = () => { pushPlaylists(); return acct.flushed(); };
+
+/* ---- start-up: send anything queued, move old local data, then load the account's library ---- */
+let acctReady = false, acctRetryT = 0;
+async function initAccount(){
+  try {
+    pushPlaylists();
+    await acct.flushed();
+    if (!(await migrateLocal())) toast("Couldn't move your old library to your account yet. It will retry next time.", true);
+    const r = await acct.now('GET', '/isai/bootstrap');
+    if (!r.ok) throw new Error((r.d && r.d.error) || 'Server error');
+    const d = r.d;
+    liked = d.liked || []; saved = d.saved || []; recent = d.recent || [];
+    playlists = (d.playlists || []).map(fromServerPl); acctName = d.username || '';
+    snapPl(); applyProfileSummary(d.profile); paintNavAvatar(); acctReady = true;
+  } catch (e) {
+    toast("Couldn't load your library. Retrying…", true);
+    clearTimeout(acctRetryT);
+    acctRetryT = setTimeout(() => { if (!acctReady && window.__unlocked && navigator.onLine) initAccount().then(refreshAccountView); }, 15000);
+  }
+}
+function refreshAccountView(){ if (acctReady && ['home', 'liked', 'upl', 'settings', 'profile'].includes(view)) show(view, viewArg, true); }
+addEventListener('online', () => { if (!acctReady && window.__unlocked) initAccount().then(refreshAccountView); });
+
+/* ---- deep links: ?p=<share slug> opens a shared playlist once signed in ---- */
+function openDeepLink(){
+  try {
+    const q = new URLSearchParams(location.search), slug = (q.get('p') || '').trim(), user = (q.get('u') || '').trim();
+    if (!slug && !user) return;
+    q.delete('p'); q.delete('u'); const qs = q.toString();
+    history.replaceState(history.state, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    if (slug && /^[a-z0-9]{6,32}$/i.test(slug)) show('shared', slug);
+    else if (user && /^[a-zA-Z0-9_]{3,20}$/.test(user)) show(acctName && user.toLowerCase() === acctName.toLowerCase() ? 'profile' : 'user', acctName && user.toLowerCase() === acctName.toLowerCase() ? undefined : user);
+  } catch {}
+}
 let dls = []; const dlActive = {}; let offUrl = null;
 const dlJobs = []; let dlRunning = false, dlStale = false, dlPanelT = 0;   // download queue: playlist jobs + stale-list flag
 let queue = [], qi = -1, token = 0, current = null;
@@ -1346,12 +1594,12 @@ const trow = (t, i, withCover, rm) => `<div class="tr lrow ${current && current.
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="back" title="Back"></button>`;
 
-const NET_ONLY = ['home', 'search', 'charts', 'mood', 'entity'];
+const NET_ONLY = ['home', 'search', 'charts', 'mood', 'entity', 'shared', 'user', 'profile'];
 function show(v, arg, back){
   if (!navigator.onLine && NET_ONLY.includes(v)) { v = 'downloads'; arg = undefined; toast("You're offline · showing your downloads"); }
   closeNP();
   document.querySelectorAll('body > #backBtn,body > #amenu').forEach(b => b.remove());
-  const detail = ['list', 'entity', 'mood', 'upl'].includes(v);
+  const detail = ['list', 'entity', 'mood', 'upl', 'shared', 'user'].includes(v);
   if (!back) { if (detail) stack.push({ v: view, arg: viewArg }); else stack = []; }
   view = v; viewArg = arg;
   const hl = detail ? (stack[0] ? stack[0].v : 'home') : v;
@@ -1360,7 +1608,7 @@ function show(v, arg, back){
   scrollTo(0, 0);
   { const m = $('main'); m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter'); }
   ({ home: renderHome, search: renderSearch, liked: renderLiked, downloads: renderDownloads, activity: renderActivity, settings: renderSettings,
-     list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderHome, mood: () => renderMood(arg), upl: () => renderUserPl(arg) })[v]();
+     list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderHome, mood: () => renderMood(arg), upl: () => renderUserPl(arg), shared: () => renderShared(arg), user: () => renderProfile(arg), profile: () => renderProfile(null) })[v]();
   markPlaying();
   histSync();
 }
@@ -1497,7 +1745,8 @@ function renderList(key){
 function toggleSave(e){
   const i = saved.findIndex(s => s.kind === e.kind && s.id === e.id);
   if (i >= 0) saved.splice(i, 1); else saved.unshift(e);
-  store.set('saved', JSON.stringify(saved));
+  if (i >= 0) acct.send('DELETE', '/isai/library/saved?key=' + enc(e.kind + ':' + e.id));
+  else acct.send('POST', '/isai/library/saved', { items: [e] });
   toast(i >= 0 ? 'Removed from library' : 'Saved to library');
   return i < 0;
 }
@@ -1732,29 +1981,32 @@ function renderSettings(){
       <div class="srow"><div><b>Stored offline</b><span>${dls.length} song${dls.length === 1 ? '' : 's'}${dsz ? ' · ' + fmtSize(dsz) : ''}</span></div><button class="btn ghost" data-view="downloads">Manage</button></div>
     </section>
     <section class="sgrp glass"><h3>Data</h3>
+      <div class="srow"><div><b>Username</b><span>${acctName ? '@' + esc(acctName) + ' · shown as the creator of playlists you share' : 'Not set · needed to share playlists'}</span></div><button class="btn ghost" id="sUser">${acctName ? 'Change' : 'Set'}</button></div>
       <div class="srow"><div><b>Refresh home</b><span>Reload recommendations from the server</span></div><button class="btn ghost" id="sRef">Refresh</button></div>
       <div class="srow"><div><b>Listen again</b><span>Clear your recently played history</span></div><button class="btn ghost" id="sClr">Clear</button></div>
       <div class="srow"><div><b>Clear all data</b><span>Delete your playlists, liked songs, saved items and listening history</span></div><button class="btn ghost danger" id="sWipe">Clear data</button></div>
     </section></div>`;
   $('sOut').onclick = () => window.__signOut();
+  $('sUser').onclick = () => askUsername(() => { closeModal(); toast('Username saved'); if (view === 'settings') renderSettings(); });
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
   $('sKey').onchange = e => store.set('key', e.target.value);
   $('sLang').onchange = e => { applyLang(e.target.value); toast('Language set to ' + LANG_LABEL[e.target.value]); };
   $('sFmt').onchange = e => { store.set('fmt', e.target.value); toast('Format set to ' + e.target.value); };
   $('sRef').onclick = () => { homeData = null; for (const k in entCache) delete entCache[k]; toast('Refreshing…'); show('home'); loadHome(true); };
-  $('sClr').onclick = () => { recent = []; store.set('recent', '[]'); toast('Cleared'); };
+  $('sClr').onclick = () => { recent = []; acct.send('DELETE', '/isai/library/recent'); toast('Cleared'); };
   $('sWipe').onclick = confirmClearData;
 }
 function confirmClearData(){
   openModal(`<h3>Clear all data?</h3>
-    <p class="mhint">This permanently deletes your <b>${playlists.length}</b> playlist${playlists.length === 1 ? '' : 's'}, <b>${liked.length}</b> liked song${liked.length === 1 ? '' : 's'}, saved albums and artists, recently played and listening activity. This can't be undone.</p>
+    <p class="mhint">This permanently deletes your <b>${playlists.length}</b> playlist${playlists.length === 1 ? '' : 's'}, <b>${liked.length}</b> liked song${liked.length === 1 ? '' : 's'}, saved albums and artists, recently played and listening activity from your account, on every device. This can't be undone.</p>
     <p class="mhint">Your downloads, language, format and server settings are kept.</p>
     <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn danger" id="mWipe">Delete everything</button></div>`);
   $('mWipe').onclick = () => {
-    for (const k of ['liked', 'saved', 'playlists', 'recent', 'lplays', 'ltracks', 'ltime', 'isrcs', 'rsearch', 'ytm_oauth'])
+    for (const k of [...LEGACY_KEYS, 'isrcs', 'rsearch', 'ytm_oauth', 'isai_import_id'])
       try { localStorage.removeItem(k); } catch {}
-    liked = []; saved = []; playlists = []; recent = [];
-    lplays = []; ltracks = {}; ltime = { d: {}, h: new Array(24).fill(0) }; isrcs = {};
+    clearTimeout(plT); acct.clear(); acct.send('DELETE', '/isai/data');
+    liked = []; saved = []; playlists = []; recent = []; plSnap = {};
+    lplays = []; ltracks = {}; ltime = blankTime(); ltimeSent = blankTime(); actLoaded = true; isrcs = {};
     ldirty = false; sess = { id: null, sec: 0, logged: false, last: 0 };
     homeData = null; for (const k in entCache) delete entCache[k];
     closeModal(); toast('All data cleared');
@@ -1866,8 +2118,9 @@ async function playCurrent(startAt = 0){
   }
 }
 function addRecent(t){
-  recent = [t, ...recent.filter(r => r.id !== t.id)].slice(0, 20);
-  store.set('recent', JSON.stringify(recent));
+  recent = [slim(t), ...recent.filter(r => r.id !== t.id)].slice(0, 20);
+  acct.send('POST', '/isai/library/recent', { items: [slim(t)] });
+  queueStatus();
   if (view === 'home') fillCont();
 }
 function step(d, auto){
@@ -1931,7 +2184,7 @@ if (MS) {
 const SPIN = '<svg class="ppsp" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M12 3a9 9 0 019 9"/></svg>';
 const setPP = () => { const i = loading ? SPIN : ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
 const wire = el => {
-  el.onplay = el.onpause = () => { if (el === a) { setPP(); actSave(true); } };
+  el.onplay = el.onpause = () => { if (el === a) { setPP(); actSave(true); queueStatus(); } };
   el.onended = () => {
     if (el !== a) return;
     /* a dropped connection can look like 'ended'. If we're far short of the song's real length, resume it instead of skipping */
@@ -2020,8 +2273,10 @@ async function loadRelated(){
   } catch (e) { box.innerHTML = `<p class="qmsg err">${esc(e.message)}</p>`; }
 }
 function toggleLike(t){
-  liked = isLiked(t.id) ? liked.filter(l => l.id !== t.id) : [t, ...liked];
-  store.set('liked', JSON.stringify(liked));
+  const was = isLiked(t.id);
+  liked = was ? liked.filter(l => l.id !== t.id) : [slim(t), ...liked];
+  if (was) acct.send('DELETE', '/isai/library/liked?key=' + enc(t.id));
+  else acct.send('POST', '/isai/library/liked', { items: [slim(t)] });
   document.querySelectorAll(`[data-id="${t.id}"] [data-a="like"]`).forEach(x => x.classList.toggle('on', isLiked(t.id)));
   if (view === 'liked') renderLiked();
   syncLike();
@@ -2584,9 +2839,42 @@ async function ensureArtistProfiles(){
 }
 
 /* ---------- activity: tracking ---------- */
-let lplays = jget('lplays', []);                       // [[trackId, timestamp], ...]
-let ltracks = jget('ltracks', {});                     // trackId -> slim track
-let ltime = jget('ltime', {});                         // { d: { 'YYYY-MM-DD': seconds }, h: [24 x seconds] }
+let lplays = [];                                       // [[trackId, timestamp], ...]  (loaded from the account when Activity opens)
+let ltracks = {};                                      // trackId -> slim track
+let ltime = {};                                        // { d: { 'YYYY-MM-DD': seconds }, h: [24 x seconds] }
+const blankTime = () => ({ d: {}, h: new Array(24).fill(0) });
+let ltimeSent = blankTime(), actLoaded = false, actP = null;   // ltimeSent: totals the account already has
+function pushTime(){                                   // send only the listening time added since the last push
+  const d = {}, h = new Array(24).fill(0); let any = false;
+  for (const k in ltime.d) { const x = ltime.d[k] - (ltimeSent.d[k] || 0); if (x > 0) { d[k] = x; any = true; } }
+  ltime.h.forEach((s, i) => { const x = s - ltimeSent.h[i]; if (x > 0) { h[i] = x; any = true; } });
+  if (!any) return;
+  ltimeSent = JSON.parse(JSON.stringify(ltime));
+  acct.sendTime(d, h);
+}
+function ensureActivity(){
+  if (actLoaded) return Promise.resolve();
+  if (actP) return actP;
+  actP = (async () => {
+    actSave(true);
+    await acct.flushed();
+    const r = await acct.now('GET', '/isai/activity');
+    if (!r.ok) throw new Error((r.d && r.d.error) || "Couldn't load your activity");
+    const srv = r.d, extra = blankTime();               // extra: time heard while this was loading
+    for (const k in ltime.d) { const x = ltime.d[k] - (ltimeSent.d[k] || 0); if (x > 0) extra.d[k] = x; }
+    ltime.h.forEach((s, i) => { const x = s - ltimeSent.h[i]; if (x > 0) extra.h[i] = x; });
+    const nt = { d: Object.assign({}, (srv.time || {}).d), h: ((srv.time || {}).h || []).length === 24 ? srv.time.h.slice() : new Array(24).fill(0) };
+    ltimeSent = JSON.parse(JSON.stringify(nt));
+    for (const k in extra.d) nt.d[k] = (nt.d[k] || 0) + extra.d[k];
+    extra.h.forEach((x, i) => { nt.h[i] += x; });
+    ltime = nt;
+    const have = new Set(srv.plays.map(p => p[0] + '|' + p[1]));
+    lplays = srv.plays.concat(lplays.filter(p => !have.has(p[0] + '|' + p[1])));
+    ltracks = Object.assign({}, srv.tracks, ltracks);
+    actLoaded = true;
+  })().finally(() => { actP = null; });
+  return actP;
+}
 if (!ltime.d || typeof ltime.d !== 'object') ltime.d = {};
 if (!Array.isArray(ltime.h) || ltime.h.length !== 24) ltime.h = new Array(24).fill(0);
 const pad2 = n => String(n).padStart(2, '0');
@@ -2598,13 +2886,13 @@ let sess = { id: null, sec: 0, logged: false, last: 0 }, ldirty = false, lsaved 
 function actSave(force){
   if (!ldirty) return;
   const n = Date.now(); if (!force && n - lsaved < 8000) return;
-  lsaved = n; ldirty = false; store.set('ltime', JSON.stringify(ltime));
+  lsaved = n; ldirty = false; pushTime();
 }
 function logPlay(t, ts){
   ltracks[t.id] = slim(t);
   lplays.push([t.id, ts]);
   if (lplays.length > 20000) lplays = lplays.slice(-20000);
-  store.set('lplays', JSON.stringify(lplays)); store.set('ltracks', JSON.stringify(ltracks));
+  acct.send('POST', '/isai/plays', { track: slim(t), ts });
 }
 function actTick(){
   const t = current; if (!t || !a || a.paused || pending) return;
@@ -2618,14 +2906,20 @@ function actTick(){
   if (!sess.logged && sess.sec >= Math.min(30, (t.duration || a.duration || 60) / 2)) { sess.logged = true; logPlay(t, now); }
   actSave();
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden) actSave(true); });
-addEventListener('pagehide', () => actSave(true));
+document.addEventListener('visibilitychange', () => { if (document.hidden) { actSave(true); pushPlaylists(); } });
+addEventListener('pagehide', () => { actSave(true); pushPlaylists(); });
 
 /* ---------- activity: view ---------- */
 const RANGES = { week: ['7 days', 7], month: ['30 days', 30], year: ['12 months', 365], all: ['All time', 0] };
 let actRange = store.get('actrange', 'week'), actTopN = 10, actHistN = 30;
 function renderActivity(){
   const main = $('main');
+  if (!actLoaded) {
+    main.innerHTML = `<div class="pg act"><h1 class="t">Activity</h1><p class="qmsg">Loading your activity…</p></div>`;
+    ensureActivity().then(() => { if (view === 'activity') renderActivity(); })
+      .catch(e => { if (view === 'activity') main.innerHTML = `<div class="pg act"><h1 class="t">Activity</h1><p class="qmsg err">${esc(e.message)}</p></div>`; });
+    return;
+  }
   if (!lplays.length && !Object.keys(ltime.d).length) {
     main.innerHTML = `<div class="pg act"><h1 class="t">Activity</h1><p class="qmsg">Nothing here yet. Play some music and your listening history, top artists and listening time will show up here.</p></div>`;
     return;
@@ -2734,7 +3028,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('#actClr')) {
     if (!confirm('Clear all listening activity (history, top artists and listening time)?')) return;
     lplays = []; ltracks = {}; ltime = { d: {}, h: new Array(24).fill(0) }; sess = { id: null, sec: 0, logged: false, last: 0 };
-    store.set('lplays', '[]'); store.set('ltracks', '{}'); store.set('ltime', JSON.stringify(ltime));
+    acct.send('DELETE', '/isai/activity'); ltimeSent = blankTime(); actLoaded = true;
     return renderActivity();
   }
   const h = e.target.closest('.hrow');
@@ -2782,10 +3076,11 @@ document.addEventListener('click', e => {
   }
   const c = e.target.closest('.card'); if (!c) return;
   const t = (lists[c.dataset.k] || [])[c.dataset.i]; if (!t) return;
+  if (t.kind === 'sharedpl') return show('shared', t.id);
   if (t.kind === 'uplaylist') return show('upl', t.id);
   if (t.kind) return show('entity', t);
   if (!b) return playFrom(c.dataset.k, +c.dataset.i);
-  if (b.dataset.a === 'rm') { recent = recent.filter(r => r.id !== t.id); store.set('recent', JSON.stringify(recent)); fillCont(); }
+  if (b.dataset.a === 'rm') { recent = recent.filter(r => r.id !== t.id); acct.send('DELETE', '/isai/library/recent?key=' + enc(t.id)); fillCont(); }
   else if (b.dataset.a === 'pl') openAddModal([t]);
   else if (b.dataset.a === 'dl') download(t, b);
   else if (b.dataset.a === 'like') toggleLike(t);
@@ -2794,10 +3089,6 @@ document.addEventListener('click', e => {
 /* ---------- playlists ---------- */
 const PH = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#2a2a34"/><circle cx="42" cy="66" r="9" fill="#7d7d8c"/><rect x="49" y="28" width="6" height="38" fill="#7d7d8c"/><rect x="49" y="28" width="16" height="8" fill="#7d7d8c"/></svg>');
 const uid = () => 'pl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-function savePl(){
-  try { localStorage.setItem('playlists', JSON.stringify(playlists)); return true; }
-  catch { toast('Storage is full, could not save your playlists', true); return false; }
-}
 function addTracks(pl, tracks){
   const have = new Set(pl.tracks.map(t => t.id)); let n = 0;
   for (const t of tracks) if (t && t.id && !have.has(t.id)) { have.add(t.id); pl.tracks.push(slim(t)); n++; }
@@ -2805,12 +3096,434 @@ function addTracks(pl, tracks){
   return n;
 }
 function createPlaylist(name, tracks = [], extra = {}){
-  const p = { id: uid(), name, tracks: [], ts: Date.now(), ...extra };
+  const p = { id: uid(), name, tracks: [], ts: Date.now(), visibility: 'private', ...extra };
   playlists.unshift(p); addTracks(p, tracks); savePl();
   return p;
 }
 const plCover = (p, s = 340) => p.thumb ? cov({ id: p.radio || p.id, kind: 'artist', thumbnail: p.thumb }, s) : p.tracks[0] ? cov({ id: p.tracks[0].id, thumbnail: p.tracks[0].thumbnail }, s) : PH;
-const plCards = () => playlists.map(p => ({ kind: 'uplaylist', id: p.id, title: p.name, artist: `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}`, thumbnail: plCover(p) }));
+const plCards = () => playlists.map(p => ({ kind: 'uplaylist', id: p.id, title: p.name, artist: `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}${p.visibility && p.visibility !== 'private' ? ' · ' + VIS[p.visibility][0] : ''}`, thumbnail: plCover(p) }));
+
+/* ---------- username + playlist sharing ---------- */
+const VIS = {
+  public:   ['Public',   'Listed on your profile. Anyone with the link can open it.'],
+  unlisted: ['Unlisted', 'Not on your profile. Only people with the link can open it.'],
+  private:  ['Private',  'Only you can see it.']
+};
+const shareUrl = pl => location.origin + location.pathname + '?p=' + pl.slug;
+const slugUrl = slug => location.origin + location.pathname + '?p=' + slug;
+const visPill = v => `<span class="vpill v-${v}">${(VIS[v] || VIS.private)[0]}</span>`;
+async function copyText(s){
+  try { await navigator.clipboard.writeText(s); return true; } catch {}
+  try { const i = $('shUrl'); if (i) { i.select(); return document.execCommand('copy'); } } catch {}
+  return false;
+}
+function askUsername(onOk, onCancel){
+  openModal(`<h3>Choose a username</h3><p class="mhint">Your username is shown as the creator of playlists you share. Use 3-20 letters, numbers or underscores. You can change it once every 7 days.</p>
+    <input id="mUn" class="minp" maxlength="20" placeholder="username" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="mhint merr" id="mUnErr"></p>
+    <div class="mbtns"><button class="btn ghost" id="mUnNo">Cancel</button><button class="btn" id="mUnOk">Save</button></div>`);
+  const inp = $('mUn'); inp.focus();
+  const go = async () => {
+    const v = inp.value.trim();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(v)) { $('mUnErr').textContent = 'Use 3-20 letters, numbers or underscores.'; return; }
+    $('mUnOk').disabled = true;
+    let r;
+    try {
+      const x = await fetch(ACCT_SERVER + '/account/username', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Token': acctTok() }, body: JSON.stringify({ username: v }) });
+      r = { ok: x.ok, d: await x.json().catch(() => ({})) };
+    } catch { r = { ok: false, d: { error: 'Server unreachable. Try again.' } }; }
+    if (r.ok) { acctName = r.d.username || v; paintNavAvatar(); if (onOk) onOk(); else closeModal(); }
+    else { $('mUnErr').textContent = r.d.error || 'Could not save that username.'; $('mUnOk').disabled = false; }
+  };
+  $('mUnOk').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('mUnNo').onclick = () => { if (onCancel) onCancel(); else closeModal(); };
+}
+async function openShare(pl){
+  openModal('<h3>Share playlist</h3><p class="mhint">Getting things ready…</p>');
+  await flushPlaylists();
+  if (!pl.slug) { openModal(`<h3>Share playlist</h3><p class="mhint">Couldn't reach the server. Check your connection and try again.</p><div class="mbtns"><button class="btn ghost" data-mc>Close</button></div>`); return; }
+  paintShare(pl);
+}
+function paintShare(pl, msg){
+  const v = pl.visibility || 'private';
+  const sh = openModal(`<h3>Share "${esc(pl.name)}"</h3>
+    <p class="mhint">${acctName ? `Shown as created by <b>@${esc(acctName)}</b>.` : 'To share a playlist you first pick a username. It is shown as the creator.'}</p>
+    <div class="vis">${['public', 'unlisted', 'private'].map(k => `<button class="plr vopt ${v === k ? 'on' : ''}" data-vis="${k}"><span class="qm"><b>${VIS[k][0]}</b><span>${VIS[k][1]}</span></span><i class="vck">${v === k ? ic('check', 18) : ''}</i></button>`).join('')}</div>
+    ${v !== 'private' ? `<div class="slink"><input class="minp" id="shUrl" readonly value="${esc(shareUrl(pl))}"><button class="btn" id="shCopy">Copy</button></div>
+      <div class="shacts">${navigator.share ? '<button class="pill" id="shNative">Share…</button>' : ''}<button class="pill" id="shNew">Reset link</button></div>` : ''}
+    <p class="mhint merr" id="shErr">${msg ? esc(msg) : ''}</p>
+    <div class="mbtns"><button class="btn ghost" data-mc>Done</button></div>`);
+  sh.onclick = async e => {
+    const vb = e.target.closest('[data-vis]'); if (vb) return setVisibility(pl, vb.dataset.vis);
+    if (e.target.closest('#shCopy')) {
+      const ok = await copyText(shareUrl(pl)), b = $('shCopy');
+      if (b) { b.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { if ($('shCopy')) $('shCopy').textContent = 'Copy'; }, 1800); }
+      return;
+    }
+    if (e.target.closest('#shNative')) { try { await navigator.share({ title: pl.name, text: pl.name + ' on Isai', url: shareUrl(pl) }); } catch {} return; }
+    if (e.target.closest('#shNew')) {
+      if (!confirm('Reset the link? The current link will stop working.')) return;
+      const r = await acct.now('POST', `/isai/playlists/${enc(pl.id)}/new-link`);
+      if (r.ok) { pl.slug = r.d.slug; toast('New link created'); paintShare(pl); }
+      else paintShare(pl, (r.d && r.d.error) || "Couldn't reset the link.");
+    }
+  };
+}
+async function setVisibility(pl, k){
+  if (k === (pl.visibility || 'private')) return;
+  if (k !== 'private' && !acctName) return askUsername(() => setVisibility(pl, k), () => paintShare(pl));
+  const r = await acct.now('PATCH', '/isai/playlists/' + enc(pl.id), { visibility: k });
+  if (r.ok) {
+    pl.visibility = k; if (plSnap[pl.id]) plSnap[pl.id].vis = k;
+    if (r.d.playlist && r.d.playlist.slug) pl.slug = r.d.playlist.slug;
+    if (view === 'upl' && viewArg === pl.id) renderUserPl(pl.id); else if (view === 'liked') renderLiked();
+    return paintShare(pl);
+  }
+  if (r.d && r.d.username_required) return askUsername(() => setVisibility(pl, k), () => paintShare(pl));
+  paintShare(pl, (r.d && r.d.error) || "Couldn't change that. Try again.");
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-uname]'); if (!a) return;
+  e.preventDefault();
+  if (acctName && a.dataset.uname.toLowerCase() === acctName.toLowerCase()) show('profile'); else show('user', a.dataset.uname);
+});
+
+/* someone else's (or your own) shared playlist, opened from a link */
+async function renderShared(slug){
+  const main = $('main'), my = ++entTok;
+  main.classList.remove('flush');
+  main.innerHTML = `<div class="bkrow">${backBtn()}</div><div class="pg"><p class="qmsg">Loading playlist…</p></div>`; hydrate(main);
+  const r = await acct.now('GET', '/isai/playlist/' + enc(slug));
+  if (my !== entTok || view !== 'shared') return;
+  if (!r.ok) {
+    main.innerHTML = `<div class="bkrow">${backBtn()}</div><div class="pg"><h1 class="t">Playlist unavailable</h1><p class="qmsg">${r.status === 404 ? 'This playlist is private, or the link is no longer valid.' : esc((r.d && r.d.error) || "Couldn't load this playlist.")}</p></div>`;
+    return hydrate(main);
+  }
+  const d = r.d, tracks = d.tracks || [], key = 'shared_' + slug;
+  lists[key] = tracks; names[key] = d.name; listKey = key; pageEnt = null;
+  const total = tracks.reduce((s, t) => s + (t.duration || 0), 0);
+  const meta = `${tracks.length} song${tracks.length === 1 ? '' : 's'}` + (total ? ` • ${fmtMin(total)}` : '');
+  const fb = tracks.length ? cov({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640) : PH;
+  const cover = d.thumb ? `<img class="acover" src="${esc(d.thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(fb)}'">` : tracks.length ? imgTag({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640, 'class="acover"') : `<div class="acover ph">${ic('note', 72)}</div>`;
+  const mine = d.is_owner && d.own_pid && playlists.find(p => p.id === d.own_pid);
+  const copy = playlists.find(p => p.copyOf === slug);
+  const sv = mine ? ['view', 'Open in your library', 'chev'] : copy ? ['have', 'Already in your library', 'check'] : ['save', 'Save to your library', 'plus'];
+  main.innerHTML = `<div class="bkrow">${backBtn()}</div>
+    <div class="alb"><aside class="alb-l">${cover}
+      <h1>${esc(d.name)}</h1>
+      <p class="plby">${visPill(d.visibility)}${d.owner ? ` by <a data-uname="${esc(d.owner)}">@${esc(d.owner)}</a>` : ''}</p><p>${meta}</p>
+      <div class="aact">
+        <button class="rb sm" id="shSave" title="${sv[1]}">${ic(sv[2], 18)}</button>
+        ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
+        <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
+        <div class="menu glass" id="amenu" hidden>
+          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button><button data-m="addall">Add all to playlist</button>' : ''}${d.visibility !== 'private' ? '<button data-m="copylink">Copy link</button>' : ''}
+        </div>
+      </div></aside>
+      <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true)).join('') : '<p class="qmsg">This playlist is empty.</p>'}</div></div></div>`;
+  hydrate(main); bindPlay(key, tracks.length);
+  $('shSave').onclick = () => {
+    if (mine) return show('upl', mine.id);
+    if (copy) return toast('Already in your library');
+    const p = createPlaylist(d.name, tracks, { thumb: d.thumb || '', copyOf: slug });
+    toast(`Saved "${p.name}" to your library`); renderShared(slug);
+  };
+  $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
+  $('amenu').onclick = async e => {
+    const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
+    const k = m.dataset.m;
+    if (k === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
+    else if (k === 'dlall') downloadAll(tracks, d.name, { id: key, label: d.name });
+    else if (k === 'addall') openAddModal(tracks);
+    else if (k === 'copylink') toast(await copyText(slugUrl(slug)) ? 'Link copied' : "Couldn't copy the link", false);
+  };
+  if (tracks[0]) tintFrom(tracks[0]);
+  markPlaying();
+}
+
+/* ---------- profiles ----------
+   Your profile: @username, friends, featured public playlists, a listening status and stats.
+   Each part has its own visibility (public / friends only / private). Friends are Isai friends. */
+const PVIS = { public: 'Public', friends: 'Friends only', private: 'Private' };
+const PVIS_ICON = { public: 'globe', friends: 'users', private: 'lock' };
+const PROF_RANGES = { week: 'Last 7 days', month: 'Last 30 days', '6months': 'Last 6 months', year: 'Last 12 months', all: 'All time' };
+let profSet = { profile: 'public', status: 'private', top_tracks: 'private', top_artists: 'private', top_albums: 'private', history: 'private', time: 'private' };
+let profFeatured = [], profFriends = 0, profIncoming = 0, profTok = 0, profCur = null;
+let profRange = store.get('profrange', 'month'); if (!PROF_RANGES[profRange]) profRange = 'month';
+
+function applyProfileSummary(p){
+  if (!p) return;
+  Object.assign(profSet, p.settings || {});
+  profFeatured = p.featured || []; profFriends = p.friend_count || 0; profIncoming = p.incoming || 0;
+  paintNavAvatar();
+}
+const nameHue = n => { let h = 0; for (const c of String(n)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const avatar = (name, cls = '') => `<i class="pav ${cls}" style="--h:${nameHue(name)}">${esc(name ? String(name)[0].toUpperCase() : '?')}</i>`;
+function paintNavAvatar(){
+  const b = document.getElementById('navProfile'); if (!b || !b.firstElementChild) return;
+  b.firstElementChild.innerHTML = acctName ? avatar(acctName, 'sm') : ic('user');
+  b.classList.toggle('dot', profIncoming > 0);
+}
+function ago(ts){
+  const s = Math.max(1, (Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  const m = s / 60; if (m < 60) return Math.floor(m) + 'm ago';
+  const h = m / 60; if (h < 24) return Math.floor(h) + 'h ago';
+  const d = h / 24; if (d < 30) return Math.floor(d) + 'd ago';
+  return new Date(ts).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+/* ---- page ---- */
+async function renderProfile(name){
+  const main = $('main'), my = ++profTok; ++entTok;
+  main.classList.remove('flush');
+  const own = !name || (acctName && name.toLowerCase() === acctName.toLowerCase());
+  const back = view === 'profile' ? '' : `<div class="bkrow">${backBtn()}</div>`;
+  if (own && !acctName) {
+    main.innerHTML = `<div class="pg prof"><header class="phead">${avatar('', 'xl')}<div class="pinfo"><small>Profile</small><h1>Your profile</h1><div class="pline">Choose a username to set up your profile, add friends and share playlists.</div></div><div class="pbtns"><button class="btn" id="pSetName">Choose username</button></div></header></div>`;
+    hydrate(main);
+    $('pSetName').onclick = () => askUsername(() => { closeModal(); paintNavAvatar(); renderProfile(null); });
+    return;
+  }
+  const uname = own ? acctName : name;
+  main.innerHTML = `${back}<div class="pg prof"><header class="phead">${avatar(uname, 'xl')}<div class="pinfo"><small>Profile</small><h1>@${esc(uname)}</h1></div></header><p class="qmsg">Loading…</p></div>`;
+  hydrate(main);
+  const r = await acct.now('GET', '/isai/profile/' + enc(uname));
+  if (my !== profTok) return;
+  if (!r.ok) {
+    main.innerHTML = `${back}<div class="pg prof"><h1 class="t">@${esc(uname)}</h1><p class="qmsg">${r.status === 404 ? 'No one here by that name.' : esc((r.d && r.d.error) || "Couldn't load this profile.")}</p></div>`;
+    return hydrate(main);
+  }
+  profCur = { d: r.d, own, uname, back };
+  if (own) {
+    Object.assign(profSet, r.d.settings || {});
+    if (r.d.friend_count != null) profFriends = r.d.friend_count;
+    if (r.d.incoming != null) profIncoming = r.d.incoming;
+    paintNavAvatar();
+  }
+  paintProfile();
+  if (r.d.profile_visible) loadProfStats();
+}
+const visBtn = key => profCur.own ? `<button class="vbtn" data-pvis="${key}" title="Who can see this">${ic(PVIS_ICON[profSet[key]], 14)}${PVIS[profSet[key]]}</button>` : '';
+function friendBtns(d){
+  if (d.friend_state === 'none') return '<button class="btn" data-fr="add">Add friend</button>';
+  if (d.friend_state === 'outgoing') return '<button class="btn ghost" data-fr="cancel">Requested</button>';
+  if (d.friend_state === 'incoming') return '<button class="btn" data-fr="accept">Accept request</button><button class="btn ghost" data-fr="decline">Decline</button>';
+  if (d.friend_state === 'friends') return `<button class="btn ghost" data-fr="remove">${ic('check', 16)} Friends</button>`;
+  return '';
+}
+function paintProfile(){
+  const { d, own, uname, back } = profCur, main = $('main');
+  if (!d.profile_visible) {
+    main.innerHTML = `${back}<div class="pg prof"><header class="phead">${avatar(uname, 'xl')}<div class="pinfo"><small>Profile</small><h1>@${esc(uname)}</h1></div><div class="pbtns">${friendBtns(d)}</div></header>
+      <div class="pempty">${ic('lock', 22)}<p>This profile is private.</p></div></div>`;
+    return hydrate(main);
+  }
+  const fc = d.friend_count || 0, pls = d.playlists || [];
+  const fr = own ? `<button class="plink" id="pFr">${plural(fc, 'friend')}${profIncoming ? `<i class="pbadge">${profIncoming}</i>` : ''}</button>` : `<span>${plural(fc, 'friend')}</span>`;
+  const sections = d.sections || {}, anyStat = Object.values(sections).some(Boolean);
+  const status = (d.status || own) ? statusHtml() : '';
+  const plSec = (pls.length || own) ? playlistsHtml(pls) : '';
+  const statSec = (anyStat || own) ? `<section class="psec"><div class="psh"><h2>Stats</h2></div>
+      <div class="chips">${Object.entries(PROF_RANGES).map(([k, v]) => `<button class="chip ${k === profRange ? 'on' : ''}" data-prng="${k}">${v}</button>`).join('')}</div>
+      <div id="pStats"><p class="qmsg">Loading…</p></div></section>` : '';
+  main.innerHTML = `${back}<div class="pg prof">
+    <header class="phead">${avatar(uname, 'xl')}
+      <div class="pinfo"><small>Profile</small><h1>@${esc(uname)}</h1><div class="pline">${fr}${pls.length ? `<i>·</i><span>${plural(pls.length, 'playlist')}</span>` : ''}</div></div>
+      <div class="pbtns">${own ? `<button class="btn ghost" id="pEdit">Edit profile</button><button class="rb sm" id="pCopy" title="Copy profile link">${ic('share', 18)}</button>` : friendBtns(d)}</div>
+    </header>${status}${plSec}${statSec}
+    ${(!status && !plSec && !statSec) ? '<div class="pempty">Nothing shared yet.</div>' : ''}</div>`;
+  hydrate(main);
+}
+function statusHtml(){
+  const { d, own } = profCur, st = d.status;
+  let body;
+  if (!st) body = '<div class="pempty">Nothing yet. Play a song and it shows up here.</div>';
+  else {
+    const t = st.track; lists.prof_status = [t]; names.prof_status = 'Listening';
+    body = `<div class="pstat glass" data-pk="prof_status" data-pi="0">${imgTag(t, 160)}
+      <div class="pt"><small>${st.playing ? '<span class="eq"><i></i><i></i><i></i></span>Listening now' : 'Last listened · ' + ago(st.updated)}</small>
+      <b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(a => a.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
+      <button class="rb sm" title="Play">${ic('play', 18)}</button></div>`;
+  }
+  return `<section class="psec"><div class="psh"><h2>Listening</h2>${visBtn('status')}</div>${body}</section>`;
+}
+function playlistsHtml(pls){
+  const { own } = profCur;
+  const cards = pls.map(p => ({ kind: 'sharedpl', id: p.slug, title: p.name, artist: plural(p.count, 'song'),
+    thumbnail: p.thumb ? p.thumb : p.cover ? cov({ id: p.cover.id, thumbnail: p.cover.thumbnail }, 340) : PH }));
+  return `<section class="psec"><div class="psh"><h2>Playlists</h2>${own ? `<button class="vbtn" id="pPlEdit">${ic('plus', 14)}${pls.length ? 'Edit' : 'Add'}</button>` : ''}</div>
+    ${cards.length ? gridHtml('prof_pls', cards) : '<div class="pempty">Show your favourite playlists here.<small>Only public playlists can be added.</small></div>'}</section>`;
+}
+
+/* ---- stats ---- */
+const prow = (t, key, i, n, right) => `<div class="prow ${current && current.id === t.id ? 'cur' : ''}" data-pk="${key}" data-pi="${i}" data-id="${esc(t.id)}">${n !== '' ? `<span class="pn">${n}</span>` : ''}${imgTag(t, 120)}<div class="pm"><b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(a => a.name).join(', '))}</span></div><em>${esc(right)}</em></div>`;
+function profArtistCard(a, i){
+  const p = artProf[akey(a.name)];
+  const im = p && p.url ? `<img loading="lazy" src="${esc(p.url)}" alt="" data-id="${esc(a.tid)}" onerror="imgErr(this)">` : imgTag({ id: a.tid, thumbnail: a.thumbnail }, 340);
+  const link = a.id ? `data-artist="${esc(a.id)}"` : `data-aname="${esc(a.name)}"`;
+  return `<div class="card artist acd"><a ${link}><div class="cv">${im}<em class="rk">${i + 1}</em></div><b>${esc(a.name)}</b><span>${plural(a.plays, 'play')}</span></a></div>`;
+}
+function statsHtml(s){
+  const sub = (key, title, inner) => `<div class="psub"><div class="psh"><h3>${title}</h3>${visBtn(key)}</div>${inner}</div>`;
+  const none = '<div class="pempty">No listens in this period yet.</div>';
+  let out = '';
+  if (s.time) out += sub('time', 'Totals', `<div class="astats"><div class="astat glass"><b>${fmtDur(s.time.seconds)}</b><span>Listening time</span></div><div class="astat glass"><b>${s.time.plays}</b><span>Plays</span></div><div class="astat glass"><b>${s.time.songs}</b><span>Different songs</span></div></div>`);
+  if (s.top_tracks) {
+    lists.prof_top = s.top_tracks.map(x => x.track); names.prof_top = 'Top tracks';
+    out += sub('top_tracks', 'Top tracks', s.top_tracks.length ? `<div class="plist">${s.top_tracks.map((x, i) => prow(x.track, 'prof_top', i, i + 1, plural(x.plays, 'play'))).join('')}</div>` : none);
+  }
+  if (s.top_artists) out += sub('top_artists', 'Top artists', s.top_artists.length ? `<div class="grid">${s.top_artists.map(profArtistCard).join('')}</div>` : none);
+  if (s.top_albums) {
+    const al = s.top_albums.map(a => ({ kind: 'album', id: a.id, title: a.title, artist: `${a.artist ? a.artist + ' · ' : ''}${plural(a.plays, 'play')}`, thumbnail: a.thumbnail }));
+    out += sub('top_albums', 'Top albums', al.length ? gridHtml('prof_albums', al) : none);
+  }
+  if (s.history) {
+    lists.prof_hist = s.history.map(h => h.track); names.prof_hist = 'Listen history';
+    out += sub('history', 'Listen history', s.history.length ? `<div class="plist">${s.history.map((h, i) => prow(h.track, 'prof_hist', i, '', ago(h.ts))).join('')}</div>` : '<div class="pempty">No listens yet.</div>');
+  }
+  return out || '<div class="pempty">Nothing shared here.</div>';
+}
+async function loadProfStats(){
+  const c = profCur, my = profTok; if (!$('pStats')) return;
+  const r = await acct.now('GET', `/isai/profile/${enc(c.uname)}/stats?range=${enc(profRange)}`);
+  const box = $('pStats'); if (my !== profTok || !box) return;
+  if (!r.ok) { box.innerHTML = `<p class="qmsg err">${esc((r.d && r.d.error) || "Couldn't load stats.")}</p>`; return; }
+  box.innerHTML = statsHtml(r.d); hydrate(box); markPlaying();
+}
+
+/* ---- friends ---- */
+async function syncFriendCounts(){
+  const r = await acct.now('GET', '/isai/friends');
+  if (r.ok) { profFriends = r.d.friends.length; profIncoming = r.d.incoming.length; paintNavAvatar(); }
+  return r;
+}
+async function friendAction(kind){
+  const c = profCur, d = c.d; let r;
+  if (kind === 'add') r = await acct.now('POST', '/isai/friends/requests', { username: c.uname });
+  else if (kind === 'cancel' || kind === 'decline') r = await acct.now('DELETE', '/isai/friends/requests/' + d.request_id);
+  else if (kind === 'accept') r = await acct.now('POST', `/isai/friends/requests/${d.request_id}/accept`);
+  else if (kind === 'remove') { if (!confirm(`Remove @${c.uname} from your friends?`)) return; r = await acct.now('DELETE', '/isai/friends/' + enc(c.uname)); }
+  if (!r) return;
+  if (!r.ok) return toast((r.d && r.d.error) || 'Something went wrong', true);
+  if (kind === 'add') toast(r.d.state === 'friends' ? `You and @${c.uname} are now friends` : 'Friend request sent');
+  syncFriendCounts(); renderProfile(c.uname);
+}
+let frTab = 'friends';
+async function openFriends(tab){
+  if (tab) frTab = tab;
+  const sh = openModal('<h3>Friends</h3><p class="mhint">Loading…</p>');
+  const r = await syncFriendCounts();
+  if (!r.ok) { sh.innerHTML = `<h3>Friends</h3><p class="mhint merr">${esc((r.d && r.d.error) || "Couldn't load your friends.")}</p><div class="mbtns"><button class="btn ghost" data-mc>Close</button></div>`; return; }
+  const { friends, incoming, outgoing } = r.d;
+  const row = (name, right) => `<div class="frow"><a data-fu="${esc(name)}">${avatar(name, 'sm')}<b>@${esc(name)}</b></a><span class="fra">${right}</span></div>`;
+  let list;
+  if (frTab === 'friends') list = friends.length ? friends.map(f => row(f.username, `<button class="pill" data-frm="${esc(f.username)}">Remove</button>`)).join('') : '<p class="mhint">No friends yet. Add someone by username below.</p>';
+  else {
+    list = (incoming.length ? '<h4 class="prvh">Requests</h4>' + incoming.map(q => row(q.username, `<button class="pill" data-fra="${q.id}">Accept</button><button class="pill" data-frd="${q.id}">Decline</button>`)).join('') : '')
+         + (outgoing.length ? '<h4 class="prvh">Sent</h4>' + outgoing.map(q => row(q.username, `<button class="pill" data-frd="${q.id}">Cancel</button>`)).join('') : '');
+    if (!list) list = '<p class="mhint">No pending requests.</p>';
+  }
+  sh.innerHTML = `<h3>Friends</h3>
+    <div class="seg wide"><button class="${frTab === 'friends' ? 'on' : ''}" data-frt="friends">Friends · ${friends.length}</button><button class="${frTab === 'requests' ? 'on' : ''}" data-frt="requests">Requests · ${incoming.length}</button></div>
+    <div class="frlist">${list}</div>
+    <div class="slink"><input class="minp" id="frName" placeholder="Add a friend by @username" maxlength="21" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="frAdd">Add</button></div>
+    <p class="mhint merr" id="frErr"></p>
+    <div class="mbtns"><button class="btn ghost" data-mc>Done</button></div>`;
+  const redo = () => { if (view === 'profile') renderProfile(null); openFriends(); };
+  const add = async () => {
+    const v = $('frName').value.trim().replace(/^@/, ''); if (!v) return;
+    const x = await acct.now('POST', '/isai/friends/requests', { username: v });
+    if (!x.ok) { $('frErr').textContent = (x.d && x.d.error) || 'Could not send that.'; return; }
+    toast(x.d.state === 'friends' ? `You and @${v} are now friends` : 'Friend request sent'); frTab = x.d.state === 'friends' ? 'friends' : 'requests'; redo();
+  };
+  sh.onclick = async e => {
+    const t = e.target.closest('[data-frt]'); if (t) return openFriends(t.dataset.frt);
+    const u = e.target.closest('[data-fu]'); if (u) { closeModal(); return show('user', u.dataset.fu); }
+    const rm = e.target.closest('[data-frm]'); if (rm) { if (!confirm(`Remove @${rm.dataset.frm} from your friends?`)) return; await acct.now('DELETE', '/isai/friends/' + enc(rm.dataset.frm)); return redo(); }
+    const ac = e.target.closest('[data-fra]'); if (ac) { await acct.now('POST', `/isai/friends/requests/${ac.dataset.fra}/accept`); return redo(); }
+    const de = e.target.closest('[data-frd]'); if (de) { await acct.now('DELETE', '/isai/friends/requests/' + de.dataset.frd); return redo(); }
+    if (e.target.closest('#frAdd')) add();
+  };
+  $('frName').onkeydown = e => { if (e.key === 'Enter') add(); };
+}
+
+/* ---- editing: username, featured playlists, who can see what ---- */
+function openProfileEditor(){
+  const rows = [['profile', 'Profile', 'Private hides everything except your @username'], ['status', 'Listening status', 'What you are playing, or played last'],
+    ['top_tracks', 'Top tracks', ''], ['top_artists', 'Top artists', ''], ['top_albums', 'Top albums', ''], ['history', 'Listen history', 'Your recent plays'], ['time', 'Listening time and totals', '']];
+  const sh = openModal(`<h3>Edit profile</h3>
+    <div class="prv"><div><b>Username</b><span>${acctName ? '@' + esc(acctName) : 'Not set yet'}</span></div><button class="pill" id="peUser">${acctName ? 'Change' : 'Set'}</button></div>
+    <div class="prv"><div><b>Playlists on your profile</b><span>${plural(profFeatured.length, 'playlist')} · public playlists only</span></div><button class="pill" id="pePl">Choose</button></div>
+    <h4 class="prvh">Who can see</h4>
+    ${rows.map(([k, t, h]) => `<div class="prv"><div><b>${t}</b>${h ? `<span>${h}</span>` : ''}</div><div class="seg" data-pset="${k}">${['public', 'friends', 'private'].map(v => `<button data-pv="${v}" class="${profSet[k] === v ? 'on' : ''}">${v === 'friends' ? 'Friends' : v[0].toUpperCase() + v.slice(1)}</button>`).join('')}</div></div>`).join('')}
+    <div class="mbtns"><button class="btn" data-mc>Done</button></div>`);
+  sh.onclick = async e => {
+    if (e.target.closest('#peUser')) return askUsername(() => { paintNavAvatar(); closeModal(); if (view === 'profile') renderProfile(null); }, () => openProfileEditor());
+    if (e.target.closest('#pePl')) return openFeatured();
+    const pv = e.target.closest('[data-pv]'); if (!pv) return;
+    const grp = pv.parentElement, k = grp.dataset.pset, v = pv.dataset.pv, old = profSet[k];
+    if (old === v) return;
+    profSet[k] = v; grp.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === pv));
+    const r = await acct.now('PATCH', '/isai/profile', { settings: { [k]: v } });
+    if (!r.ok) { profSet[k] = old; toast("Couldn't save that", true); return openProfileEditor(); }
+    if (view === 'profile') renderProfile(null);
+  };
+}
+async function openFeatured(){
+  const sh = openModal('<h3>Playlists on your profile</h3><p class="mhint">Getting things ready…</p>');
+  await flushPlaylists();
+  const pub = playlists.filter(p => (p.visibility || 'private') === 'public');
+  const other = playlists.filter(p => (p.visibility || 'private') !== 'public');
+  let sel = profFeatured.filter(id => pub.some(p => p.id === id));
+  const paint = msg => {
+    sh.innerHTML = `<h3>Playlists on your profile</h3><p class="mhint">Pick up to 12 of your public playlists to show. Tap to add or remove.</p>
+      ${pub.length ? pub.map(p => `<button class="plr fsel ${sel.includes(p.id) ? 'on' : ''}" data-fp="${esc(p.id)}"><span class="plc"><img src="${esc(plCover(p, 100))}" alt=""></span><span class="qm"><b>${esc(p.name)}</b><span>${plural(p.tracks.length, 'song')}</span></span><i class="vck">${sel.includes(p.id) ? ic('check', 18) : ''}</i></button>`).join('') : '<div class="pempty">You have no public playlists yet.<small>Open a playlist, tap Share and make it Public.</small></div>'}
+      ${other.length ? `<p class="mhint" style="margin-top:12px">${plural(other.length, 'playlist')} can't be added because ${other.length === 1 ? "it isn't" : "they aren't"} public.</p>` : ''}
+      <p class="mhint merr">${msg ? esc(msg) : ''}</p>
+      <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="fpSave">Save</button></div>`;
+  };
+  paint();
+  sh.onclick = async e => {
+    const b = e.target.closest('[data-fp]');
+    if (b) { const id = b.dataset.fp; if (sel.includes(id)) sel = sel.filter(x => x !== id); else if (sel.length >= 12) return paint('You can show up to 12 playlists.'); else sel.push(id); return paint(); }
+    if (!e.target.closest('#fpSave')) return;
+    const r = await acct.now('POST', '/isai/profile/playlists', { pids: sel });
+    if (!r.ok) return paint((r.d && r.d.error) || "Couldn't save that.");
+    profFeatured = r.d.featured; closeModal(); if (view === 'profile') renderProfile(null);
+  };
+}
+
+/* ---- clicks on the profile page ---- */
+document.addEventListener('click', async e => {
+  if (!e.target.closest('.prof')) return;
+  const pr = e.target.closest('[data-pk]');
+  if (pr) { if (e.target.closest('a')) return; listKey = pr.dataset.pk; return playFrom(pr.dataset.pk, +pr.dataset.pi, false); }
+  const rg = e.target.closest('[data-prng]');
+  if (rg) {
+    profRange = rg.dataset.prng; store.set('profrange', profRange);
+    document.querySelectorAll('.prof [data-prng]').forEach(b => b.classList.toggle('on', b === rg));
+    const bx = $('pStats'); if (bx) bx.innerHTML = '<p class="qmsg">Loading…</p>';
+    return loadProfStats();
+  }
+  if (e.target.closest('[data-pvis]') || e.target.closest('#pEdit')) return openProfileEditor();
+  if (e.target.closest('#pFr')) return openFriends('friends');
+  if (e.target.closest('#pPlEdit')) return openFeatured();
+  if (e.target.closest('#pCopy')) { toast(await copyText(location.origin + location.pathname + '?u=' + enc(acctName)) ? 'Profile link copied' : "Couldn't copy the link", false); return; }
+  const fr = e.target.closest('[data-fr]'); if (fr) return friendAction(fr.dataset.fr);
+});
+
+/* ---- listening status: tell the account what's playing (who can see it is up to you) ---- */
+let stT = 0;
+function queueStatus(){
+  clearTimeout(stT);
+  stT = setTimeout(() => {
+    if (!acctReady || !current) return;
+    acct.sendLatest('POST', '/isai/status', { track: slim(current), playing: !!(a && !a.paused && !loading) });
+  }, 1500);
+}
+
 const qaBtns = (t, rm) => `<span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart', 18)}</button>${rm ? `<button data-a="rmpl" title="Remove from playlist">${ic('x', 18)}</button>` : `<button data-a="pl" title="Add to playlist">${ic('plus', 18)}</button>`}<button data-a="dl" title="Download">${ic('dl', 18)}</button></span>`;
 
 /* ---------- modal ---------- */
@@ -3110,17 +3823,20 @@ function renderUserPl(id){
   const cover = pl.thumb ? `<img class="acover" src="${esc(pl.thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(fb)}'">` : tracks.length ? imgTag({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640, 'class="acover"') : `<div class="acover ph">${ic('note', 72)}</div>`;
   $('main').innerHTML = `<div class="bkrow">${backBtn()}</div>
     <div class="alb"><aside class="alb-l">${cover}
-      <h1>${esc(pl.name)}</h1><p>${meta}</p>
+      <h1>${esc(pl.name)}</h1>
+      <p class="plby">${visPill(pl.visibility || 'private')}${acctName ? ` by <a data-uname="${esc(acctName)}">@${esc(acctName)}</a>` : ''}</p><p>${meta}</p>
       <div class="aact">
+        <button class="rb sm" id="uShare" title="Share">${ic('share', 18)}</button>
         <button class="rb sm" id="uDl" title="Download all">${ic('dl', 18)}</button>
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
+          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
         </div>
       </div></aside>
       <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div>`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
+  $('uShare').onclick = () => openShare(pl);
   $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, { id: pl.id, label: pl.name }) : toast('Nothing to download yet');
   $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
   $('amenu').onclick = e => {
@@ -3128,6 +3844,7 @@ function renderUserPl(id){
     const k = m.dataset.m;
     if (k === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
     else if (k === 'dlall') downloadAll(tracks, pl.name, { id: pl.id, label: pl.name });
+    else if (k === 'share') openShare(pl);
     else if (k === 'rename') promptName({ title: 'Rename playlist', value: pl.name, cta: 'Save', onOk: v => { pl.name = v; savePl(); renderUserPl(id); } });
     else if (k === 'reorder') { plReorder = id; renderUserPl(id); }
     else if (k === 'sync') syncPl(pl);
@@ -3494,7 +4211,10 @@ updateInstallBtn();
     if (started) return;
     started = true;
     const go = () => show(navigator.onLine ? 'home' : 'downloads');
-    go();
+    if (navigator.onLine) {
+      $('main').innerHTML = '<p class="qmsg" style="padding:56px 24px;text-align:center">Loading your library…</p>';
+      initAccount().finally(() => { go(); openDeepLink(); });
+    } else go();
     loadArtProfiles().then(() => ensureArtistProfiles());
     loadExtras().then(() => ensureExtras());
   }
@@ -3515,7 +4235,8 @@ updateInstallBtn();
     try { localStorage.setItem('thirai_discover_access', d.discover_access ? 'true' : 'false'); } catch {}
     startApp();
   }
-  window.__signOut = function(){
+  window.__signOut = async function(){
+    try { actSave(true); pushPlaylists(); await Promise.race([acct.flushed(), new Promise(r => setTimeout(r, 2500))]); } catch {}
     try { localStorage.removeItem(TK); localStorage.removeItem('thirai_discover_access'); } catch {}
     location.reload();
   };
