@@ -752,10 +752,8 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .ly.plain,.ly.plain:hover{opacity:.85;filter:none;transform:none;cursor:default;font-size:18px;font-weight:600;padding:4px 8px;text-shadow:none}
 .ly.plain.on{opacity:1;transform:none;filter:none}
 .ly.plain.past{opacity:.4;filter:none;transform:none}
-.ly.rich.on .w{color:rgba(255,255,255,.38);transition:color .18s}
-.ly.rich.on .w.wd{color:#fff}
-.ly.rich.on .w.wc{color:transparent;-webkit-text-fill-color:transparent;transition:none;-webkit-background-clip:text;background-clip:text;
-  background-image:linear-gradient(90deg,#fff var(--p,-10%),rgba(255,255,255,.38) calc(var(--p,-10%) + 10%))}
+.ly.rich.on .w{opacity:.35;transition:opacity .18s}
+.ly.rich.on .w.wd,.ly.rich.on .w.wc{opacity:1}
 .lyf{display:flex;gap:8px;margin:8px 4px 6px}
 .lyf .minp{height:42px}
 .lyf .btn{padding:8px 16px;white-space:nowrap;font-size:13px}
@@ -1172,7 +1170,13 @@ body.offline .tr.nodl{opacity:.38}
 
 <style id="lyfull-css">
 /* ======== lyrics mode (phone): the real player pieces morph into the lyrics layout ======== */
+#lybg,#lyhead{display:none}
 @media(max-width:720px){
+  /* smooth left-to-right word fill (phone only) */
+  .ly.rich.on .w{opacity:1;color:rgba(255,255,255,.38);transition:color .18s}
+  .ly.rich.on .w.wd{color:#fff}
+  .ly.rich.on .w.wc{color:transparent;-webkit-text-fill-color:transparent;transition:none;-webkit-background-clip:text;background-clip:text;
+    background-image:linear-gradient(90deg,#fff var(--p,-10%),rgba(255,255,255,.38) calc(var(--p,-10%) + 10%))}
   #npv .npl{z-index:2}
   #lybg{display:block;position:absolute;inset:0;z-index:1;opacity:0;pointer-events:none;transition:opacity .55s var(--ease);background:
     radial-gradient(130% 55% at 0% 0%,var(--c1),transparent 72%),
@@ -1185,7 +1189,7 @@ body.offline .tr.nodl{opacity:.38}
   #npv.lyfull .nptop{opacity:0;pointer-events:none}
 
   /* star + more, top right */
-  #lyhead{position:absolute;z-index:8;top:calc(var(--sat) + 38px);right:24px;display:flex;gap:10px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease)}
+  #lyhead{display:flex;position:absolute;z-index:8;top:calc(var(--sat) + 38px);right:24px;gap:10px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease)}
   #npv.lyfull #lyhead{opacity:1;pointer-events:auto;transition:opacity .4s var(--ease) .2s}
   #lymore{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.2);
     transition:background-color .25s var(--ease),transform .25s var(--ease)}
