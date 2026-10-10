@@ -170,6 +170,7 @@ h1.t{font-size:30px;margin:6px 0 18px;font-weight:800}
 .aact{position:relative;display:flex;justify-content:center;align-items:center;gap:16px;margin-top:20px}
 .menu{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);min-width:190px;border-radius:14px;padding:6px;z-index:40;text-align:left}
 .menu[hidden]{display:none}
+.menu.fmenu{position:fixed;transform:none;z-index:10000;overflow-y:auto;overscroll-behavior:contain;background:rgba(26,26,32,.98);backdrop-filter:none;-webkit-backdrop-filter:none}
 .menu button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:9px;font-weight:500}
 .menu button:hover{background:rgba(255,255,255,.12)}
 .tl{display:flex;flex-direction:column}
@@ -1292,7 +1293,7 @@ const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="b
 
 function show(v, arg, back){
   closeNP();
-  document.querySelectorAll('body > #backBtn').forEach(b => b.remove());
+  document.querySelectorAll('body > #backBtn,body > #amenu').forEach(b => b.remove());
   const detail = ['list', 'entity', 'mood', 'upl'].includes(v);
   if (!back) { if (detail) stack.push({ v: view, arg: viewArg }); else stack = []; }
   view = v; viewArg = arg;
@@ -1463,7 +1464,7 @@ function renderCollection(d, key){
       <div class="alb-r"><div class="tl">${tracks.map((t, i) => trow(t, i)).join('')}</div>${more}</div></div>`;
   hydrate($('main')); wireRows($('main')); bindPlay(key, tracks.length);
   if ($('aSave')) $('aSave').onclick = () => $('aSave').classList.toggle('on', toggleSave(pageEnt));
-  $('aMenu').onclick = e => { e.stopPropagation(); $('amenu').hidden = !$('amenu').hidden; };
+  $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
   $('amenu').onclick = e => {
     const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
     if (m.dataset.m === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
@@ -2717,6 +2718,28 @@ function removeFromPl(t){
   pl.tracks = pl.tracks.filter(x => x.id !== t.id); savePl();
   renderUserPl(pl.id); toast('Removed from playlist');
 }
+function placeAMenu(){
+  const m = $('amenu'), b = $('aMenu'); if (!m || !b || m.hidden) return;
+  const r = b.getBoundingClientRect(), vh = innerHeight, vw = innerWidth, gap = 8;
+  m.style.maxHeight = ''; m.style.top = '0'; m.style.left = '0';
+  const mh = m.scrollHeight, mw = m.offsetWidth;
+  const below = vh - r.bottom - gap - 8, above = r.top - gap - 8;
+  const up = mh > below && above > below;
+  const avail = Math.max(120, up ? above : below);
+  m.style.maxHeight = avail + 'px';
+  const h = Math.min(mh, avail);
+  m.style.top = (up ? r.top - gap - h : r.bottom + gap) + 'px';
+  m.style.left = Math.max(8, Math.min(vw - mw - 8, r.left + r.width / 2 - mw / 2)) + 'px';
+}
+function toggleAMenu(){
+  const m = $('amenu'); if (!m) return;
+  if (!m.hidden) { m.hidden = true; return; }
+  document.querySelectorAll('body > #amenu').forEach(x => { if (x !== m) x.remove(); });
+  if (m.parentNode !== document.body) document.body.appendChild(m);  // escape sticky/stacking contexts so rows can't cover it
+  m.classList.add('fmenu'); m.hidden = false; placeAMenu();
+}
+addEventListener('resize', placeAMenu);
+addEventListener('scroll', e => { const m = $('amenu'); if (m && !m.hidden && e.target !== m) m.hidden = true; }, { passive: true, capture: true });
 let plReorder = null;
 const roRows = tracks => tracks.map((t, i) => `<div class="rrow" data-id="${esc(t.id)}"><button class="rgrip" title="Drag to reorder" aria-label="Drag to reorder">${ic('grip', 20)}</button><div class="qt">${imgTag(t, 120)}</div><div class="qm"><b>${esc(t.title)}</b><span>${esc((t.artists && t.artists.join(', ')) || t.artist || '')}</span></div><span class="rmv"><button data-mv="-1" title="Move up" aria-label="Move up">${ic('up', 18)}</button><button data-mv="1" title="Move down" aria-label="Move down">${ic('down', 18)}</button></span></div>`).join('');
 function bindReorder(pl){
@@ -2774,7 +2797,7 @@ function renderUserPl(id){
       <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div>`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
   $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, { id: pl.id, label: pl.name }) : toast('Nothing to download yet');
-  $('aMenu').onclick = e => { e.stopPropagation(); $('amenu').hidden = !$('amenu').hidden; };
+  $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
   $('amenu').onclick = e => {
     const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
     const k = m.dataset.m;
