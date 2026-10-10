@@ -1020,6 +1020,46 @@ body.offline .tr.nodl{opacity:.38}
 .fra{display:flex;gap:6px;flex:none}
 .frlist{min-height:60px;margin-bottom:8px}
 .fsel.on{background:rgba(255,255,255,.1)}
+
+/* ---- profile v2: carousels, expandable lists, fullscreen sheets ---- */
+.psec .vall{display:none}
+.pextra{display:none}.pexp .pextra{display:flex}
+.pmore{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.07);color:var(--mute);font-size:13px;font-weight:600}
+.pmore:hover{background:rgba(255,255,255,.13);color:#fff}
+.pmore svg{transition:transform .2s}.pexp>.pmore svg,.pmore.open svg{transform:rotate(180deg)}
+.psc{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;padding-bottom:4px}
+.psc::-webkit-scrollbar{display:none}
+.psc .card{width:112px;flex:none}
+.psc .card .cv{margin-bottom:6px;border-radius:8px}
+.psc .card.artist .cv{border-radius:50%}
+.psc .card b{font-size:12.5px}.psc .card span{font-size:11.5px}
+.psc .card .rk{min-width:20px;height:20px;font-size:11px;left:6px;top:6px}
+.iconb{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08);color:var(--mute);flex:none}
+.iconb:hover{background:rgba(255,255,255,.16);color:#fff}
+.pfull{position:fixed;inset:0;z-index:26;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);padding:calc(var(--sat,0px) + 12px) 0 160px}
+.pfull[hidden]{display:none}
+.pfull .pfin{max-width:980px;margin:0 auto;padding:0 24px}
+.pfull .pfh{display:flex;align-items:center;gap:12px;margin:0 0 16px}
+.pfull .pfh h2{margin:0;font-size:22px;font-weight:800;flex:1;min-width:0}
+.pfull .chips{margin-bottom:6px}
+.pfull .grid .card .cv{margin-bottom:8px}
+@media(max-width:720px){
+  .phead{flex-direction:row;flex-wrap:wrap;align-items:center;text-align:left;gap:6px 14px}
+  .pav.xl{width:76px;height:76px;font-size:32px}
+  .pinfo{flex:1;min-width:0}
+  .pinfo h1{margin:2px 0 6px;font-size:clamp(22px,7vw,30px)}
+  .pline{justify-content:flex-start;gap:6px;font-size:13px}
+  .pbtns{flex-basis:100%;justify-content:flex-start;margin-top:6px}
+  .psec .vall{display:inline-flex}
+  .pplc{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 4px}
+  .pplc::-webkit-scrollbar{display:none}
+  .pplc .card{width:108px;flex:none}
+  .pplc .card .cv{margin-bottom:6px;border-radius:8px}
+  .pplc .card b{font-size:12.5px}.pplc .card span{font-size:11.5px}
+  .psc{margin:0 -16px;padding:0 16px 4px}
+  .pfull .pfin{padding:0 16px}
+}
+@media(min-width:721px){.pplc{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px}.pplc .card{width:auto}}
 @media(max-width:720px){
   .phead{flex-direction:column;align-items:center;text-align:center;gap:14px}
   .pline,.pbtns{justify-content:center}
@@ -1123,7 +1163,6 @@ body.offline .tr.nodl{opacity:.38}
   <button data-view="home" title="Home" aria-label="Home"><span data-ic="home"></span></button>
   <button data-view="search" title="Search" aria-label="Search"><span data-ic="search"></span></button>
   <button data-view="liked" title="Library" aria-label="Library"><span data-ic="heart"></span></button>
-  <button data-view="activity" title="Activity" aria-label="Activity"><span data-ic="chart"></span></button>
   <button data-view="downloads" title="Downloads" aria-label="Downloads"><span data-ic="dl"></span></button>
   <button data-view="settings" title="Settings" aria-label="Settings"><span data-ic="sliders"></span></button>
   <button id="pwaInstall" title="Install App" aria-label="Install App"><span data-ic="install"></span></button>
@@ -3325,8 +3364,7 @@ function paintProfile(){
   const sections = d.sections || {}, anyStat = Object.values(sections).some(Boolean);
   const status = (d.status || own) ? statusHtml() : '';
   const plSec = (pls.length || own) ? playlistsHtml(pls) : '';
-  const statSec = (anyStat || own) ? `<section class="psec"><div class="psh"><h2>Stats</h2></div>
-      <div class="chips">${Object.entries(PROF_RANGES).map(([k, v]) => `<button class="chip ${k === profRange ? 'on' : ''}" data-prng="${k}">${v}</button>`).join('')}</div>
+  const statSec = (anyStat || own) ? `<section class="psec"><div class="psh"><h2>Stats</h2><button class="iconb" id="pMoreStats" title="View more stats" aria-label="View more stats">${ic('chart', 18)}</button></div>
       <div id="pStats"><p class="qmsg">Loading…</p></div></section>` : '';
   main.innerHTML = `${back}<div class="pg prof">
     <header class="phead">${avatar(uname, 'xl')}
@@ -3345,16 +3383,19 @@ function statusHtml(){
     body = `<div class="pstat glass" data-pk="prof_status" data-pi="0">${imgTag(t, 160)}
       <div class="pt"><small>${st.playing ? '<span class="eq"><i></i><i></i><i></i></span>Listening now' : 'Last listened · ' + ago(st.updated)}</small>
       <b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(a => a.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
-      <button class="rb sm" title="Play">${ic('play', 18)}</button></div>`;
+      </div>`;
   }
   return `<section class="psec"><div class="psh"><h2>Listening</h2>${visBtn('status')}</div>${body}</section>`;
 }
-function playlistsHtml(pls){
-  const { own } = profCur;
-  const cards = pls.map(p => ({ kind: 'sharedpl', id: p.slug, title: p.name, artist: plural(p.count, 'song'),
+function profPlCards(pls){
+  return pls.map(p => ({ kind: 'sharedpl', id: p.slug, title: p.name, artist: plural(p.count, 'song'),
     thumbnail: p.thumb ? p.thumb : p.cover ? cov({ id: p.cover.id, thumbnail: p.cover.thumbnail }, 340) : PH }));
-  return `<section class="psec"><div class="psh"><h2>Playlists</h2>${own ? `<button class="vbtn" id="pPlEdit">${ic('plus', 14)}${pls.length ? 'Edit' : 'Add'}</button>` : ''}</div>
-    ${cards.length ? gridHtml('prof_pls', cards) : '<div class="pempty">Show your favourite playlists here.<small>Only public playlists can be added.</small></div>'}</section>`;
+}
+function playlistsHtml(pls){
+  const { own } = profCur, cards = profPlCards(pls);
+  lists.prof_pls = cards; names.prof_pls = 'prof_pls';
+  return `<section class="psec"><div class="psh"><h2>Playlists</h2><span style="display:flex;gap:8px">${cards.length > 2 ? `<button class="vbtn vall" id="pPlAll">View all</button>` : ''}${own ? `<button class="vbtn" id="pPlEdit">${ic('plus', 14)}${pls.length ? 'Edit' : 'Add'}</button>` : ''}</span></div>
+    ${cards.length ? `<div class="pplc">${cards.map((t, i) => cardHtml(t, 'prof_pls', i)).join('')}</div>` : '<div class="pempty">Show your favourite playlists here.<small>Only public playlists can be added.</small></div>'}</section>`;
 }
 
 /* ---- stats ---- */
@@ -3365,33 +3406,99 @@ function profArtistCard(a, i){
   const link = a.id ? `data-artist="${esc(a.id)}"` : `data-aname="${esc(a.name)}"`;
   return `<div class="card artist acd"><a ${link}><div class="cv">${im}<em class="rk">${i + 1}</em></div><b>${esc(a.name)}</b><span>${plural(a.plays, 'play')}</span></a></div>`;
 }
-function statsHtml(s){
+const carHtml = (key, items, fn) => `<div class="psc">${items.map(fn).join('')}</div>`;
+const chev = ic('down', 16);
+function statsHtml(s, full){
   const sub = (key, title, inner) => `<div class="psub"><div class="psh"><h3>${title}</h3>${visBtn(key)}</div>${inner}</div>`;
   const none = '<div class="pempty">No listens in this period yet.</div>';
+  const LIM = 5;
+  const rows = (arr, key, mk) => {
+    const h = arr.map((x, i) => mk(x, i).replace('class="prow', (full || i < LIM) ? 'class="prow' : 'class="prow pextra')).join('');
+    const more = (!full && arr.length > LIM) ? `<button class="pmore" data-pmore>View more ${chev}</button>` : '';
+    return `<div class="pxl"><div class="plist">${h}</div>${more}</div>`;
+  };
   let out = '';
-  if (s.time) out += sub('time', 'Totals', `<div class="astats"><div class="astat glass"><b>${fmtDur(s.time.seconds)}</b><span>Listening time</span></div><div class="astat glass"><b>${s.time.plays}</b><span>Plays</span></div><div class="astat glass"><b>${s.time.songs}</b><span>Different songs</span></div></div>`);
+  if (full && s.time) out += sub('time', 'Totals', `<div class="astats"><div class="astat glass"><b>${fmtDur(s.time.seconds)}</b><span>Listening time</span></div><div class="astat glass"><b>${s.time.plays}</b><span>Plays</span></div><div class="astat glass"><b>${s.time.songs}</b><span>Different songs</span></div></div>`);
   if (s.top_tracks) {
     lists.prof_top = s.top_tracks.map(x => x.track); names.prof_top = 'Top tracks';
-    out += sub('top_tracks', 'Top tracks', s.top_tracks.length ? `<div class="plist">${s.top_tracks.map((x, i) => prow(x.track, 'prof_top', i, i + 1, plural(x.plays, 'play'))).join('')}</div>` : none);
+    out += sub('top_tracks', 'Top tracks', s.top_tracks.length ? rows(s.top_tracks, 'prof_top', (x, i) => prow(x.track, 'prof_top', i, i + 1, plural(x.plays, 'play'))) : none);
   }
-  if (s.top_artists) out += sub('top_artists', 'Top artists', s.top_artists.length ? `<div class="grid">${s.top_artists.map(profArtistCard).join('')}</div>` : none);
+  if (s.top_artists) out += sub('top_artists', 'Top artists', s.top_artists.length ? carHtml('', s.top_artists, profArtistCard) : none);
   if (s.top_albums) {
     const al = s.top_albums.map(a => ({ kind: 'album', id: a.id, title: a.title, artist: `${a.artist ? a.artist + ' · ' : ''}${plural(a.plays, 'play')}`, thumbnail: a.thumbnail }));
-    out += sub('top_albums', 'Top albums', al.length ? gridHtml('prof_albums', al) : none);
+    lists.prof_albums = al; names.prof_albums = 'prof_albums';
+    out += sub('top_albums', 'Top albums', al.length ? `<div class="psc">${al.map((t, i) => cardHtml(t, 'prof_albums', i)).join('')}</div>` : none);
   }
   if (s.history) {
     lists.prof_hist = s.history.map(h => h.track); names.prof_hist = 'Listen history';
-    out += sub('history', 'Listen history', s.history.length ? `<div class="plist">${s.history.map((h, i) => prow(h.track, 'prof_hist', i, '', ago(h.ts))).join('')}</div>` : '<div class="pempty">No listens yet.</div>');
+    out += sub('history', 'Listen history', s.history.length ? rows(s.history, 'prof_hist', (h, i) => prow(h.track, 'prof_hist', i, '', ago(h.ts))) : '<div class="pempty">No listens yet.</div>');
   }
   return out || '<div class="pempty">Nothing shared here.</div>';
 }
+async function fetchProfStats(){
+  const c = profCur;
+  return acct.now('GET', `/isai/profile/${enc(c.uname)}/stats?range=${enc(profRange)}`);
+}
 async function loadProfStats(){
   const c = profCur, my = profTok; if (!$('pStats')) return;
-  const r = await acct.now('GET', `/isai/profile/${enc(c.uname)}/stats?range=${enc(profRange)}`);
+  const r = await fetchProfStats();
   const box = $('pStats'); if (my !== profTok || !box) return;
   if (!r.ok) { box.innerHTML = `<p class="qmsg err">${esc((r.d && r.d.error) || "Couldn't load stats.")}</p>`; return; }
-  box.innerHTML = statsHtml(r.d); hydrate(box); markPlaying();
+  box.innerHTML = statsHtml(r.d, false); hydrate(box); markPlaying();
 }
+
+/* ---- fullscreen sheets: all playlists / more stats ---- */
+let pfRangeDirty = false;
+function closePfull(){
+  const o = $('pfull'); if (o) o.remove();
+  document.body.style.overflow = '';
+  if (pfRangeDirty) { pfRangeDirty = false; const bx = $('pStats'); if (bx) { bx.innerHTML = '<p class="qmsg">Loading…</p>'; loadProfStats(); } }
+}
+function openPfull(title, body){
+  closePfull();
+  const o = document.createElement('div'); o.id = 'pfull'; o.className = 'pfull';
+  o.innerHTML = `<div class="pfin"><div class="pfh"><button class="bk" data-pfclose title="Close" aria-label="Close">${ic('back', 20)}</button><h2>${esc(title)}</h2></div><div id="pfbody">${body}</div></div>`;
+  document.body.appendChild(o); document.body.style.overflow = 'hidden';
+  hydrate(o); markPlaying();
+  o.addEventListener('click', async e => {
+    if (e.target.closest('[data-pfclose]')) return closePfull();
+    const more = e.target.closest('[data-pmore]'); if (more) return togglePMore(more);
+    const rg = e.target.closest('[data-prng]');
+    if (rg) {
+      profRange = rg.dataset.prng; store.set('profrange', profRange); pfRangeDirty = true;
+      o.querySelectorAll('[data-prng]').forEach(b => b.classList.toggle('on', b === rg));
+      return loadPfStats();
+    }
+    const pr = e.target.closest('[data-pk]');
+    if (pr && !e.target.closest('a')) { listKey = pr.dataset.pk; return playFrom(pr.dataset.pk, +pr.dataset.pi, false); }
+    if (e.target.closest('.card,[data-artist],[data-aname]')) setTimeout(closePfull, 0);
+  });
+  return o;
+}
+function openAllPlaylists(){
+  const cards = profPlCards(profCur.d.playlists || []); lists.prof_pls = cards; names.prof_pls = 'prof_pls';
+  openPfull('Playlists', `<div class="grid">${cards.map((t, i) => cardHtml(t, 'prof_pls', i)).join('')}</div>`);
+}
+async function loadPfStats(){
+  const box = $('pfstats'); if (!box) return;
+  box.innerHTML = '<p class="qmsg">Loading…</p>';
+  const my = profTok, r = await fetchProfStats();
+  const b2 = $('pfstats'); if (!b2) return;
+  if (!r.ok) { b2.innerHTML = `<p class="qmsg err">${esc((r.d && r.d.error) || "Couldn't load stats.")}</p>`; return; }
+  b2.innerHTML = statsHtml(r.d, true); hydrate(b2); markPlaying();
+}
+function openMoreStats(){
+  const chips = `<div class="chips">${Object.entries(PROF_RANGES).map(([k, v]) => `<button class="chip ${k === profRange ? 'on' : ''}" data-prng="${k}">${v}</button>`).join('')}</div>`;
+  openPfull('Stats', `${chips}<div id="pfstats"><p class="qmsg">Loading…</p></div>`);
+  loadPfStats();
+}
+function togglePMore(btn){
+  const box = btn.closest('.pxl'); if (!box) return;
+  const open = box.classList.toggle('pexp');
+  btn.classList.toggle('open', open);
+  btn.firstChild.nodeValue = open ? 'Show less ' : 'View more ';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('pfull')) closePfull(); });
 
 /* ---- friends ---- */
 async function syncFriendCounts(){
@@ -3500,13 +3607,9 @@ document.addEventListener('click', async e => {
   if (!e.target.closest('.prof')) return;
   const pr = e.target.closest('[data-pk]');
   if (pr) { if (e.target.closest('a')) return; listKey = pr.dataset.pk; return playFrom(pr.dataset.pk, +pr.dataset.pi, false); }
-  const rg = e.target.closest('[data-prng]');
-  if (rg) {
-    profRange = rg.dataset.prng; store.set('profrange', profRange);
-    document.querySelectorAll('.prof [data-prng]').forEach(b => b.classList.toggle('on', b === rg));
-    const bx = $('pStats'); if (bx) bx.innerHTML = '<p class="qmsg">Loading…</p>';
-    return loadProfStats();
-  }
+  if (e.target.closest('#pMoreStats')) return openMoreStats();
+  if (e.target.closest('#pPlAll')) return openAllPlaylists();
+  const pm = e.target.closest('[data-pmore]'); if (pm) return togglePMore(pm);
   if (e.target.closest('[data-pvis]') || e.target.closest('#pEdit')) return openProfileEditor();
   if (e.target.closest('#pFr')) return openFriends('friends');
   if (e.target.closest('#pPlEdit')) return openFeatured();
