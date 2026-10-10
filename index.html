@@ -891,6 +891,14 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .acrow>em{min-width:64px;text-align:right}
 .hday{color:var(--mute);font-size:13px;font-weight:600;margin:20px 0 6px;text-transform:uppercase;letter-spacing:.06em}
 .hrow{cursor:pointer}
+#langpick{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#langpick.on{display:flex}
+#langpick .lpbox{width:100%;max-width:420px;padding:26px 22px;border-radius:22px;background:rgba(30,30,34,.92);color:#fff;text-align:center}
+#langpick h2{margin:0 0 6px;font-size:22px}
+#langpick p{margin:0 0 18px;opacity:.7;font-size:14px}
+#langpick button{display:block;width:100%;margin:8px 0;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:inherit;font:inherit;font-size:16px;cursor:pointer}
+#langpick button:hover,#langpick button:focus-visible{background:rgba(255,255,255,.18)}
+#langpick small{display:block;opacity:.6;font-size:12px;margin-top:2px}
 .amore{display:block;margin:14px auto 0}
 @media(max-width:720px){.astats{grid-template-columns:repeat(2,minmax(0,1fr))}.astat:last-child{grid-column:1/-1}.atr{height:100px}.achart{gap:2px}}
 </style>
@@ -964,6 +972,12 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   </div>
 </div>
 
+<div id="langpick" role="dialog" aria-modal="true" aria-label="Choose music language"><div class="lpbox">
+  <h2>What do you listen to?</h2><p>We'll tailor your home page. You can change this anytime in Settings.</p>
+  <button data-lang="tamil">தமிழ் · Tamil<small>Kollywood hits, classics, playlists</small></button>
+  <button data-lang="english">English<small>Pop, R&amp;B, hip hop and more</small></button>
+  <button data-lang="both">Both<small>A mix of Tamil and English</small></button>
+</div></div>
 <aside id="nav">
   <button data-view="home" title="Home" aria-label="Home"><span data-ic="home"></span></button>
   <button data-view="search" title="Search" aria-label="Search"><span data-ic="search"></span></button>
@@ -1082,6 +1096,24 @@ const base = () => {
   }
   return b.replace(/\/$/, '');
 };
+const LANGS = ['english', 'tamil', 'both'];
+const lang = () => { const l = store.get('lang', ''); return LANGS.includes(l) ? l : 'tamil'; };
+const LANG_LABEL = { english: 'English', tamil: 'Tamil', both: 'Tamil + English' };
+function applyLang(l){
+  store.set('lang', l);
+  homeData = null; homeP = null;
+  for (const k in moodCache) delete moodCache[k];
+  for (const k in entCache) delete entCache[k];
+}
+function pickLang(){
+  return new Promise(res => {
+    const el = document.getElementById('langpick'); el.classList.add('on');
+    el.onclick = e => {
+      const b = e.target.closest('[data-lang]'); if (!b) return;
+      applyLang(b.dataset.lang); el.classList.remove('on'); el.onclick = null; res();
+    };
+  });
+}
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
 async function api(path){
   if (!window.__unlocked) throw new Error('Sign in required');
@@ -1306,7 +1338,7 @@ function loadHome(refresh){
   if (homeP && !refresh) return homeP;
   homeP = (async () => {
     try {
-      homeData = await (await api('/home' + (refresh ? '?refresh=true' : ''))).json();
+      homeData = await (await api('/home?lang=' + lang() + (refresh ? '&refresh=true' : ''))).json();
       if (!homeData.sections.length) throw new Error('No results came back. Try updating yt-dlp and ytmusicapi.');
       if (view === 'home') renderHome(); else if (view === 'search') paintRecs();
     } catch (e) {
@@ -1605,6 +1637,9 @@ function renderSettings(){
     <section class="sgrp glass"><h3>Account</h3>
       <div class="srow"><div><b>Signed in</b><span>Sign out to lock Isai on this device</span></div><button class="btn ghost" id="sOut">Sign out</button></div>
     </section>
+    <section class="sgrp glass"><h3>Music</h3>
+      <label class="srow"><div><b>Music language</b><span>Customises your home page and moods</span></div><select id="sLang">${LANGS.map(l => `<option value="${l}" ${l === lang() ? 'selected' : ''}>${LANG_LABEL[l]}</option>`).join('')}</select></label>
+    </section>
     <section class="sgrp glass"><h3>Server</h3>
       <label class="srow"><div><b>API base URL</b><span>Where your Thirai server is running</span></div><input id="sBase" value="${esc(base())}" spellcheck="false" autocapitalize="off"></label>
       <label class="srow"><div><b>API key</b><span>Only needed if the server has API_KEY set</span></div><input id="sKey" type="password" value="${esc(store.get('key', ''))}" placeholder="Optional" autocomplete="off"></label>
@@ -1620,6 +1655,7 @@ function renderSettings(){
   $('sOut').onclick = () => window.__signOut();
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
   $('sKey').onchange = e => store.set('key', e.target.value);
+  $('sLang').onchange = e => { applyLang(e.target.value); toast('Language set to ' + LANG_LABEL[e.target.value]); };
   $('sFmt').onchange = e => { store.set('fmt', e.target.value); toast('Format set to ' + e.target.value); };
   $('sRef').onclick = () => { homeData = null; for (const k in entCache) delete entCache[k]; toast('Refreshing…'); show('home'); loadHome(true); };
   $('sClr').onclick = () => { recent = []; store.set('recent', '[]'); toast('Cleared'); };
@@ -2829,7 +2865,7 @@ async function renderMood(name){
   $('main').innerHTML = `<div class="bkrow">${backBtn()}</div><div class="pg"><h1 class="t">${esc(name)}</h1></div><div id="rows">${skeleton()}${skeleton()}</div>`;
   hydrate($('main'));
   try {
-    const d = moodCache[name] || await (await api('/mood?name=' + encodeURIComponent(name))).json();
+    const d = moodCache[name] || await (await api('/mood?name=' + encodeURIComponent(name) + '&lang=' + lang())).json();
     if (my !== entTok || view !== 'mood') return;
     if (!d.sections || !d.sections.length) throw new Error('Nothing found for this mood yet.');
     moodCache[name] = d;
@@ -2852,8 +2888,8 @@ const lySrc = () => store.get('lsrc', 'auto');
 const SYNC_LABEL = { richsync: 'word-synced', linesync: 'line-synced', plain: 'unsynced' };
 function lyHeader(d){
   const s = lySrc();
-  const chips = [['auto', 'Auto'], ['unison', 'Unison'], ['lrcred', 'lrc.red']].map(([k, l]) => `<button data-lsrc="${k}" class="${s === k ? 'on' : ''}">${l}</button>`).join('');
-  const info = d && d.found ? `via ${d.source === 'lrcred' ? 'lrc.red' : 'Unison'} · ${SYNC_LABEL[d.syncType] || ''}` : '';
+  const chips = [['auto', 'Auto'], ['unison', 'Unison'], ['lrcred', 'lrc.red'], ['lrclib', 'LRCLIB']].map(([k, l]) => `<button data-lsrc="${k}" class="${s === k ? 'on' : ''}">${l}</button>`).join('');
+  const info = d && d.found ? `via ${({ lrcred: 'lrc.red', lrclib: 'LRCLIB' })[d.source] || 'Unison'} · ${SYNC_LABEL[d.syncType] || ''}` : '';
   $('lyhd').innerHTML = `<span class="lysrc">${esc(info)}</span><span class="lychips">${chips}</span>`;
 }
 $('lyhd').onclick = e => {
@@ -2868,7 +2904,7 @@ async function loadLyrics(){
   lyCur = null; lyHeader(null);
   if (lyCache[key]) return paintLyrics(lyCache[key], t);
   box.innerHTML = '<p class="qmsg">Finding lyrics…</p>';
-  const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, source: lySrc() }).filter(([, v]) => v));
+  const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, album: t.album || '', duration: Math.round(t.duration || 0) || '', source: lySrc() }).filter(([, v]) => v));
   try {
     const d = await (await api(`/lyrics/${t.id}?${qs}`)).json();
     lyCache[key] = d;
@@ -2888,7 +2924,7 @@ function paintLyrics(d, t){
       const v = $('lyIsrc').value.replace(/[\s-]/g, '').toUpperCase();
       if (!/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(v)) return toast('That doesn\'t look like an ISRC', true);
       isrcs[t.id] = v; store.set('isrcs', JSON.stringify(isrcs));
-      if (lySrc() === 'unison') store.set('lsrc', 'auto');
+      if (lySrc() === 'unison' || lySrc() === 'lrclib') store.set('lsrc', 'auto');
       loadLyrics();
     };
     $('lyGo').onclick = go; $('lyIsrc').onkeydown = e => { if (e.key === 'Enter') go(); };
@@ -3010,7 +3046,8 @@ updateInstallBtn();
     hideLock();
     if (started) return;
     started = true;
-    show(navigator.onLine ? 'home' : 'downloads');
+    const go = () => show(navigator.onLine ? 'home' : 'downloads');
+    if (!store.get('lang', '') && navigator.onLine) pickLang().then(go); else go();
     loadArtProfiles().then(() => ensureArtistProfiles());
   }
   function showLock(){
