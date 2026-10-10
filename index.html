@@ -843,7 +843,10 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 #lock .or::before,#lock .or::after{content:'';flex:1;height:1px;background:var(--line)}
 #lkG{position:relative;width:100%;height:46px}
 #lkG .btn{position:absolute;inset:0;pointer-events:none}
-#lkG .real,#lkRegG .real{position:absolute;inset:0;opacity:0;overflow:hidden;border-radius:999px;display:flex;align-items:center;justify-content:center}
+#lkG .real,#lkRegG .real{position:absolute;inset:0;opacity:0;overflow:hidden;border-radius:999px;display:block;cursor:pointer;z-index:2}
+#lkG .real>div,#lkRegG .real>div{transform-origin:0 0;position:absolute;left:0;top:0}
+#lkG .real iframe,#lkRegG .real iframe{display:block}
+#lkRegG .btn{z-index:1}#lkG .btn{z-index:1}
 #lock .foot{margin-top:26px;font-size:13px;color:var(--mute)}
 #lock .foot a{color:var(--fg);font-weight:600}#lock .foot a:hover{text-decoration:underline}
 
@@ -994,6 +997,9 @@ body.offline .tr.nodl{opacity:.38}
 .pstat .pt b{display:block;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pstat .pt span{display:block;color:var(--mute);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .eq{display:inline-flex;gap:2px;align-items:flex-end;height:12px}
+.pstat .pt small .eq{display:inline-flex;overflow:visible;margin:0}
+.pstat .pt small{margin:0 0 2px;padding:0}
+.eq i{display:block}
 .eq i{width:3px;height:3px;background:#7be0a8;border-radius:2px;animation:eqb .9s ease-in-out infinite alternate}
 .eq i:nth-child(2){animation-delay:.25s}.eq i:nth-child(3){animation-delay:.5s}
 @keyframes eqb{from{height:3px}to{height:12px}}
@@ -1046,19 +1052,23 @@ body.offline .tr.nodl{opacity:.38}
 .pfull .chips{margin-bottom:6px}
 .pfull .grid .card .cv{margin-bottom:8px}
 @media(max-width:720px){
-  .phead{flex-direction:row;flex-wrap:wrap;align-items:center;text-align:left;gap:6px 14px}
-  .pav.xl{width:76px;height:76px;font-size:32px}
+  .phead{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;align-items:center;align-content:center;text-align:left;gap:8px 14px;padding-top:12px}
+  .phead>.pav{grid-column:1;grid-row:1/3;align-self:center}
+  .phead>.pinfo{grid-column:2;grid-row:1;align-self:end}
+  .phead>.pbtns{grid-column:2;grid-row:2;align-self:start}
+  .pav.xl{width:84px;height:84px;font-size:34px}
   .pinfo{flex:1;min-width:0}
   .pinfo h1{margin:2px 0 6px;font-size:clamp(22px,7vw,30px)}
   .pline{justify-content:flex-start;gap:6px;font-size:13px}
-  .pbtns{flex-basis:100%;justify-content:flex-start;margin-top:6px}
+  .pbtns{justify-content:flex-start;gap:6px;margin:0}
+  .pbtns .btn{padding:8px 14px;font-size:13px}
   .psec .vall{display:inline-flex}
-  .pplc{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 4px}
+  .pplc{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 4px;scroll-padding:0 16px}
   .pplc::-webkit-scrollbar{display:none}
   .pplc .card{width:108px;flex:none}
   .pplc .card .cv{margin-bottom:6px;border-radius:8px}
   .pplc .card b{font-size:12.5px}.pplc .card span{font-size:11.5px}
-  .psc{margin:0 -16px;padding:0 16px 4px}
+  .psc{margin:0 -16px;padding:0 16px 4px;scroll-padding:0 16px;scroll-snap-type:x mandatory}
   .pfull .pfin{padding:0 16px}
 }
 @media(min-width:721px){.pplc{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px}.pplc .card{width:auto}}
@@ -3389,7 +3399,7 @@ function statusHtml(){
   else {
     const t = st.track; lists.prof_status = [t]; names.prof_status = 'Listening';
     body = `<div class="pstat glass" data-pk="prof_status" data-pi="0">${imgTag(t, 160)}
-      <div class="pt"><small>${st.playing ? '<span class="eq"><i></i><i></i><i></i></span>Listening now' : 'Last listened · ' + ago(st.updated)}</small>
+      <div class="pt"><small>${st.playing ? 'Listening now<span class="eq"><i></i><i></i><i></i></span>' : 'Last listened · ' + ago(st.updated)}</small>
       <b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(a => a.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
       </div>`;
   }
@@ -4398,8 +4408,22 @@ updateInstallBtn();
   let gMode = 'login';
   const GERR = { login: 'lkGErr', register: 'lkRegGErr' };
   function gReady(cb){ if (window.google && google.accounts && google.accounts.id) cb(); else setTimeout(() => gReady(cb), 300); }
+  function fitG(el){
+    const w = el.firstElementChild; if (!w) return;
+    w.style.transform = 'none';
+    const cw = el.clientWidth, ch = el.clientHeight, r = w.getBoundingClientRect();
+    if (!cw || !ch || !r.width || !r.height) return;
+    w.style.transform = `scale(${cw / r.width}, ${ch / r.height})`;
+  }
   function renderG(elId, mode){
-    gReady(() => {
+    const el = $(elId), errEl = $(GERR[mode]);
+    let tries = 0;
+    const wait = () => {
+      if (window.google && google.accounts && google.accounts.id) return draw();
+      if (++tries > 16) { if (errEl) errEl.textContent = "Google sign-in didn't load. Check your connection or ad blocker, then tap again."; return; }
+      setTimeout(wait, 300);
+    };
+    const draw = () => {
       if (!gInit) {
         gInit = true;
         google.accounts.id.initialize({ client_id: GCID, auto_select: false, callback: resp => {
@@ -4415,9 +4439,13 @@ updateInstallBtn();
         }});
       }
       gMode = mode;
-      const el = $(elId); el.innerHTML = '';
-      google.accounts.id.renderButton(el, { type: 'standard', theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', width: Math.min(Math.max(el.offsetWidth || 300, 200), 400) });
-    });
+      el.innerHTML = '';
+      const w = Math.min(Math.max(el.clientWidth || 300, 200), 400);
+      google.accounts.id.renderButton(el, { type: 'standard', theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', width: w });
+      [0, 150, 500, 1200].forEach(t => setTimeout(() => fitG(el), t));
+      if (window.ResizeObserver && !el._ro) { el._ro = new ResizeObserver(() => fitG(el)); el._ro.observe(el); }
+    };
+    wait();
   }
   const initGoogle = () => renderG('lkGBtn', 'login');
 
