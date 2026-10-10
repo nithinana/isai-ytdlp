@@ -1034,7 +1034,7 @@ body.offline .tr.nodl{opacity:.38}
 .pextra{display:none}.pexp .pextra{display:flex}
 .pmore{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.07);color:var(--mute);font-size:13px;font-weight:600}
 .pmore:hover{background:rgba(255,255,255,.13);color:#fff}
-.pmore svg{transition:transform .2s}.pexp>.pmore svg,.pmore.open svg{transform:rotate(180deg)}
+.pmore svg{transition:transform .3s cubic-bezier(.32,.72,0,1)}.pmore.open svg{transform:rotate(180deg)}
 .psc{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;padding-bottom:4px}
 .psc::-webkit-scrollbar{display:none}
 .psc .card{width:112px;flex:none}
@@ -1057,8 +1057,8 @@ body.offline .tr.nodl{opacity:.38}
   .phead>.pinfo{grid-column:2;grid-row:1;align-self:end}
   .phead>.pbtns{grid-column:2;grid-row:2;align-self:start}
   .pav.xl{width:84px;height:84px;font-size:34px}
-  .pinfo{flex:1;min-width:0}
-  .pinfo h1{margin:2px 0 6px;font-size:clamp(22px,7vw,30px)}
+  .pinfo{flex:1;min-width:0;text-align:left}
+  .pinfo h1{margin:0 0 6px;font-size:clamp(22px,7vw,30px)}
   .pline{justify-content:flex-start;gap:6px;font-size:13px}
   .pbtns{justify-content:flex-start;gap:6px;margin:0}
   .pbtns .btn{padding:8px 14px;font-size:13px}
@@ -1073,13 +1073,78 @@ body.offline .tr.nodl{opacity:.38}
 }
 @media(min-width:721px){.pplc{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px}.pplc .card{width:auto}}
 @media(max-width:720px){
-  .phead{flex-direction:column;align-items:center;text-align:center;gap:14px}
-  .pline,.pbtns{justify-content:center}
   .pav.xl{width:124px;height:124px;font-size:50px}
   .prof .astats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.prof .astat{padding:12px}.prof .astat b{font-size:18px}
   #nav button>span{width:min(52px,100%)}
 }
 #player:not(.on){pointer-events:none}
+
+/* ---------- motion polish ---------- */
+@keyframes mfade{from{opacity:0}to{opacity:1}}
+@keyframes mfadeout{from{opacity:1}to{opacity:0}}
+@keyframes mpop{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes mpopout{to{opacity:0;transform:translateY(10px) scale(.97)}}
+@keyframes sheetdown{to{transform:translateY(100%)}}
+@keyframes frl{from{opacity:0;transform:translate3d(-22px,0,0)}to{opacity:1;transform:none}}
+@keyframes frr{from{opacity:0;transform:translate3d(22px,0,0)}to{opacity:1;transform:none}}
+@keyframes fru{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+@keyframes shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+@keyframes errin{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes pfin{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
+@keyframes pfout{to{opacity:0;transform:translate3d(0,20px,0)}}
+#modal:not([hidden]){animation:mfade .3s var(--ease) both}
+#modal.closing{animation:mfadeout .2s var(--ease-io) both;pointer-events:none}
+@media(min-width:721px){#modal:not([hidden]) .msheet{animation:mpop .42s var(--ease) both}#modal.closing .msheet{animation:mpopout .2s var(--ease-io) both}}
+@media(max-width:720px){#modal.closing .msheet{animation:sheetdown .24s var(--ease-io) both}}
+.msheet{overscroll-behavior:contain}
+/* friends sheet */
+.seg.slide{position:relative}
+.seg.slide .segi{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:999px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.28);transition:transform .42s var(--ease)}
+.seg.slide[data-pos="1"] .segi{transform:translateX(100%)}
+.seg.slide button{position:relative;z-index:1;background:transparent!important;transition:color .3s var(--ease)}
+.seg.slide button.on{color:#000}
+.seg button{transition:background-color .25s var(--ease),color .25s var(--ease),transform .2s var(--ease)}
+.frlist{position:relative}
+.fr-l,.fr-r,.fr-u{animation:none}
+.fr-l .frow,.fr-l .prvh,.fr-l .frempty{animation:frl .45s var(--ease) both;animation-delay:calc(var(--i,0)*38ms)}
+.fr-r .frow,.fr-r .prvh,.fr-r .frempty{animation:frr .45s var(--ease) both;animation-delay:calc(var(--i,0)*38ms)}
+.fr-u .frow,.fr-u .prvh,.fr-u .frempty{animation:fru .5s var(--ease) both;animation-delay:calc(var(--i,0)*45ms)}
+.frow{border-radius:12px;transition:background-color .25s var(--ease)}
+.frow a{flex:1;transition:opacity .2s var(--ease)}.frow a:hover{opacity:.8}
+.pill.pri{background:#fff;color:#000}
+.pill.arm{background:rgba(255,90,110,.22);border-color:rgba(255,90,110,.5);color:#ff9aa8}
+.pill{transition:background-color .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease),transform .2s var(--ease)}
+.pill:disabled{opacity:.5;pointer-events:none}
+.frsk .frow{gap:10px;justify-content:flex-start}
+.sk-av{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.1);animation:sh .9s ease-in-out infinite alternate;flex:none}
+.sk-ln{height:12px;width:42%;border-radius:6px;background:rgba(255,255,255,.1);animation:sh .9s ease-in-out infinite alternate .15s}
+.frerr.show{animation:errin .3s var(--ease) both}
+.minp.shake{animation:shake .38s var(--ease)}
+.minp{transition:border-color .25s var(--ease),background-color .25s var(--ease)}
+.minp:focus{background:rgba(255,255,255,.1)}
+/* page + profile */
+.prof .psec{animation:pgin .55s var(--ease) both}
+.prof .psec:nth-of-type(2){animation-delay:.05s}.prof .psec:nth-of-type(3){animation-delay:.1s}.prof .psec:nth-of-type(4){animation-delay:.15s}
+#pStats .psub,#pfstats .psub{animation:pgin .5s var(--ease) both}
+#pStats .psub:nth-child(2),#pfstats .psub:nth-child(2){animation-delay:.05s}#pStats .psub:nth-child(3),#pfstats .psub:nth-child(3){animation-delay:.1s}#pStats .psub:nth-child(4),#pfstats .psub:nth-child(4){animation-delay:.15s}#pStats .psub:nth-child(5),#pfstats .psub:nth-child(5){animation-delay:.2s}
+.psc .card,.pplc .card{animation:fru .5s var(--ease) both}
+.psc .card:nth-child(2),.pplc .card:nth-child(2){animation-delay:.04s}.psc .card:nth-child(3),.pplc .card:nth-child(3){animation-delay:.08s}.psc .card:nth-child(4),.pplc .card:nth-child(4){animation-delay:.12s}.psc .card:nth-child(5),.pplc .card:nth-child(5){animation-delay:.16s}.psc .card:nth-child(n+6),.pplc .card:nth-child(n+6){animation-delay:.2s}
+.pexp .pextra{animation:fru .45s var(--ease) both}
+.pfull{animation:pfin .42s var(--ease) both}
+.pfull.closing{animation:pfout .24s var(--ease-io) both;pointer-events:none}
+.pfull .grid .card{animation:fru .5s var(--ease) both}
+.pfull .grid .card:nth-child(2){animation-delay:.03s}.pfull .grid .card:nth-child(3){animation-delay:.06s}.pfull .grid .card:nth-child(4){animation-delay:.09s}.pfull .grid .card:nth-child(n+5){animation-delay:.12s}
+/* touch feedback */
+.btn,.pill,.rb,.iconb,.vbtn,.pmore,.chip,.bk{transition:background-color .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease),transform .2s var(--ease),opacity .25s var(--ease)}
+.btn:active,.pill:active,.rb:active,.iconb:active,.vbtn:active,.pmore:active,.chip:active,.bk:active{transform:scale(.95)}
+.prow,.pstat,.frow{transition:background-color .25s var(--ease),transform .2s var(--ease)}
+.prow:active,.pstat:active{transform:scale(.985)}
+.cv{transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+.card:active .cv{transform:scale(.96)}
+.psc .card,.pplc .card{transition:transform .25s var(--ease)}
+.vpill,.pbadge{transition:background-color .25s var(--ease),color .25s var(--ease)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
 /* account / sharing */
 .plby{display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:center;align-items:center;margin:0 0 6px!important;color:var(--mute)}
 .plby a{cursor:pointer;color:#fff;font-weight:600}.plby a:hover{text-decoration:underline}
@@ -3270,7 +3335,7 @@ async function renderShared(slug){
       <h1>${esc(d.name)}</h1>
       <p class="plby">${visPill(d.visibility)}${d.owner ? ` by <a data-uname="${esc(d.owner)}">@${esc(d.owner)}</a>` : ''}</p><p>${meta}</p>
       <div class="aact">
-        <button class="rb sm" id="shSave" title="${sv[1]}">${ic(sv[2], 18)}</button>
+        ${mine ? '' : `<button class="rb sm" id="shSave" title="${sv[1]}">${ic(sv[2], 18)}</button>`}
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
@@ -3279,8 +3344,7 @@ async function renderShared(slug){
       </div></aside>
       <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true)).join('') : '<p class="qmsg">This playlist is empty.</p>'}</div></div></div>`;
   hydrate(main); bindPlay(key, tracks.length);
-  $('shSave').onclick = () => {
-    if (mine) return show('upl', mine.id);
+  if ($('shSave')) $('shSave').onclick = () => {
     if (copy) return toast('Already in your library');
     const p = createPlaylist(d.name, tracks, { thumb: d.thumb || '', copyOf: slug });
     toast(`Saved "${p.name}" to your library`); renderShared(slug);
@@ -3338,13 +3402,13 @@ async function renderProfile(name){
   const own = !name || (acctName && name.toLowerCase() === acctName.toLowerCase());
   const back = view === 'profile' ? '' : `<div class="bkrow">${backBtn()}</div>`;
   if (own && !acctName) {
-    main.innerHTML = `<div class="pg prof"><header class="phead">${avatar('', 'xl')}<div class="pinfo"><small>Profile</small><h1>Your profile</h1><div class="pline">Choose a username to set up your profile, add friends and share playlists.</div></div><div class="pbtns"><button class="btn" id="pSetName">Choose username</button></div></header></div>`;
+    main.innerHTML = `<div class="pg prof"><header class="phead">${avatar('', 'xl')}<div class="pinfo"><h1>Your profile</h1><div class="pline">Choose a username to set up your profile, add friends and share playlists.</div></div><div class="pbtns"><button class="btn" id="pSetName">Choose username</button></div></header></div>`;
     hydrate(main);
     $('pSetName').onclick = () => askUsername(() => { closeModal(); paintNavAvatar(); renderProfile(null); }, null, true);
     return;
   }
   const uname = own ? acctName : name;
-  main.innerHTML = `${back}<div class="pg prof"><header class="phead">${avatar(uname, 'xl')}<div class="pinfo"><small>Profile</small><h1>@${esc(uname)}</h1></div></header><p class="qmsg">Loading…</p></div>`;
+  main.innerHTML = `${back}<div class="pg prof"><header class="phead">${avatar(uname, 'xl')}<div class="pinfo"><h1>@${esc(uname)}</h1></div></header><p class="qmsg">Loading…</p></div>`;
   hydrate(main);
   const r = await acct.now('GET', '/isai/profile/' + enc(uname));
   if (my !== profTok) return;
@@ -3373,7 +3437,7 @@ function friendBtns(d){
 function paintProfile(){
   const { d, own, uname, back } = profCur, main = $('main');
   if (!d.profile_visible) {
-    main.innerHTML = `${back}<div class="pg prof"><header class="phead">${avatar(uname, 'xl')}<div class="pinfo"><small>Profile</small><h1>@${esc(uname)}</h1></div><div class="pbtns">${friendBtns(d)}</div></header>
+    main.innerHTML = `${back}<div class="pg prof"><header class="phead">${avatar(uname, 'xl')}<div class="pinfo"><h1>@${esc(uname)}</h1></div><div class="pbtns">${friendBtns(d)}</div></header>
       <div class="pempty">${ic('lock', 22)}<p>This profile is private.</p></div></div>`;
     return hydrate(main);
   }
@@ -3386,7 +3450,7 @@ function paintProfile(){
       <div id="pStats"><p class="qmsg">Loading…</p></div></section>` : '';
   main.innerHTML = `${back}<div class="pg prof">
     <header class="phead">${avatar(uname, 'xl')}
-      <div class="pinfo"><small>Profile</small><h1>@${esc(uname)}</h1><div class="pline">${fr}${pls.length ? `<i>·</i><span>${plural(pls.length, 'playlist')}</span>` : ''}</div></div>
+      <div class="pinfo"><h1>@${esc(uname)}</h1><div class="pline">${fr}${pls.length ? `<i>·</i><span>${plural(pls.length, 'playlist')}</span>` : ''}</div></div>
       <div class="pbtns">${own ? `<button class="btn ghost" id="pEdit">Edit profile</button><button class="rb sm" id="pCopy" title="Copy profile link">${ic('share', 18)}</button><button class="rb sm" id="pSettings" title="Settings" aria-label="Settings">${ic('sliders', 18)}</button>` : friendBtns(d)}</div>
     </header>${status}${plSec}${statSec}
     ${(!status && !plSec && !statSec) ? '<div class="pempty">Nothing shared yet.</div>' : ''}</div>`;
@@ -3467,13 +3531,14 @@ async function loadProfStats(){
 
 /* ---- fullscreen sheets: all playlists / more stats ---- */
 let pfRangeDirty = false;
-function closePfull(){
-  const o = $('pfull'); if (o) o.remove();
+function closePfull(now){
+  const o = $('pfull');
+  if (o) { if (now === true) o.remove(); else { o.id = ''; o.classList.add('closing'); setTimeout(() => o.remove(), 230); } }
   document.body.style.overflow = '';
   if (pfRangeDirty) { pfRangeDirty = false; const bx = $('pStats'); if (bx) { bx.innerHTML = '<p class="qmsg">Loading…</p>'; loadProfStats(); } }
 }
 function openPfull(title, body){
-  closePfull();
+  closePfull(true);
   const o = document.createElement('div'); o.id = 'pfull'; o.className = 'pfull';
   o.innerHTML = `<div class="pfin"><div class="pfh"><button class="bk" data-pfclose title="Close" aria-label="Close">${ic('back', 20)}</button><h2>${esc(title)}</h2></div><div id="pfbody">${body}</div></div>`;
   document.body.appendChild(o); document.body.style.overflow = 'hidden';
@@ -3512,9 +3577,16 @@ function openMoreStats(){
 }
 function togglePMore(btn){
   const box = btn.closest('.pxl'); if (!box) return;
-  const open = box.classList.toggle('pexp');
-  btn.classList.toggle('open', open);
-  btn.firstChild.nodeValue = open ? 'Show less ' : 'View more ';
+  const list = box.querySelector('.plist'), opening = !box.classList.contains('pexp');
+  const h0 = list.offsetHeight; box.classList.toggle('pexp'); const h1 = list.offsetHeight;
+  if (!opening) box.classList.add('pexp');
+  btn.classList.toggle('open', opening);
+  btn.firstChild.nodeValue = opening ? 'Show less ' : 'View more ';
+  const done = () => { list.style.overflow = ''; if (!opening) box.classList.remove('pexp'); };
+  if (!list.animate || h0 === h1) return done();
+  list.style.overflow = 'hidden';
+  const a = list.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: 360, easing: 'cubic-bezier(.32,.72,0,1)' });
+  a.onfinish = done; a.oncancel = done;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('pfull')) closePfull(); });
 
@@ -3535,40 +3607,104 @@ async function friendAction(kind){
   if (kind === 'add') toast(r.d.state === 'friends' ? `You and @${c.uname} are now friends` : 'Friend request sent');
   syncFriendCounts(); renderProfile(c.uname);
 }
-let frTab = 'friends';
+let frTab = 'friends', frData = null;
+const FR_EASE = 'cubic-bezier(.32,.72,0,1)';
+function updateFrCount(){
+  const b = $('pFr'); if (b) b.innerHTML = `${plural(profFriends, 'friend')}${profIncoming ? `<i class="pbadge">${profIncoming}</i>` : ''}`;
+}
+const frRow = (name, right, i) => `<div class="frow" style="--i:${i}"><a data-fu="${esc(name)}">${avatar(name, 'sm')}<b>@${esc(name)}</b></a><span class="fra">${right}</span></div>`;
+function frListHtml(){
+  const { friends, incoming, outgoing } = frData; let i = 0;
+  if (frTab === 'friends') return friends.length
+    ? friends.map(f => frRow(f.username, `<button class="pill" data-frm="${esc(f.username)}">Remove</button>`, i++)).join('')
+    : '<p class="mhint frempty">No friends yet. Add someone by username below.</p>';
+  const out = (incoming.length ? '<h4 class="prvh">Requests</h4>' + incoming.map(q => frRow(q.username, `<button class="pill pri" data-fra="${q.id}">Accept</button><button class="pill" data-frd="${q.id}">Decline</button>`, i++)).join('') : '')
+    + (outgoing.length ? '<h4 class="prvh">Sent</h4>' + outgoing.map(q => frRow(q.username, `<button class="pill" data-frd="${q.id}">Cancel</button>`, i++)).join('') : '');
+  return out || '<p class="mhint frempty">No pending requests.</p>';
+}
+const FR_SK = `<div class="frsk">${'<div class="frow"><span class="sk-av"></span><span class="sk-ln"></span></div>'.repeat(3)}</div>`;
+/* swap a block's content with a smooth height change and (optionally) a directional entrance */
+function frSwap(el, html, dir){
+  if (!el) return;
+  const h0 = el.offsetHeight; el.innerHTML = html; const h1 = el.offsetHeight;
+  el.classList.remove('fr-l', 'fr-r', 'fr-u');
+  if (dir) { void el.offsetWidth; el.classList.add(dir); }
+  if (el.animate && h0 !== h1) {
+    el.style.overflow = 'hidden';
+    const a = el.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: 340, easing: FR_EASE });
+    const done = () => { el.style.overflow = ''; }; a.onfinish = done; a.oncancel = done;
+  }
+}
+function frCounts(){
+  const a = $('frT0'), b = $('frT1'); if (!a || !frData) return;
+  a.textContent = `Friends · ${frData.friends.length}`; b.textContent = `Requests · ${frData.incoming.length}`;
+}
+function frSetTab(t, force){
+  if (t === frTab && !force) return;
+  const dir = t === frTab ? '' : (t === 'requests' ? 'fr-r' : 'fr-l');
+  frTab = t;
+  const seg = $('frSeg'); if (seg) { seg.dataset.pos = t === 'requests' ? 1 : 0; seg.querySelectorAll('[data-frt]').forEach(b => b.classList.toggle('on', b.dataset.frt === t)); }
+  frSwap($('frList'), frListHtml(), dir);
+}
+async function frFetch(){
+  const r = await syncFriendCounts();
+  if (r.ok) { frData = r.d; frCounts(); updateFrCount(); }
+  return r;
+}
+function frRowOut(row){
+  if (!row || !row.animate) return Promise.resolve();
+  const h = row.offsetHeight;
+  row.style.overflow = 'hidden';
+  return row.animate([{ opacity: 1, height: h + 'px', transform: 'none' }, { opacity: 0, height: '0px', transform: 'translateX(14px)', paddingTop: '0px', paddingBottom: '0px' }],
+    { duration: 300, easing: FR_EASE, fill: 'forwards' }).finished.catch(() => {});
+}
 async function openFriends(tab){
   if (tab) frTab = tab;
-  const sh = openModal('<h3>Friends</h3><p class="mhint">Loading…</p>');
-  const r = await syncFriendCounts();
-  if (!r.ok) { sh.innerHTML = `<h3>Friends</h3><p class="mhint merr">${esc((r.d && r.d.error) || "Couldn't load your friends.")}</p><div class="mbtns"><button class="btn ghost" data-mc>Close</button></div>`; return; }
-  const { friends, incoming, outgoing } = r.d;
-  const row = (name, right) => `<div class="frow"><a data-fu="${esc(name)}">${avatar(name, 'sm')}<b>@${esc(name)}</b></a><span class="fra">${right}</span></div>`;
-  let list;
-  if (frTab === 'friends') list = friends.length ? friends.map(f => row(f.username, `<button class="pill" data-frm="${esc(f.username)}">Remove</button>`)).join('') : '<p class="mhint">No friends yet. Add someone by username below.</p>';
-  else {
-    list = (incoming.length ? '<h4 class="prvh">Requests</h4>' + incoming.map(q => row(q.username, `<button class="pill" data-fra="${q.id}">Accept</button><button class="pill" data-frd="${q.id}">Decline</button>`)).join('') : '')
-         + (outgoing.length ? '<h4 class="prvh">Sent</h4>' + outgoing.map(q => row(q.username, `<button class="pill" data-frd="${q.id}">Cancel</button>`)).join('') : '');
-    if (!list) list = '<p class="mhint">No pending requests.</p>';
-  }
-  sh.innerHTML = `<h3>Friends</h3>
-    <div class="seg wide"><button class="${frTab === 'friends' ? 'on' : ''}" data-frt="friends">Friends · ${friends.length}</button><button class="${frTab === 'requests' ? 'on' : ''}" data-frt="requests">Requests · ${incoming.length}</button></div>
-    <div class="frlist">${list}</div>
+  frData = null;
+  const sh = openModal(`<h3>Friends</h3>
+    <div class="seg wide slide" id="frSeg" data-pos="${frTab === 'requests' ? 1 : 0}"><i class="segi"></i><button class="${frTab === 'friends' ? 'on' : ''}" data-frt="friends" id="frT0">Friends</button><button class="${frTab === 'requests' ? 'on' : ''}" data-frt="requests" id="frT1">Requests</button></div>
+    <div class="frlist" id="frList">${FR_SK}</div>
     <div class="slink"><input class="minp" id="frName" placeholder="Add a friend by @username" maxlength="21" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="frAdd">Add</button></div>
-    <p class="mhint merr" id="frErr"></p>
-    <div class="mbtns"><button class="btn ghost" data-mc>Done</button></div>`;
-  const redo = () => { if (view === 'profile') renderProfile(null); openFriends(); };
+    <p class="mhint merr frerr" id="frErr"></p>
+    <div class="mbtns"><button class="btn ghost" data-mc>Done</button></div>`);
+  const r = await frFetch();
+  if (!$('frList')) return;
+  if (!r.ok) { frSwap($('frList'), `<p class="mhint merr">${esc((r.d && r.d.error) || "Couldn't load your friends.")}</p>`, 'fr-u'); return; }
+  frSwap($('frList'), frListHtml(), 'fr-u');
+  const showErr = msg => {
+    const e = $('frErr'); e.textContent = msg; e.classList.remove('show'); void e.offsetWidth; if (msg) e.classList.add('show');
+    const i = $('frName'); i.classList.remove('shake'); void i.offsetWidth; if (msg) i.classList.add('shake');
+  };
   const add = async () => {
-    const v = $('frName').value.trim().replace(/^@/, ''); if (!v) return;
+    const i = $('frName'), b = $('frAdd'), v = i.value.trim().replace(/^@/, ''); if (!v || b.disabled) return;
+    b.disabled = true; b.textContent = '…'; showErr('');
     const x = await acct.now('POST', '/isai/friends/requests', { username: v });
-    if (!x.ok) { $('frErr').textContent = (x.d && x.d.error) || 'Could not send that.'; return; }
-    toast(x.d.state === 'friends' ? `You and @${v} are now friends` : 'Friend request sent'); frTab = x.d.state === 'friends' ? 'friends' : 'requests'; redo();
+    b.disabled = false; b.textContent = 'Add';
+    if (!x.ok) return showErr((x.d && x.d.error) || 'Could not send that.');
+    i.value = '';
+    toast(x.d.state === 'friends' ? `You and @${v} are now friends` : 'Friend request sent');
+    await frFetch(); frSetTab(x.d.state === 'friends' ? 'friends' : 'requests', true);
+  };
+  const act = async (el, call) => {
+    const row = el.closest('.frow'); el.disabled = true;
+    const [res] = await Promise.all([call(), frRowOut(row)]);
+    if (res && !res.ok) toast((res.d && res.d.error) || 'Something went wrong', true);
+    await frFetch(); frSwap($('frList'), frListHtml(), '');
   };
   sh.onclick = async e => {
-    const t = e.target.closest('[data-frt]'); if (t) return openFriends(t.dataset.frt);
+    const t = e.target.closest('[data-frt]'); if (t) return frSetTab(t.dataset.frt);
     const u = e.target.closest('[data-fu]'); if (u) { closeModal(); return show('user', u.dataset.fu); }
-    const rm = e.target.closest('[data-frm]'); if (rm) { if (!confirm(`Remove @${rm.dataset.frm} from your friends?`)) return; await acct.now('DELETE', '/isai/friends/' + enc(rm.dataset.frm)); return redo(); }
-    const ac = e.target.closest('[data-fra]'); if (ac) { await acct.now('POST', `/isai/friends/requests/${ac.dataset.fra}/accept`); return redo(); }
-    const de = e.target.closest('[data-frd]'); if (de) { await acct.now('DELETE', '/isai/friends/requests/' + de.dataset.frd); return redo(); }
+    const rm = e.target.closest('[data-frm]');
+    if (rm) {
+      if (!rm.classList.contains('arm')) {
+        rm.classList.add('arm'); rm.textContent = 'Sure?';
+        clearTimeout(rm._t); rm._t = setTimeout(() => { if (rm.isConnected) { rm.classList.remove('arm'); rm.textContent = 'Remove'; } }, 3000);
+        return;
+      }
+      return act(rm, () => acct.now('DELETE', '/isai/friends/' + enc(rm.dataset.frm)));
+    }
+    const ac = e.target.closest('[data-fra]'); if (ac) return act(ac, () => acct.now('POST', `/isai/friends/requests/${ac.dataset.fra}/accept`));
+    const de = e.target.closest('[data-frd]'); if (de) return act(de, () => acct.now('DELETE', '/isai/friends/requests/' + de.dataset.frd));
     if (e.target.closest('#frAdd')) add();
   };
   $('frName').onkeydown = e => { if (e.key === 'Enter') add(); };
@@ -3649,8 +3785,8 @@ function queueStatus(){
 const qaBtns = (t, rm) => `<span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart', 18)}</button>${rm ? `<button data-a="rmpl" title="Remove from playlist">${ic('x', 18)}</button>` : `<button data-a="pl" title="Add to playlist">${ic('plus', 18)}</button>`}<button data-a="dl" title="Download">${ic('dl', 18)}</button></span>`;
 
 /* ---------- modal ---------- */
-function openModal(html){ const m = $('modal'); delete m.dataset.lock; m.querySelector('.msheet').innerHTML = html; m.hidden = false; return m.querySelector('.msheet'); }
-function closeModal(){ const m = $('modal'); if (m.dataset.lock) return; m.hidden = true; }
+function openModal(html){ const m = $('modal'); clearTimeout(m._ct); m.classList.remove('closing'); delete m.dataset.lock; m.querySelector('.msheet').innerHTML = html; m.hidden = false; return m.querySelector('.msheet'); }
+function closeModal(){ const m = $('modal'); if (m.dataset.lock || m.hidden || m.classList.contains('closing')) return; m.classList.add('closing'); m._ct = setTimeout(() => { m.hidden = true; m.classList.remove('closing'); }, 200); }
 function promptName({ title, value = '', cta, onOk }){
   openModal(`<h3>${esc(title)}</h3><input id="mIn" class="minp" maxlength="80" value="${esc(value)}" placeholder="Playlist name" autocomplete="off"><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="mOk">${esc(cta)}</button></div>`);
   const inp = $('mIn'); inp.focus(); inp.select();
