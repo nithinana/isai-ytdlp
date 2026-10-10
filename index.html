@@ -872,6 +872,21 @@ body.offline #nav [data-view="home"],body.offline #nav [data-view="search"]{disp
 body.offline .tr.nodl{opacity:.38}
 .offmsg{text-align:center;padding:48px 20px;color:var(--mute)}
 .offmsg b{display:block;font-size:20px;color:var(--fg);margin-bottom:8px}
+/* loading spinner replaces the play/pause icon */
+.ppsp{animation:ppspin .8s linear infinite;transform-origin:50% 50%}
+@keyframes ppspin{to{transform:rotate(360deg)}}
+.pp.loading,.big.loading{animation:none!important}
+/* lyrics tab + pill stay collapsed until lyrics have loaded, then ease in */
+.tabs button[data-tab="lyrics"]{min-width:0;overflow:hidden;white-space:nowrap;transition:flex-grow .5s var(--ease),opacity .4s var(--ease),padding .5s var(--ease),color .3s var(--ease),border-color .3s var(--ease)}
+.tabs button[data-tab="lyrics"].lyoff{flex:0 0 0%;opacity:0;padding-left:0;padding-right:0;pointer-events:none;border-bottom-color:transparent}
+#mLyr{max-width:160px;overflow:hidden;transition:max-width .5s var(--ease),opacity .4s var(--ease),padding .5s var(--ease),border-width .5s var(--ease)}
+#mLyr.lyoff{max-width:0;opacity:0;padding-left:0;padding-right:0;border-width:0;pointer-events:none}
+/* touch gestures (mobile): swipe pill/cover for next/prev, drag sheet + player down */
+#npcover{-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+@media(max-width:720px){
+  #player,#npcover,.nptop,#npr .grab,#npr .tabs{touch-action:none}
+  .npr{transition:transform .42s var(--ease),background-color .45s var(--ease),border-color .45s var(--ease),box-shadow .45s var(--ease)}
+}
 @media(max-width:380px){#lkBoxes{gap:6px}#lkBoxes input{height:52px}}
 </style>
 <style>
@@ -1734,13 +1749,13 @@ function playFrom(key, i, open = true){
 // so the browser can start streaming straight away; only the audio is used, the video is never shown.
 const mkMedia = () => { const v = document.createElement('video'); v.playsInline = true; v.preload = 'auto'; v.style.display = 'none'; return v; };
 const audioUrl = id => base() + '/audio/' + encodeURIComponent(id) + (store.get('key', '') ? '?key=' + encodeURIComponent(store.get('key', '')) : '');
-let a = $('audio'), standby = mkMedia(), pending = false;
+let a = $('audio'), standby = mkMedia(), pending = false, loading = false;   // loading: a new song is being fetched; the old `a` must not be resumed
 standby.preload = 'auto';
 let resume = { id: null, n: 0 }, lastAuto = 0;   // guards against streams that report 'ended' early
 const resetSeek = () => { $('seek').value = $('mseek').value = 0; fillRange($('seek')); fillRange($('mseek')); $('mprog').style.width = '0'; };
 async function playCurrent(startAt = 0){
   const t = queue[qi]; if (!t) return;
-  const my = ++token; current = t;
+  const my = ++token; current = t; loading = true;
   if (!startAt) resume = { id: t.id, n: 0 };
 
   // Immediately pause currently playing audio so it stops when switching songs
@@ -1760,6 +1775,7 @@ async function playCurrent(startAt = 0){
   $('mpp').classList.add('loading');
   setPP();
   markPlaying(); updateNP(); tint(t); msMeta(t);
+  lyProbe(t);
   try {
     const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
     if (my !== token) return;
@@ -1777,7 +1793,7 @@ async function playCurrent(startAt = 0){
     });
     if (my !== token) { if (blobUrl) URL.revokeObjectURL(blobUrl); return; }
     const old = a;
-    a = n; standby = old; pending = false;
+    a = n; standby = old; pending = false; n._tid = t.id; loading = false;
     old.pause(); old.removeAttribute('src'); old.load();
     if (old._blob) URL.revokeObjectURL(old._blob);
     n._blob = blobUrl; old._blob = null;
@@ -1788,7 +1804,7 @@ async function playCurrent(startAt = 0){
     await a.play(); setPP(); addRecent(t);
   } catch (e) {
     if (my === token) {
-      pending = false;
+      pending = false; loading = false;
       $('pp').classList.remove('loading');
       $('mpp').classList.remove('loading');
       setPP();
@@ -1809,8 +1825,12 @@ function step(d, auto){
   playCurrent();
 }
 const doNext = () => step(1);
-const doPrev = () => a.currentTime > 4 ? (a.currentTime = 0) : step(-1);
-const doPP = () => { if (!a.src) return; a.paused ? a.play() : a.pause(); };
+const doPrev = () => (!loading && a.currentTime > 4) ? (a.currentTime = 0) : step(-1);
+const doPP = () => {
+  if (loading || !current) return;   // a new song is loading: don't resume the previous one
+  if (!a.src || a._tid !== current.id) return playCurrent();   // nothing valid loaded for this song (e.g. the load failed): retry it
+  a.paused ? a.play() : a.pause();
+};
 function setShuffle(on){ shuffle = on; document.querySelectorAll('#shuf,#mshuf').forEach(b => b.classList.toggle('on', on)); }
 function doShuf(){ setShuffle(!shuffle); toast('Shuffle ' + (shuffle ? 'on' : 'off')); }
 function doRep(){
@@ -1846,7 +1866,7 @@ function msPos(force){
 }
 if (MS) {
   const set = (n, f) => { try { MS.setActionHandler(n, f); } catch {} };
-  set('play', () => { a.play(); });
+  set('play', () => { if (a.paused) doPP(); });
   set('pause', () => { a.pause(); });
   set('previoustrack', doPrev);
   set('nexttrack', doNext);
@@ -1855,7 +1875,8 @@ if (MS) {
   set('seekto', e => { if (e.fastSeek && 'fastSeek' in a) a.fastSeek(e.seekTime); else a.currentTime = e.seekTime; msPos(true); });
   set('stop', () => { a.pause(); });
 }
-const setPP = () => { const i = ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
+const SPIN = '<svg class="ppsp" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M12 3a9 9 0 019 9"/></svg>';
+const setPP = () => { const i = loading ? SPIN : ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
 const wire = el => {
   el.onplay = el.onpause = () => { if (el === a) { setPP(); actSave(true); } };
   el.onended = () => {
@@ -1869,10 +1890,10 @@ const wire = el => {
   };
   el.onerror = () => { if (el === a && el.src) toast(navigator.onLine ? 'Playback failed. Check that the server is running and try again.' : "You're offline · only downloaded songs can play", true); };
   el.ontimeupdate = () => {
-    if (el === a && !pending && npTab === 'lyrics') lyUpdate();
+    if (el === a && !pending && !loading && npTab === 'lyrics') lyUpdate();
     if (el === a) msPos();
     if (el === a) actTick();
-    if (el !== a || pending) return;
+    if (el !== a || pending || loading) return;
     const d = a.duration || (current && current.duration) || 0, p = d ? a.currentTime / d : 0;
     $('cur').textContent = $('mcur').textContent = fmt(a.currentTime);
     if (d) {
@@ -1885,7 +1906,7 @@ const wire = el => {
 wire(a); wire(standby);
 ['seek', 'mseek'].forEach(id => {
   $(id).oninput = () => { seeking = true; fillRange($(id)); };
-  $(id).onchange = e => { const d = a.duration || 0; if (d) a.currentTime = e.target.value / 1000 * d; seeking = false; };
+  $(id).onchange = e => { if (loading) { resetSeek(); seeking = false; return; } const d = a.duration || 0; if (d) a.currentTime = e.target.value / 1000 * d; seeking = false; };
 });
 $('vol').oninput = e => { a.volume = standby.volume = e.target.value / 100; fillRange(e.target); };
 a.volume = standby.volume = .8; fillRange($('vol')); fillRange($('seek')); fillRange($('mseek'));
@@ -1905,6 +1926,7 @@ function setTab(tab, silent){
   $('npr').classList.toggle('lyrmode', tab === 'lyrics');
   if (!silent && prev !== tab) { const b = $('npq'); b.classList.remove('tin-r', 'tin-l'); void b.offsetWidth; b.classList.add('tin-' + dir); }
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  syncLyTab();
   if (!silent) renderQueue();
 }
 function syncLike(){
@@ -1964,6 +1986,107 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   if (isMobile()) $('npr').classList.add('up');
 });
 $('grab').onclick = () => $('npr').classList.toggle('up');
+/* tap anywhere above the open sheet (cover / background) to minimise it */
+$('npv').addEventListener('click', e => {
+  if (!isMobile() || !$('npr').classList.contains('up')) return;
+  if (e.target.closest('#npr, .nptop, button, a, input, [data-go]')) return;
+  $('npr').classList.remove('up');
+});
+
+/* ---------- touch gestures ---------- */
+let noClickUntil = 0;
+document.addEventListener('click', e => { if (Date.now() < noClickUntil) { e.stopPropagation(); e.preventDefault(); } }, true);   // a drag must not also count as a tap
+function dragOn(el, o){
+  let g = null;
+  el.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || e.button > 0 || (o.ok && !o.ok(e))) return;
+    g = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), axis: null };
+  });
+  el.addEventListener('pointermove', e => {
+    if (!g || e.pointerId !== g.id) return;
+    const dx = e.clientX - g.x, dy = e.clientY - g.y;
+    if (!g.axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (o.axes && !o.axes.includes(g.axis)) { g = null; return; }
+      try { el.setPointerCapture(e.pointerId); } catch {}
+      if (o.start) o.start(g.axis);
+    }
+    o.move(dx, dy, g.axis);
+  });
+  const up = e => {
+    if (!g || e.pointerId !== g.id) return;
+    const G = g; g = null;
+    if (!G.axis) return;
+    noClickUntil = Date.now() + 350;
+    o.end(e.clientX - G.x, e.clientY - G.y, G.axis, Date.now() - G.t, e.type === 'pointercancel');
+  };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+function snapBack(el){
+  el.style.transition = 'transform .28s var(--ease), opacity .28s var(--ease)'; el.style.transform = ''; el.style.opacity = '';
+  setTimeout(() => { el.style.transition = ''; }, 320);
+}
+function swipeTrack(el, dir, dist){   // dir 1 = next (swiped left), -1 = previous (swiped right)
+  if (!current || queue.length < 2) return snapBack(el);
+  el.style.transition = 'transform .16s ease-in, opacity .16s ease-in';
+  el.style.transform = `translateX(${-dir * dist}px)`; el.style.opacity = '0';
+  setTimeout(() => {
+    step(dir);
+    el.style.transition = 'none'; el.style.transform = `translateX(${dir * dist}px)`; el.style.opacity = '0';
+    void el.offsetWidth;
+    el.style.transition = 'transform .32s var(--ease), opacity .32s var(--ease)'; el.style.transform = ''; el.style.opacity = '';
+    setTimeout(() => { el.style.transition = ''; }, 360);
+  }, 150);
+}
+const swipeMove = (el, dx) => { el.style.transition = 'none'; el.style.transform = `translateX(${dx * .55}px)`; el.style.opacity = String(1 - Math.min(Math.abs(dx) / 260, .6)); };
+const swipeEnd = (el, dx, ms, dist) => {
+  const fast = Math.abs(dx) / Math.max(ms, 1) > .45;
+  if (Math.abs(dx) > 56 || (Math.abs(dx) > 28 && fast)) swipeTrack(el, dx < 0 ? 1 : -1, dist); else snapBack(el);
+};
+function npvDrag(dy){ const v = $('npv'); v.style.transition = 'none'; v.style.transform = `translateY(${Math.max(0, dy)}px)`; }
+function npvRelease(dy, ms){
+  const v = $('npv'), fast = dy / Math.max(ms, 1) > .5;
+  if (dy > 110 || (dy > 40 && fast)) {
+    closeNP(); v.style.transition = 'transform .24s var(--ease-io)'; v.style.transform = 'translateY(100%)';
+    setTimeout(() => { v.style.transition = ''; v.style.transform = ''; }, 330);
+  } else { v.style.transition = 'transform .3s var(--ease)'; v.style.transform = ''; setTimeout(() => { v.style.transition = ''; }, 320); }
+}
+$('npcover').draggable = false;
+/* 1. swipe the mini player (pill) left/right: next / previous song */
+dragOn($('player'), {
+  axes: ['x'],
+  ok: e => !!current && !e.target.closest('button, input'),
+  move: dx => swipeMove($('player').querySelector('.np'), dx),
+  end: (dx, dy, ax, ms) => swipeEnd($('player').querySelector('.np'), dx, ms, 70)
+});
+/* 2. album cover: swipe left/right = next / previous; swipe down (mobile) = close now playing */
+dragOn($('npcover'), {
+  ok: () => !!current,
+  move: (dx, dy, ax) => { if (ax === 'x') swipeMove($('npcover'), dx); else if (isMobile() && dy > 0) npvDrag(dy); },
+  end: (dx, dy, ax, ms) => { if (ax === 'x') swipeEnd($('npcover'), dx, ms, 120); else if (isMobile() && dy > 0) npvRelease(dy, ms); }
+});
+/* 3. swipe down from the top bar of now playing (mobile) to close it */
+dragOn(document.querySelector('.nptop'), {
+  axes: ['y'],
+  ok: e => isMobile() && !e.target.closest('button'),
+  move: (dx, dy) => { if (dy > 0) npvDrag(dy); },
+  end: (dx, dy, ax, ms) => { if (dy > 0) npvRelease(dy, ms); }
+});
+/* 4. drag the Up next / Related / Lyrics sheet by its handle + tab bar: down = minimise, up = expand */
+let sheetUp = false;
+dragOn($('npr'), {
+  axes: ['y'],
+  ok: e => isMobile() && !!e.target.closest('#grab, .tabs'),
+  start: () => { sheetUp = $('npr').classList.contains('up'); $('npr').style.transition = 'none'; },
+  move: (dx, dy) => { $('npr').style.transform = sheetUp ? `translateY(${Math.max(0, dy)}px)` : `translateY(calc(100% - 66px - var(--sab) + ${Math.min(0, dy)}px))`; },
+  end: (dx, dy, ax, ms) => {
+    const r = $('npr'), fast = Math.abs(dy) / Math.max(ms, 1) > .5;
+    const toUp = sheetUp ? !(dy > 70 || (dy > 30 && fast)) : (dy < -50 || (dy < -25 && fast));
+    r.style.transition = ''; void r.offsetWidth;
+    r.style.transform = ''; r.classList.toggle('up', toUp);
+  }
+});
 $('npLike').onclick = $('mLike').onclick = () => current && toggleLike(current);
 $('mDl').onclick = $('npDl').onclick = e => current && download(current, e.currentTarget);
 $('npAlbum').onclick = () => current && openAlbumOf(current);
@@ -1983,7 +2106,7 @@ $('npmore').onclick = () => {
     ${row('dl', dls.some(d => d.id === t.id) ? 'Downloaded' : 'Download', ic('dl', 20))}
     ${(t.album_id || t.album) ? row('album', 'Go to album', ic('note', 20)) : ''}
     ${artistsOf(t)[0] ? row('artist', 'Go to artist', ic('chev', 20)) : ''}
-    ${row('lyr', 'Lyrics', ic('note', 20))}`);
+    ${lyState === 'found' ? row('lyr', 'Lyrics', ic('note', 20)) : ''}`);
   sheet.onclick = e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
     const k = b.dataset.act; closeModal();
@@ -3084,11 +3207,64 @@ const lyCache = {}; let lyCur = null, lyEls = [], lyIdx = -1, lyWn = -1, lyRaf =
 let isrcs = jget('isrcs', {});
 const lySrc = () => store.get('lsrc', 'auto');
 const SYNC_LABEL = { richsync: 'word-synced', linesync: 'line-synced', plain: 'unsynced' };
+const LY_NAMES = { auto: 'Auto', unison: 'Unison', lrcred: 'lrc.red', lrclib: 'LRCLIB' };
+const lyAvail = {}, lyProbing = {}, lyInflight = {};   // lyAvail: trackId -> sources that actually have lyrics for it
+let lyState = 'none', lyFor = null, lyTok = 0, lyLoadTok = 0, lyEff = 'auto';   // lyState: 'loading' | 'found' | 'none'
+const lyOk = d => !!(d && d.found && d.lines && d.lines.length);
 function lyHeader(d){
-  const s = lySrc();
-  const chips = [['auto', 'Auto'], ['unison', 'Unison'], ['lrcred', 'lrc.red'], ['lrclib', 'LRCLIB']].map(([k, l]) => `<button data-lsrc="${k}" class="${s === k ? 'on' : ''}">${l}</button>`).join('');
+  const t = current, av = (t && lyAvail[t.id]) || (d && d.found && d.source ? [d.source] : []);
+  const keys = av.length > 1 ? ['auto', ...av] : av;   // only sources that have lyrics (Auto only when there's a choice)
+  const chips = keys.map(k => `<button data-lsrc="${k}" class="${(lyEff === k || keys.length === 1) ? 'on' : ''}">${LY_NAMES[k]}</button>`).join('');
   const info = d && d.found ? `via ${({ lrcred: 'lrc.red', lrclib: 'LRCLIB' })[d.source] || 'Unison'} · ${SYNC_LABEL[d.syncType] || ''}` : '';
   $('lyhd').innerHTML = `<span class="lysrc">${esc(info)}</span><span class="lychips">${chips}</span>`;
+}
+function syncLyTab(){
+  const show = lyState === 'found' || (lyState === 'loading' && npTab === 'lyrics');
+  const tb = document.querySelector('.tabs [data-tab="lyrics"]');
+  tb.classList.toggle('lyoff', !show); tb.tabIndex = show ? 0 : -1; tb.setAttribute('aria-hidden', show ? 'false' : 'true');
+  $('mLyr').classList.toggle('lyoff', !show);
+}
+function lyPeek(t, src){
+  const isrc = isrcs[t.id] || '', hit = lyCache[`${t.id}|${src}|${isrc}`];
+  if (hit) return hit;
+  const ex = extras[t.id];
+  return (src === 'auto' && !isrc && ex && ex.lyrics) ? ex.lyrics : null;
+}
+function lyGet(t, src){
+  const isrc = isrcs[t.id] || '', key = `${t.id}|${src}|${isrc}`;
+  const hit = lyPeek(t, src); if (hit) return Promise.resolve(lyCache[key] = hit);
+  if (lyInflight[key]) return lyInflight[key];
+  const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, album: t.album || '', duration: Math.round(t.duration || 0) || '', source: src }).filter(([, v]) => v));
+  return lyInflight[key] = (async () => {
+    try {
+      const d = await (await api(`/lyrics/${t.id}?${qs}`)).json();
+      lyCache[key] = d;
+      if (d.found && d.lines && d.lines.length && src === 'auto' && dls.some(x => x.id === t.id) && !(extras[t.id] && extras[t.id].lyrics)) saveExtraLyrics(t, d);
+      return d;
+    } finally { delete lyInflight[key]; }
+  })();
+}
+/* runs as soon as a song starts: the Lyrics tab stays hidden until lyrics are found, then eases in */
+async function lyProbe(t){
+  if (lyFor === t.id) return;
+  lyFor = t.id; const my = ++lyTok;
+  lyState = lyPeek(t, 'auto') ? 'found' : 'loading'; syncLyTab();
+  let d = null;
+  try { d = await lyGet(t, 'auto'); } catch {}
+  if (my !== lyTok) return;
+  lyState = lyOk(d) ? 'found' : 'none';
+  if (lyState === 'none' && npTab === 'lyrics') setTab('queue');
+  syncLyTab();
+}
+/* which individual sources have lyrics for this song (so the source chips only list real options) */
+async function lyProbeSources(t){
+  if (lyAvail[t.id] || lyProbing[t.id]) return;
+  lyProbing[t.id] = 1;
+  const srcs = ['lrcred', 'unison', 'lrclib'].filter(x => x !== 'lrcred' || isrcs[t.id]);
+  const res = await Promise.all(srcs.map(x => lyGet(t, x).catch(() => null)));
+  delete lyProbing[t.id];
+  lyAvail[t.id] = srcs.filter((x, i) => lyOk(res[i]));
+  if (current === t && npTab === 'lyrics') lyHeader(lyCur);
 }
 $('lyhd').onclick = e => {
   const b = e.target.closest('[data-lsrc]'); if (!b) return;
@@ -3098,20 +3274,15 @@ $('npq').addEventListener('wheel', () => { lyUserTs = Date.now(); }, { passive: 
 $('npq').addEventListener('touchmove', () => { lyUserTs = Date.now(); }, { passive: true });
 async function loadLyrics(){
   const t = current, box = $('npq'); if (!t) return;
-  const isrc = isrcs[t.id] || '', key = `${t.id}|${lySrc()}|${isrc}`;
-  lyCur = null; lyHeader(null);
-  if (lyCache[key]) return paintLyrics(lyCache[key], t);
-  const ex = extras[t.id];
-  if (ex && ex.lyrics && lySrc() === 'auto' && !isrc) { lyCache[key] = ex.lyrics; return paintLyrics(ex.lyrics, t); }
-  box.innerHTML = '<p class="qmsg">Finding lyrics…</p>';
-  const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, album: t.album || '', duration: Math.round(t.duration || 0) || '', source: lySrc() }).filter(([, v]) => v));
+  const my = ++lyLoadTok;
+  lyCur = null; lyEff = lySrc();
+  if (!lyPeek(t, lyEff)) { lyHeader(null); box.innerHTML = '<p class="qmsg">Finding lyrics…</p>'; }
   try {
-    const d = await (await api(`/lyrics/${t.id}?${qs}`)).json();
-    lyCache[key] = d;
-    if (d.found && d.lines && d.lines.length && lySrc() === 'auto' && dls.some(x => x.id === t.id) && !(extras[t.id] && extras[t.id].lyrics)) saveExtraLyrics(t, d);
-    if (npTab !== 'lyrics' || current !== t) return;
+    let d = await lyGet(t, lyEff);
+    if (!lyOk(d) && lyEff !== 'auto') { lyEff = 'auto'; d = await lyGet(t, 'auto'); }   // chosen source has nothing for this song
+    if (my !== lyLoadTok || npTab !== 'lyrics' || current !== t) return;
     paintLyrics(d, t);
-  } catch (e) { if (npTab === 'lyrics' && current === t) box.innerHTML = `<p class="qmsg err">${esc(e.message)}</p>`; }
+  } catch (e) { if (my === lyLoadTok && npTab === 'lyrics' && current === t) box.innerHTML = `<p class="qmsg err">${esc(e.message)}</p>`; }
 }
 function paintLyrics(d, t){
   const box = $('npq'); lyIdx = -1; lyWn = -1; lyEls = [];
@@ -3131,7 +3302,7 @@ function paintLyrics(d, t){
     $('lyGo').onclick = go; $('lyIsrc').onkeydown = e => { if (e.key === 'Enter') go(); };
     return;
   }
-  lyCur = d;
+  lyCur = d; lyProbeSources(t);
   const rich = d.syncType === 'richsync';
   box.innerHTML = d.lines.map((l, i) => {
     const cls = ['ly', d.synced ? '' : 'plain', rich && l.words ? 'rich' : ''].filter(Boolean).join(' ');
@@ -3176,6 +3347,7 @@ function lySeek(i){
   a.currentTime = l.t; lyUserTs = 0; lyUpdate();
 }
 $('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList.add('up'); };
+syncLyTab();   // lyrics tab starts hidden
 
 /* ---------- PWA & install ---------- */
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
