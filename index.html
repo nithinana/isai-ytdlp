@@ -643,6 +643,12 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 /* ======== playlists / moods / charts / modal ======== */
 .libact{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px}
 .libact .btn{padding:9px 16px;font-size:14px}
+.impbtn{padding:0!important;gap:0!important;overflow:hidden;font-size:14px}
+.impbtn button{display:inline-flex;align-items:center;justify-content:center;color:inherit;background:none;font:inherit;transition:background-color .2s}
+.impbtn .impl{padding:9px 14px 9px 18px;font-weight:600}
+.impbtn .impi{padding:0 11px;align-self:stretch;border-left:1px solid var(--line)}
+.impbtn button:hover{background:rgba(255,255,255,.1)}
+.impbtn button:active{background:rgba(255,255,255,.18)}
 .lh{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .lh .pill{margin-top:10px}
 .acover.ph{display:grid;place-items:center;background:rgba(255,255,255,.07);color:rgba(255,255,255,.4)}
@@ -655,6 +661,8 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 #modal[hidden]{display:none}
 .msheet{width:min(440px,100%);max-height:80vh;overflow:auto;border-radius:22px;padding:20px;background:rgba(26,26,32,.94)}
 .msheet h3{margin:0 0 12px;font-size:20px;font-weight:800}
+.btn.danger{background:#ff453a;color:#fff}
+.btn.ghost.danger{background:rgba(255,69,58,.14);color:#ff6b61;border-color:rgba(255,69,58,.35)}
 .mhint{color:var(--mute);font-size:13px;line-height:1.5;margin:0 0 12px}
 .minp{width:100%;height:46px;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);outline:0;color:var(--fg)}
 .minp:focus{border-color:rgba(255,255,255,.4)}
@@ -701,6 +709,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   #modal{place-items:end center;padding:0}
   .msheet{width:100%;border-radius:22px 22px 0 0;padding-bottom:calc(20px + var(--sab))}
   .libact .btn{flex:1;justify-content:center}
+  .libact .impbtn{flex:1 1 100%}.impbtn .impl{flex:1}
 }
 
 /* ---- lyrics ---- */
@@ -1666,11 +1675,13 @@ $('sbtn').onclick = () => {
 $('logo').onclick = () => show('home');
 
 /* ---------- library + settings ---------- */
+const IMP_SP = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1ed760"/><path d="M5.8 9.3c4.1-1.2 8.7-.9 12.4 1.3" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round"/><path d="M6.6 12.6c3.4-.9 7-.6 10 1.1" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/><path d="M7.4 15.6c2.7-.7 5.4-.4 7.9.9" fill="none" stroke="#000" stroke-width="1.4" stroke-linecap="round"/></svg>';
+const IMP_YT = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="1" y="4.5" width="22" height="15" rx="4.5" fill="#ff0033"/><path d="M10 9l5.2 3L10 15z" fill="#fff"/></svg>';
 function renderLiked(){
   lists.liked = liked; names.liked = 'Liked songs'; listKey = 'liked';
   const pc = plCards();
   $('main').innerHTML = `<div class="pg"><h1 class="t">Library</h1>
-    <div class="libact"><button class="btn" id="plNew">${ic('plus', 16)} New playlist</button><button class="btn ghost" id="plImp">Import from YouTube</button><button class="btn ghost" id="spImp">Import from Spotify</button></div>
+    <div class="libact"><button class="btn" id="plNew">${ic('plus', 16)} New playlist</button><div class="btn ghost impbtn" id="impBtn" role="group" aria-label="Import"><button type="button" class="impl" id="impAny">Import</button><button type="button" class="impi" id="spImp" title="Import from Spotify" aria-label="Import from Spotify">${IMP_SP}</button><button type="button" class="impi" id="plImp" title="Import from YouTube" aria-label="Import from YouTube">${IMP_YT}</button></div></div>
     <h3 class="sec0">Playlists</h3>
     ${pc.length ? gridHtml('uplist', pc) : '<p class="qmsg">No playlists yet. Create one, or paste the link of a public YouTube playlist to import it.</p>'}
     ${saved.length ? `<h3 class="sec0">Saved</h3>${gridHtml('saved', saved)}` : ''}
@@ -1679,6 +1690,13 @@ function renderLiked(){
   $('plNew').onclick = () => promptName({ title: 'New playlist', cta: 'Create', onOk: v => { createPlaylist(v); toast(`Created "${v}"`); if (view === 'liked') renderLiked(); } });
   $('plImp').onclick = openImport;
   $('spImp').onclick = () => openSpotifyImport();
+  $('impAny').onclick = () => {
+    const sh = openModal(`<h3>Import playlist</h3>
+      <button class="plr" data-imp="sp"><span class="plc">${IMP_SP}</span><span class="qm"><b>Spotify</b><span>Playlist, album or song link, or your data export</span></span></button>
+      <button class="plr" data-imp="yt"><span class="plc">${IMP_YT}</span><span class="qm"><b>YouTube</b><span>Public or unlisted YouTube / YouTube Music playlist</span></span></button>
+      <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
+    sh.onclick = e => { const r = e.target.closest('[data-imp]'); if (!r) return; closeModal(); r.dataset.imp === 'sp' ? openSpotifyImport() : openImport(); };
+  };
   if ($('dlLiked')) $('dlLiked').onclick = () => downloadAll(liked, 'Liked songs');
 }
 function renderSettings(){
@@ -1701,6 +1719,7 @@ function renderSettings(){
     <section class="sgrp glass"><h3>Data</h3>
       <div class="srow"><div><b>Refresh home</b><span>Reload recommendations from the server</span></div><button class="btn ghost" id="sRef">Refresh</button></div>
       <div class="srow"><div><b>Listen again</b><span>Clear your recently played history</span></div><button class="btn ghost" id="sClr">Clear</button></div>
+      <div class="srow"><div><b>Clear all data</b><span>Delete your playlists, liked songs, saved items and listening history</span></div><button class="btn ghost danger" id="sWipe">Clear data</button></div>
     </section></div>`;
   $('sOut').onclick = () => window.__signOut();
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
@@ -1709,6 +1728,24 @@ function renderSettings(){
   $('sFmt').onchange = e => { store.set('fmt', e.target.value); toast('Format set to ' + e.target.value); };
   $('sRef').onclick = () => { homeData = null; for (const k in entCache) delete entCache[k]; toast('Refreshing…'); show('home'); loadHome(true); };
   $('sClr').onclick = () => { recent = []; store.set('recent', '[]'); toast('Cleared'); };
+  $('sWipe').onclick = confirmClearData;
+}
+function confirmClearData(){
+  openModal(`<h3>Clear all data?</h3>
+    <p class="mhint">This permanently deletes your <b>${playlists.length}</b> playlist${playlists.length === 1 ? '' : 's'}, <b>${liked.length}</b> liked song${liked.length === 1 ? '' : 's'}, saved albums and artists, recently played and listening activity. This can't be undone.</p>
+    <p class="mhint">Your downloads, language, format and server settings are kept.</p>
+    <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn danger" id="mWipe">Delete everything</button></div>`);
+  $('mWipe').onclick = () => {
+    for (const k of ['liked', 'saved', 'playlists', 'recent', 'lplays', 'ltracks', 'ltime', 'isrcs', 'rsearch', 'ytm_oauth'])
+      try { localStorage.removeItem(k); } catch {}
+    liked = []; saved = []; playlists = []; recent = [];
+    lplays = []; ltracks = {}; ltime = { d: {}, h: new Array(24).fill(0) }; isrcs = {};
+    ldirty = false; sess = { id: null, sec: 0, logged: false, last: 0 };
+    homeData = null; for (const k in entCache) delete entCache[k];
+    closeModal(); toast('All data cleared');
+    if (view === 'settings') renderSettings();
+    if (typeof markPlaying === 'function') markPlaying();
+  };
 }
 
 /* ---------- playback ---------- */
