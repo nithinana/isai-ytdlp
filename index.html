@@ -1171,61 +1171,61 @@ body.offline .tr.nodl{opacity:.38}
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style id="lyfull-css">
-/* ======== full-screen lyrics (phone): Apple Music-style, with transport docked underneath ======== */
-#lybg,#lyhead,#lyctl{display:none}
-#npv.lyfull .nptop{opacity:0;pointer-events:none}
-#npv.lyfull .npr{height:100%;top:0;bottom:0;padding:0;border-radius:0;border-color:transparent;background:transparent;box-shadow:none;
-  backdrop-filter:none;-webkit-backdrop-filter:none;overflow:hidden}
-#npv.lyfull #lybg{display:block;position:absolute;inset:0;z-index:-1;background:
-  radial-gradient(130% 55% at 0% 0%,var(--c1),transparent 72%),
-  radial-gradient(110% 60% at 100% 38%,var(--c2),transparent 72%),
-  radial-gradient(130% 55% at 15% 100%,var(--c1),transparent 72%),
-  linear-gradient(180deg,var(--c3) 0%,var(--bg) 100%)}
-#npv.lyfull #lybg::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.18)}
-#npv.lyfull .tabs,#npv.lyfull .npf,#npv.lyfull .lyhd{display:none}
-#npv.lyfull .grab{position:absolute;top:calc(var(--sat) + 8px);left:50%;transform:translateX(-50%);margin:0;z-index:4;width:40px;height:5px;background:rgba(255,255,255,.38)}
-#npv.lyfull .grab::before{content:'';position:absolute;inset:-14px -34px -10px}
+/* ======== lyrics mode (phone): the real player pieces morph into the lyrics layout ======== */
+@media(max-width:720px){
+  #npv .npl{z-index:2}
+  #lybg{display:block;position:absolute;inset:0;z-index:1;opacity:0;pointer-events:none;transition:opacity .55s var(--ease);background:
+    radial-gradient(130% 55% at 0% 0%,var(--c1),transparent 72%),
+    radial-gradient(110% 60% at 100% 38%,var(--c2),transparent 72%),
+    radial-gradient(130% 55% at 15% 100%,var(--c1),transparent 72%),
+    linear-gradient(180deg,var(--c3) 0%,var(--bg) 100%)}
+  #lybg::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.18)}
+  #npv.lyfull #lybg{opacity:1}
+  .nptop{transition:opacity .25s var(--ease)}
+  #npv.lyfull .nptop{opacity:0;pointer-events:none}
 
-/* header: cover · title/artist · star · more */
-#npv.lyfull #lyhead{display:flex;align-items:center;gap:13px;flex:none;position:relative;z-index:3;touch-action:none;
-  padding:calc(var(--sat) + 26px) 20px 12px}
-#lyart{width:58px;height:58px;border-radius:9px;object-fit:cover;flex:none;background:var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.4)}
-.lyti{flex:1;min-width:0;cursor:pointer}
-.lyti b,.lyti span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lyti b{font-size:17px;font-weight:700;line-height:1.25}
-.lyti span{font-size:15px;color:rgba(255,255,255,.58);margin-top:1px}
-#lylike,#lymore{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;
-  background:rgba(255,255,255,.2);transition:background-color .25s var(--ease),color .25s var(--ease),transform .25s var(--ease)}
-#lylike:active,#lymore:active{transform:scale(.92)}
-#lylike.on{background:#fff;color:#111}
-#lylike svg,#lymore svg{width:18px;height:18px}
+  /* star + more, top right */
+  #lyhead{position:absolute;z-index:8;top:calc(var(--sat) + 38px);right:24px;display:flex;gap:10px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease)}
+  #npv.lyfull #lyhead{opacity:1;pointer-events:auto;transition:opacity .4s var(--ease) .2s}
+  #lylike,#lymore{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.2);
+    transition:background-color .25s var(--ease),color .25s var(--ease),transform .25s var(--ease)}
+  #lylike:active,#lymore:active{transform:scale(.92)}
+  #lylike.on{background:#fff;color:#111}
+  #lylike svg,#lymore svg{width:18px;height:18px}
 
-/* lyrics */
-#npv.lyfull #npq.lyr{flex:1;min-height:0;padding:6px 24px 38% 24px;
-  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 82%,transparent 100%)}
-#npv.lyfull .ly{font-size:clamp(26px,8.2vw,34px);line-height:1.2;font-weight:800;letter-spacing:-.015em;padding:10px 0;border-radius:0;
-  transform-origin:left center;transform:scale(.95);
-  opacity:max(.16, .5 - var(--d,4)*.08);
-  filter:blur(min(var(--d,4)*.7px, 4px))}
-#npv.lyfull .ly.past{opacity:max(.16, .5 - var(--d,4)*.08);filter:blur(min(var(--d,4)*.7px, 4px));transform:scale(.95)}
-#npv.lyfull .ly.on{opacity:1;filter:none;transform:scale(1)}
-#npv.lyfull .ly.bgv{font-size:clamp(19px,5.8vw,24px);font-weight:700;line-height:1.25;padding:2px 0 12px}
-#npv.lyfull .ly.plain,#npv.lyfull .ly.plain.past{font-size:19px;font-weight:700;line-height:1.35;opacity:.85;filter:none;transform:none;padding:5px 0}
-#npv.lyfull .qlist.lyr .qmsg,#npv.lyfull .qlist.lyr .mhint{margin-left:0;margin-right:0}
+  /* player pieces re-laid out as: [cover | title/artist] on top, seek + transport at the bottom */
+  #npv.lyfull .npl{inset:0;overflow:hidden;padding:calc(var(--sat) + 26px) 24px calc(var(--sab) + 14px);
+    display:grid;grid-template-columns:58px minmax(0,1fr);grid-template-rows:58px minmax(0,1fr) auto auto;
+    column-gap:13px;row-gap:0;align-items:center;justify-content:stretch;align-content:stretch}
+  #npv.lyfull .npcard{display:contents}
+  #npv.lyfull #npcover{--cs:58px;grid-column:1;grid-row:1;width:58px;height:58px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+  #npv.lyfull .npinfo{grid-column:2;grid-row:1;min-width:0;padding-right:40px;touch-action:none}
+  #npv.lyfull #mtitle{font-size:17px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #npv.lyfull #martist{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .npbtns{transition:opacity .25s var(--ease)}
+  #npv.lyfull .npbtns{opacity:0;pointer-events:none}
+  #npv.lyfull .npseek{grid-column:1/-1;grid-row:3}
+  #npv.lyfull .npctl{grid-column:1/-1;grid-row:4;margin-top:10px}
+  #npv.lyfull #mshuf,#npv.lyfull #mrep{opacity:0;pointer-events:none}
 
-/* transport underneath */
-#npv.lyfull #lyctl{display:block;flex:none;position:relative;z-index:3;padding:4px 26px calc(var(--sab) + 12px)}
-#lyctlin{display:flex;flex-direction:column;gap:8px}
-#lyctl .npseek input{height:22px}
-#lyctl .npctl{justify-content:center;gap:38px;margin:0}
-#lyctl .npctl #mshuf,#lyctl .npctl #mrep{display:none}
-#lyctl .npctl button{width:56px;height:56px;border-radius:50%}
-#lyctl .npctl .big{width:76px;height:76px}
-#lyctl .npctl button svg{width:30px;height:30px}
-#lyctl .npctl .big svg{width:38px;height:38px}
-.lyfoot{display:flex;justify-content:center;gap:10px;margin-top:2px}
-.lyfoot button{padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;color:rgba(255,255,255,.8);background:rgba(255,255,255,.12)}
-.lyfoot button:active{background:rgba(255,255,255,.22)}
+  /* lyrics layer sits between header and transport */
+  #npv.lyshow .tabs,#npv.lyshow .npf,#npv.lyshow .lyhd,#npv.lyshow .grab{display:none}
+  #npv.lyshow .npr{top:calc(var(--sat) + 96px);bottom:calc(var(--sab) + 154px);height:auto;padding:0;border-radius:0;border-color:transparent;
+    background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;transform:none;transition:none;overflow:hidden}
+  #npv.lyshow #npq{flex:1;min-height:0;transition:opacity .3s var(--ease)}
+  #npv.lyshow:not(.lyfull) #npq{opacity:0}
+  #npv.lyshow #npq.lyr{padding:6px 24px 36% 24px;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 80%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 80%,transparent 100%)}
+  #npv.lyshow .ly{font-size:clamp(26px,8.2vw,34px);line-height:1.2;font-weight:800;letter-spacing:-.015em;padding:10px 0;border-radius:0;
+    transform-origin:left center;transform:scale(.95);
+    opacity:max(.16, .5 - var(--d,4)*.08);
+    filter:blur(min(var(--d,4)*.7px, 4px))}
+  #npv.lyshow .ly.past{opacity:max(.16, .5 - var(--d,4)*.08);filter:blur(min(var(--d,4)*.7px, 4px));transform:scale(.95)}
+  #npv.lyshow .ly.on{opacity:1;filter:none;transform:scale(1)}
+  #npv.lyshow .ly.bgv{font-size:clamp(19px,5.8vw,24px);font-weight:700;line-height:1.25;padding:2px 0 12px}
+  #npv.lyshow .ly.plain,#npv.lyshow .ly.plain.past{font-size:19px;font-weight:700;line-height:1.35;opacity:.85;filter:none;transform:none;padding:5px 0}
+  #npv.lyshow .qlist.lyr .qmsg,#npv.lyshow .qlist.lyr .mhint{margin-left:0;margin-right:0}
+}
 </style>
 </head>
 <body>
@@ -1339,6 +1339,7 @@ body.offline .tr.nodl{opacity:.38}
 </div>
 
 <section id="npv">
+  <div id="lybg"></div>
   <div class="nptop"><button id="npclose" data-ic="down" title="Close"></button><button id="npmore" data-ic="dots" title="More"></button></div>
   <div class="npl">
     <img id="npcover" alt="">
@@ -1354,20 +1355,13 @@ body.offline .tr.nodl{opacity:.38}
     </div>
   </div>
   <div class="npr glass" id="npr">
-    <div id="lybg"></div>
     <div class="grab" id="grab"></div>
-    <div id="lyhead">
-      <img id="lyart" alt="">
-      <div class="lyti" id="lyti"><b id="lytitle"></b><span id="lyartist"></span></div>
-      <button id="lylike" aria-label="Like"></button>
-      <button id="lymore" aria-label="More"></button>
-    </div>
     <div class="tabs"><button data-tab="queue" class="on">UP NEXT</button><button data-tab="related">RELATED</button><button data-tab="lyrics">LYRICS</button></div>
     <div class="npf"><div><small>Playing from</small><b id="npfrom"></b></div><div class="dsk npfb"><button class="btn ghost" id="npAdd">Add to playlist</button><button class="btn ghost" id="npDl">Download</button><button class="btn" id="npLike">Like</button></div></div>
     <div id="lyhd" class="lyhd" hidden></div>
     <div id="npq" class="qlist"></div>
-    <div id="lyctl"><div id="lyctlin"></div><div class="lyfoot"><button id="lyq">Up next</button><button id="lyback">Player</button></div></div>
   </div>
+  <div id="lyhead"><button id="lylike" aria-label="Like"></button><button id="lymore" aria-label="More"></button></div>
 </section>
 <div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
 <div id="modal" hidden><div class="msheet glass"></div></div>
@@ -1386,6 +1380,12 @@ const store = {
 };
 const jget = (k, d) => { try { return JSON.parse(store.get(k, '')) ?? d } catch { return d } };
 
+/* lyrics-mode helpers */
+const lyFull = () => $('npv').classList.contains('lyfull');
+const lyBack = () => $('npr').classList.remove('up');
+const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="12 2.8 14.9 8.7 21.4 9.6 16.7 14.2 17.8 20.7 12 17.6 6.2 20.7 7.3 14.2 2.6 9.6 9.1 8.7"/></svg>';
+const STAR0 = STAR.replace('fill="currentColor"', 'fill="none"');
+const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18.5" cy="12" r="2"/></svg>';
 /* ---------- icons ---------- */
 const ICONS = {
   home:'M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z',
@@ -2500,7 +2500,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
 $('grab').onclick = () => $('npr').classList.toggle('up');
 /* tap anywhere above the open sheet (cover / background) to minimise it */
 $('npv').addEventListener('click', e => {
-  if (!isMobile() || !$('npr').classList.contains('up')) return;
+  if (!isMobile() || !$('npr').classList.contains('up') || lyFull()) return;
   if (e.target.closest('#npr, .nptop, button, a, input, [data-go]')) return;
   $('npr').classList.remove('up');
 });
@@ -2575,8 +2575,8 @@ dragOn($('player'), {
 /* 2. album cover: swipe left/right = next / previous; swipe down (mobile) = close now playing */
 dragOn($('npcover'), {
   ok: () => !!current,
-  move: (dx, dy, ax) => { if (ax === 'x') swipeMove($('npcover'), dx); else if (isMobile() && dy > 0) npvDrag(dy); },
-  end: (dx, dy, ax, ms) => { if (ax === 'x') swipeEnd($('npcover'), dx, ms, 120); else if (isMobile() && dy > 0) npvRelease(dy, ms); }
+  move: (dx, dy, ax) => { if (ax === 'x') swipeMove($('npcover'), dx); else if (isMobile() && dy > 0 && !lyFull()) npvDrag(dy); },
+  end: (dx, dy, ax, ms) => { if (ax === 'x') swipeEnd($('npcover'), dx, ms, 120); else if (isMobile() && dy > 0) { if (lyFull()) { if (dy > 50) lyBack(); } else npvRelease(dy, ms); } }
 });
 /* 3. swipe down from the top bar of now playing (mobile) to close it */
 dragOn(document.querySelector('.nptop'), {
@@ -2589,7 +2589,7 @@ dragOn(document.querySelector('.nptop'), {
 let sheetUp = false;
 dragOn($('npr'), {
   axes: ['y'],
-  ok: e => isMobile() && (!!e.target.closest('#grab, .tabs') || (!!e.target.closest('#lyhead') && !e.target.closest('button'))),
+  ok: e => isMobile() && !!e.target.closest('#grab, .tabs'),
   start: () => { sheetUp = $('npr').classList.contains('up'); $('npr').style.transition = 'none'; },
   move: (dx, dy) => { $('npr').style.transform = sheetUp ? `translateY(${Math.max(0, dy)}px)` : `translateY(calc(100% - 66px - var(--sab) + ${Math.min(0, dy)}px))`; },
   end: (dx, dy, ax, ms) => {
@@ -4489,7 +4489,7 @@ function lyUpdate(){
       lyWn = n;
       sp.forEach((s, k) => { s.classList.toggle('wd', k < n - 1); s.classList.toggle('wc', k === n - 1); if (k !== n - 1) s.style.removeProperty('--p'); });
     }
-    if (n > 0 && sp[n - 1]) {   // fill the word being sung left-to-right
+    if (n > 0 && sp[n - 1]) {   // fill the word being sung, left to right
       const w0 = ws[n - 1], nx = ws[n] ? ws[n].t : (L[i + 1] ? L[i + 1].t : w0.t + 1);
       const end = (typeof w0.e === 'number' && w0.e > w0.t) ? w0.e : nx;
       const p = Math.min(1, Math.max(0, (tm - w0.t) / Math.max(.12, Math.min(end - w0.t, 1.4))));
@@ -4499,8 +4499,8 @@ function lyUpdate(){
 }
 function lyCenter(smooth){
   if (lyIdx < 0 || !lyEls[lyIdx]) return;
-  const box = $('npq'), full = $('npv').classList.contains('lyfull');
-  box.scrollTo({ top: Math.max(0, lyEls[lyIdx].offsetTop - box.clientHeight * (full ? .24 : .38)), behavior: smooth ? 'smooth' : 'auto' });
+  const box = $('npq');
+  box.scrollTo({ top: Math.max(0, lyEls[lyIdx].offsetTop - box.clientHeight * (lyFull() ? .24 : .38)), behavior: smooth ? 'smooth' : 'auto' });
 }
 function lyKick(){
   if (!lyRaf && npTab === 'lyrics' && lyCur && lyCur.synced && !a.paused && $('npv').classList.contains('open')) lyRaf = requestAnimationFrame(lyLoop);
@@ -4519,36 +4519,67 @@ function lySeek(i){
 $('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList.add('up'); };
 syncLyTab();   // lyrics tab starts hidden
 
-/* ---------- full-screen lyrics (phone) ---------- */
-const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="12 2.8 14.9 8.7 21.4 9.6 16.7 14.2 17.8 20.7 12 17.6 6.2 20.7 7.3 14.2 2.6 9.6 9.1 8.7"/></svg>';
-const STAR0 = STAR.replace('fill="currentColor"', 'fill="none"');
-const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18.5" cy="12" r="2"/></svg>';
+/* ---------- lyrics mode (phone): player morphs into full-screen lyrics ---------- */
 function lyHeadSync(){
-  const t = current; if (!t) return;
-  const l = isLiked(t.id);
-  setImg($('lyart'), t, 200);
-  $('lytitle').textContent = t.title || ''; $('lyartist').textContent = t.artist || '';
-  $('lylike').classList.toggle('on', l); $('lylike').innerHTML = l ? STAR : STAR0;
+  const b = $('lylike'); if (!b) return;
+  const l = !!current && isLiked(current.id);
+  b.classList.toggle('on', l); b.innerHTML = l ? STAR : STAR0;
 }
 (() => {
-  const npv = $('npv'), npr = $('npr'), seekBox = document.querySelector('.npseek'), ctlBox = document.querySelector('.npctl'),
-        card = document.querySelector('.npcard'), dock = $('lyctlin');
+  const npv = $('npv'), npr = $('npr'), q = s => document.querySelector(s);
   $('lymore').innerHTML = DOTS; $('lylike').innerHTML = STAR0;
-  let on = false;
-  /* full-screen = phone + sheet open + Lyrics tab. The seek bar and transport are moved (not copied) into the dock, so all existing wiring keeps working. */
+  let on = false, timer = 0;
+  const OPT = { duration: 560, easing: 'cubic-bezier(.32,.72,0,1)' };
+  const snap = () => {
+    const els = { cover: $('npcover'), title: $('mtitle'), artist: $('martist'), seek: q('.npseek'), prev: $('mprev'), pp: $('mpp'), next: $('mnext') }, r = {};
+    for (const k in els) r[k] = els[k].getBoundingClientRect();
+    const fs = e => parseFloat(getComputedStyle(e).fontSize) || 16;
+    return { els, r, ft: fs(els.title), fa: fs(els.artist), rad: parseFloat(getComputedStyle(els.cover).borderRadius) || 0 };
+  };
+  const mv = (a, b) => `translate(${a.left - b.left}px,${a.top - b.top}px)`;
+  const go = (el, from, extra) => el.animate(
+    [Object.assign({ transformOrigin: '0 0', transform: from }, extra && extra[0]), Object.assign({ transformOrigin: '0 0', transform: 'none' }, extra && extra[1])], OPT);
+  /* FLIP: each real element starts where it was and glides to where it now is */
+  function morph(A, B){
+    const a = A.r, b = B.r, E = A.els;
+    if (!a.cover.width || !b.cover.width || !a.seek.width || !b.seek.width) return;
+    const sx = a.cover.width / b.cover.width, sy = a.cover.height / b.cover.height;
+    go(E.cover, `${mv(a.cover, b.cover)} scale(${sx},${sy})`, [{ borderRadius: (A.rad / sx) + 'px' }, { borderRadius: B.rad + 'px' }]);
+    go(E.title, `${mv(a.title, b.title)} scale(${A.ft / B.ft})`);
+    go(E.artist, `${mv(a.artist, b.artist)} scale(${A.fa / B.fa})`);
+    go(E.seek, `${mv(a.seek, b.seek)} scale(${a.seek.width / b.seek.width},1)`);
+    ['prev', 'pp', 'next'].forEach(k => go(E[k], mv(a[k], b[k])));
+  }
   function sync(){
     const want = isMobile() && npr.classList.contains('up') && npr.classList.contains('lyrmode');
     if (want === on) return; on = want;
-    npv.classList.toggle('lyfull', want);
-    if (want) { dock.append(seekBox, ctlBox); lyHeadSync(); requestAnimationFrame(() => lyCenter(false)); }
-    else card.append(seekBox, ctlBox);
+    clearTimeout(timer);
+    const live = npv.classList.contains('open') && !matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const A = live ? snap() : null;
+    if (want) npv.classList.add('lyshow', 'lyfull'); else npv.classList.remove('lyfull');
+    if (live) {
+      morph(A, snap());
+      if (want) $('npq').animate([{ opacity: 0, transform: 'translateY(34px)' }, { opacity: 1, transform: 'none' }], Object.assign({ delay: 140, fill: 'backwards' }, OPT));
+    }
+    if (want) { lyHeadSync(); requestAnimationFrame(() => lyCenter(false)); return; }
+    /* leaving: keep the lyrics layer just long enough to fade, then hand the sheet back without sliding it */
+    const done = () => {
+      if (on) return;
+      npr.style.transition = 'none'; npv.classList.remove('lyshow');
+      q('.tabs').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
+      requestAnimationFrame(() => requestAnimationFrame(() => { npr.style.transition = ''; }));
+    };
+    live ? (timer = setTimeout(done, 480)) : done();
   }
   new MutationObserver(sync).observe(npr, { attributes: true, attributeFilter: ['class'] });
   matchMedia('(max-width:720px)').addEventListener('change', sync);
+
   $('lylike').onclick = () => current && toggleLike(current);
   $('lymore').onclick = () => $('npmore').click();
-  $('lyti').onclick = $('lyart').onclick = $('lyback').onclick = () => npr.classList.remove('up');
-  $('lyq').onclick = () => setTab('queue');
+  /* tap cover or title = back to the player; swipe down on the header = same */
+  $('npcover').addEventListener('click', () => { if (lyFull()) lyBack(); });
+  q('.npinfo').addEventListener('click', e => { if (!lyFull()) return; e.stopPropagation(); e.preventDefault(); lyBack(); }, true);
+  dragOn(q('.npinfo'), { axes: ['y'], ok: e => lyFull() && !e.target.closest('button'), move: () => {}, end: (dx, dy) => { if (dy > 50) lyBack(); } });
   sync();
 })();
 
