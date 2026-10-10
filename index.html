@@ -661,6 +661,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 #modal[hidden]{display:none}
 .msheet{width:min(440px,100%);max-height:80vh;overflow:auto;border-radius:22px;padding:20px;background:rgba(26,26,32,.94)}
 .msheet h3{margin:0 0 12px;font-size:20px;font-weight:800}
+.plr.danger{color:#ff6b61}
 .btn.danger{background:#ff453a;color:#fff}
 .btn.ghost.danger{background:rgba(255,69,58,.14);color:#ff6b61;border-color:rgba(255,69,58,.35)}
 .mhint{color:var(--mute);font-size:13px;line-height:1.5;margin:0 0 12px}
@@ -897,6 +898,14 @@ body.offline .tr.nodl{opacity:.38}
   .npr{transition:transform .42s var(--ease),background-color .45s var(--ease),border-color .45s var(--ease),box-shadow .45s var(--ease)}
 }
 @media(max-width:380px){#lkBoxes{gap:6px}#lkBoxes input{height:52px}}
+.nplogo,.npdlm{display:none}
+.npbtns{display:flex;gap:10px;flex:none}
+.npdlm.busy{opacity:.5;pointer-events:none}
+@media(max-width:720px){
+  .nplogo{display:block;height:18px;width:auto;max-width:40vw;object-fit:contain;opacity:.95;pointer-events:none}
+  .npdlm{display:grid}
+  #mDl{display:none}
+}
 </style>
 <style>
 /* ---- activity + artist-profile update ---- */
@@ -1059,11 +1068,11 @@ body.offline .tr.nodl{opacity:.38}
 </div>
 
 <section id="npv">
-  <div class="nptop"><button id="npclose" data-ic="down" title="Close"></button><button id="npmore" data-ic="dots" title="More"></button></div>
+  <div class="nptop"><button id="npclose" data-ic="down" title="Close"></button><img class="nplogo" src="https://thirai.uk/static/thiraiwhite.png" alt="Thirai"><button id="npmore" data-ic="dots" title="More"></button></div>
   <div class="npl">
     <img id="npcover" alt="">
     <div class="npcard glass">
-      <div class="npinfo"><div class="npti"><b id="mtitle" data-go="album"></b><span id="martist"></span></div><button class="npplus" id="npPlus" title="Add to liked and playlists"></button></div>
+      <div class="npinfo"><div class="npti"><b id="mtitle" data-go="album"></b><span id="martist"></span></div><span class="npbtns"><button class="npplus npdlm" id="npDlM" title="Download"></button><button class="npplus" id="npPlus" title="Add to liked and playlists"></button></span></div>
       <div class="npact"><button class="pill" id="mLike">♡ Like</button><button class="pill" id="npAlbum">Go to album</button><button class="pill" id="npArtist">Go to artist</button><button class="pill" id="mDl">Download</button><button class="pill" id="mAdd">+ Playlist</button><button class="pill" id="mLyr">Lyrics</button></div>
       <div class="npseek"><input id="mseek" type="range" min="0" max="1000" value="0"><div><span id="mcur">0:00</span><span id="mdur">-0:00</span></div></div>
       <div class="npctl">
@@ -1751,6 +1760,7 @@ function confirmClearData(){
 /* ---------- playback ---------- */
 const DLB = '<svg class="dlb" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Downloaded"><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>';
 function syncBadges(){
+  if (typeof syncNpDl === 'function') syncNpDl();
   const have = new Set(dls.map(d => d.id));
   document.querySelectorAll('.lrow[data-id],.qr[data-id]').forEach(r => {
     const b = r.querySelector('.qm b'); if (!b) return;
@@ -1969,6 +1979,7 @@ function setTab(tab, silent){
 function syncLike(){
   if (!current) return;
   $('npLike').textContent = $('mLike').textContent = isLiked(current.id) ? '♥ Liked' : '♡ Like';
+  syncNpDl();
   const pb = $('npPlus'); if (pb) { const l = isLiked(current.id); pb.classList.toggle('on', l); pb.innerHTML = ic(l ? 'check' : 'plus', 20); }
 }
 function updateNP(){
@@ -2126,6 +2137,18 @@ dragOn($('npr'), {
 });
 $('npLike').onclick = $('mLike').onclick = () => current && toggleLike(current);
 $('mDl').onclick = $('npDl').onclick = e => current && download(current, e.currentTarget);
+$('npDlM').onclick = e => {
+  if (!current) return;
+  if (dls.some(d => d.id === current.id)) return toast('Already downloaded');
+  download(current, e.currentTarget);
+};
+function syncNpDl(){
+  const b = $('npDlM'); if (!b) return;
+  const have = !!current && dls.some(d => d.id === current.id), busy = !!current && !!dlActive[current.id];
+  b.classList.toggle('on', have); b.classList.toggle('busy', busy);
+  b.innerHTML = ic(have ? 'check' : 'dl', 20);
+  b.title = have ? 'Downloaded' : 'Download';
+}
 $('npAlbum').onclick = () => current && openAlbumOf(current);
 $('npArtist').onclick = () => { const x = current && artistsOf(current)[0]; if (x) openArtist(x.id, x.name); };
 $('npclose').onclick = closeNP;
@@ -2938,10 +2961,8 @@ function spDone(run, pl, o){
       ${o.partial ? 'Spotify only shares the first part of long playlists publicly, so this may be incomplete. Use the data-export option for the full list.' : ''}</p>
     ${list('Not found on YouTube Music', o.missed.map(nm))}
     ${list('Worth a check: closest matches', o.shaky.map(s => `${nm(s.from)} → ${esc(s.to.title)}${s.to.artist ? ' · ' + esc(s.to.artist) : ''}`))}
-    <div class="mbtns"><button class="btn ghost" id="spUp" style="display:none">Upload to YouTube Music</button><button class="btn" id="spOpen">Open playlist</button></div>`);
+    <div class="mbtns"><button class="btn" id="spOpen">Open playlist</button></div>`);
   $('spOpen').onclick = () => { closeModal(); show('upl', pl.id); };
-  $('spUp').onclick = () => ytmUpload(pl);
-  api('/ytm/status').then(r => r.json()).then(s => { if (s.configured && spAlive(run) && $('spUp')) $('spUp').style.display = ''; }).catch(() => {});
 }
 
 /* Google device-code sign-in for the user's OWN YouTube Music (token stays in this browser) */
@@ -3018,8 +3039,19 @@ function placeAMenu(){
   m.style.top = (up ? r.top - gap - h : r.bottom + gap) + 'px';
   m.style.left = Math.max(8, Math.min(vw - mw - 8, r.left + r.width / 2 - mw / 2)) + 'px';
 }
+const AM_ICON = { shuffle: 'shuffle', dlall: 'dl', addall: 'plus', artist: 'chev', rename: 'note', reorder: 'grip', sync: 'repeat', find: 'search', del: 'x' };
+function openAMenuSheet(m){
+  const btns = [...m.querySelectorAll('[data-m]')]; if (!btns.length) return;
+  const title = (document.querySelector('.alb-l h1') || {}).textContent || '';
+  const sheet = openModal(`${title ? `<h3>${esc(title)}</h3>` : ''}${btns.map((b, i) => `<button class="plr act${b.dataset.m === 'del' ? ' danger' : ''}" data-i="${i}"><span class="plc">${ic(AM_ICON[b.dataset.m] || 'note', 20)}</span><span class="qm"><b>${esc(b.textContent)}</b></span></button>`).join('')}`);
+  sheet.onclick = e => {
+    const r = e.target.closest('[data-i]'); if (!r) return;
+    closeModal(); btns[+r.dataset.i].click();
+  };
+}
 function toggleAMenu(){
   const m = $('amenu'); if (!m) return;
+  if (isMobile()) { m.hidden = true; return openAMenuSheet(m); }
   if (!m.hidden) { m.hidden = true; return; }
   document.querySelectorAll('body > #amenu').forEach(x => { if (x !== m) x.remove(); });
   if (m.parentNode !== document.body) document.body.appendChild(m);  // escape sticky/stacking contexts so rows can't cover it
@@ -3078,7 +3110,7 @@ function renderUserPl(id){
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length ? '<button data-m="ytmup">Upload to YouTube Music</button>' : ''}${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
+          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="rename">Rename</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>
         </div>
       </div></aside>
       <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, true)).join('') : '<p class="qmsg">This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.</p>'}</div>`}</div></div>`;
@@ -3093,7 +3125,6 @@ function renderUserPl(id){
     else if (k === 'rename') promptName({ title: 'Rename playlist', value: pl.name, cta: 'Save', onOk: v => { pl.name = v; savePl(); renderUserPl(id); } });
     else if (k === 'reorder') { plReorder = id; renderUserPl(id); }
     else if (k === 'sync') syncPl(pl);
-    else if (k === 'ytmup') ytmUpload(pl);
     else if (k === 'find') show('search');
     else if (k === 'del' && confirm(`Delete "${pl.name}"?`)) { playlists = playlists.filter(p => p.id !== id); savePl(); if (dlPlaylists[id]) { delete dlPlaylists[id]; saveDlPlaylists(); } toast('Playlist deleted'); goBack(); }
   };
