@@ -879,6 +879,8 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 body.offline .offpill{display:inline-flex}
 body.offline .sbx{display:none!important}
 body.offline #nav [data-view="home"],body.offline #nav [data-view="search"]{display:none}
+#nav .navset{display:none}body.offline #nav .navset{display:grid}
+@media(max-width:720px){body.offline #nav .navset{display:flex}}
 body.offline .tr.nodl{opacity:.38}
 .offmsg{text-align:center;padding:48px 20px;color:var(--mute)}
 .offmsg b{display:block;font-size:20px;color:var(--fg);margin-bottom:8px}
@@ -1164,7 +1166,7 @@ body.offline .tr.nodl{opacity:.38}
   <button data-view="search" title="Search" aria-label="Search"><span data-ic="search"></span></button>
   <button data-view="liked" title="Library" aria-label="Library"><span data-ic="heart"></span></button>
   <button data-view="downloads" title="Downloads" aria-label="Downloads"><span data-ic="dl"></span></button>
-  <button data-view="settings" title="Settings" aria-label="Settings"><span data-ic="sliders"></span></button>
+  <button data-view="settings" title="Settings" aria-label="Settings" class="navset"><span data-ic="sliders"></span></button>
   <button id="pwaInstall" title="Install App" aria-label="Install App"><span data-ic="install"></span></button>
   <span class="sp"></span>
   <button data-view="profile" id="navProfile" title="Profile" aria-label="Profile"><span data-ic="user"></span></button>
@@ -1545,11 +1547,16 @@ async function initAccount(){
     liked = d.liked || []; saved = d.saved || []; recent = d.recent || [];
     playlists = (d.playlists || []).map(fromServerPl); acctName = d.username || '';
     snapPl(); applyProfileSummary(d.profile); paintNavAvatar(); acctReady = true;
+    if (!acctName) requireUsername();
   } catch (e) {
     toast("Couldn't load your library. Retrying…", true);
     clearTimeout(acctRetryT);
     acctRetryT = setTimeout(() => { if (!acctReady && window.__unlocked && navigator.onLine) initAccount().then(refreshAccountView); }, 15000);
   }
+}
+function requireUsername(){
+  if (acctName || !acctReady) return;
+  askUsername(() => { closeModal(); toast('Welcome, @' + acctName); refreshAccountView(); }, null, true);
 }
 function refreshAccountView(){ if (acctReady && ['home', 'liked', 'upl', 'settings', 'profile'].includes(view)) show(view, viewArg, true); }
 addEventListener('online', () => { if (!acctReady && window.__unlocked) initAccount().then(refreshAccountView); });
@@ -1638,10 +1645,10 @@ function show(v, arg, back){
   if (!navigator.onLine && NET_ONLY.includes(v)) { v = 'downloads'; arg = undefined; toast("You're offline · showing your downloads"); }
   closeNP();
   document.querySelectorAll('body > #backBtn,body > #amenu').forEach(b => b.remove());
-  const detail = ['list', 'entity', 'mood', 'upl', 'shared', 'user'].includes(v);
+  const detail = ['list', 'entity', 'mood', 'upl', 'shared', 'user', 'settings'].includes(v);
   if (!back) { if (detail) stack.push({ v: view, arg: viewArg }); else stack = []; }
   view = v; viewArg = arg;
-  const hl = detail ? (stack[0] ? stack[0].v : 'home') : v;
+  const hl = detail ? (stack[0] ? stack[0].v : (v === 'settings' ? 'profile' : 'home')) : v;
   document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === hl));
   $('main').classList.remove('flush');
   scrollTo(0, 0);
@@ -2004,7 +2011,7 @@ function renderLiked(){
 }
 function renderSettings(){
   const dsz = dls.reduce((n, d) => n + (d.size || 0), 0);
-  $('main').innerHTML = `<div class="pg set"><h1 class="t">Settings</h1>
+  $('main').innerHTML = `<div class="bkrow">${backBtn()}</div><div class="pg set"><h1 class="t">Settings</h1>
     <section class="sgrp glass"><h3>Account</h3>
       <div class="srow"><div><b>Signed in</b><span>Sign out to lock Isai on this device</span></div><button class="btn ghost" id="sOut">Sign out</button></div>
     </section>
@@ -3156,11 +3163,12 @@ async function copyText(s){
   try { const i = $('shUrl'); if (i) { i.select(); return document.execCommand('copy'); } } catch {}
   return false;
 }
-function askUsername(onOk, onCancel){
-  openModal(`<h3>Choose a username</h3><p class="mhint">Your username is shown as the creator of playlists you share. Use 3-20 letters, numbers or underscores. You can change it once every 7 days.</p>
+function askUsername(onOk, onCancel, required){
+  openModal(`<h3>${required ? 'Pick a username to continue' : 'Choose a username'}</h3><p class="mhint">${required ? 'Every account needs a username. ' : ''}Your username is shown on your profile and as the creator of playlists you share. Use 3-20 letters, numbers or underscores. You can change it once every 7 days.</p>
     <input id="mUn" class="minp" maxlength="20" placeholder="username" autocomplete="off" autocapitalize="off" spellcheck="false">
     <p class="mhint merr" id="mUnErr"></p>
-    <div class="mbtns"><button class="btn ghost" id="mUnNo">Cancel</button><button class="btn" id="mUnOk">Save</button></div>`);
+    <div class="mbtns">${required ? '' : '<button class="btn ghost" id="mUnNo">Cancel</button>'}<button class="btn" id="mUnOk">Save</button></div>`);
+  if (required) $('modal').dataset.lock = '1';
   const inp = $('mUn'); inp.focus();
   const go = async () => {
     const v = inp.value.trim();
@@ -3171,11 +3179,11 @@ function askUsername(onOk, onCancel){
       const x = await fetch(ACCT_SERVER + '/account/username', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Token': acctTok() }, body: JSON.stringify({ username: v }) });
       r = { ok: x.ok, d: await x.json().catch(() => ({})) };
     } catch { r = { ok: false, d: { error: 'Server unreachable. Try again.' } }; }
-    if (r.ok) { acctName = r.d.username || v; paintNavAvatar(); if (onOk) onOk(); else closeModal(); }
+    if (r.ok) { acctName = r.d.username || v; delete $('modal').dataset.lock; paintNavAvatar(); if (onOk) onOk(); else closeModal(); }
     else { $('mUnErr').textContent = r.d.error || 'Could not save that username.'; $('mUnOk').disabled = false; }
   };
   $('mUnOk').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
-  $('mUnNo').onclick = () => { if (onCancel) onCancel(); else closeModal(); };
+  if ($('mUnNo')) $('mUnNo').onclick = () => { if (onCancel) onCancel(); else closeModal(); };
 }
 async function openShare(pl){
   openModal('<h3>Share playlist</h3><p class="mhint">Getting things ready…</p>');
@@ -3322,7 +3330,7 @@ async function renderProfile(name){
   if (own && !acctName) {
     main.innerHTML = `<div class="pg prof"><header class="phead">${avatar('', 'xl')}<div class="pinfo"><small>Profile</small><h1>Your profile</h1><div class="pline">Choose a username to set up your profile, add friends and share playlists.</div></div><div class="pbtns"><button class="btn" id="pSetName">Choose username</button></div></header></div>`;
     hydrate(main);
-    $('pSetName').onclick = () => askUsername(() => { closeModal(); paintNavAvatar(); renderProfile(null); });
+    $('pSetName').onclick = () => askUsername(() => { closeModal(); paintNavAvatar(); renderProfile(null); }, null, true);
     return;
   }
   const uname = own ? acctName : name;
@@ -3369,7 +3377,7 @@ function paintProfile(){
   main.innerHTML = `${back}<div class="pg prof">
     <header class="phead">${avatar(uname, 'xl')}
       <div class="pinfo"><small>Profile</small><h1>@${esc(uname)}</h1><div class="pline">${fr}${pls.length ? `<i>·</i><span>${plural(pls.length, 'playlist')}</span>` : ''}</div></div>
-      <div class="pbtns">${own ? `<button class="btn ghost" id="pEdit">Edit profile</button><button class="rb sm" id="pCopy" title="Copy profile link">${ic('share', 18)}</button>` : friendBtns(d)}</div>
+      <div class="pbtns">${own ? `<button class="btn ghost" id="pEdit">Edit profile</button><button class="rb sm" id="pCopy" title="Copy profile link">${ic('share', 18)}</button><button class="rb sm" id="pSettings" title="Settings" aria-label="Settings">${ic('sliders', 18)}</button>` : friendBtns(d)}</div>
     </header>${status}${plSec}${statSec}
     ${(!status && !plSec && !statSec) ? '<div class="pempty">Nothing shared yet.</div>' : ''}</div>`;
   hydrate(main);
@@ -3611,6 +3619,7 @@ document.addEventListener('click', async e => {
   if (e.target.closest('#pPlAll')) return openAllPlaylists();
   const pm = e.target.closest('[data-pmore]'); if (pm) return togglePMore(pm);
   if (e.target.closest('[data-pvis]') || e.target.closest('#pEdit')) return openProfileEditor();
+  if (e.target.closest('#pSettings')) return show('settings');
   if (e.target.closest('#pFr')) return openFriends('friends');
   if (e.target.closest('#pPlEdit')) return openFeatured();
   if (e.target.closest('#pCopy')) { toast(await copyText(location.origin + location.pathname + '?u=' + enc(acctName)) ? 'Profile link copied' : "Couldn't copy the link", false); return; }
@@ -3630,8 +3639,8 @@ function queueStatus(){
 const qaBtns = (t, rm) => `<span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart', 18)}</button>${rm ? `<button data-a="rmpl" title="Remove from playlist">${ic('x', 18)}</button>` : `<button data-a="pl" title="Add to playlist">${ic('plus', 18)}</button>`}<button data-a="dl" title="Download">${ic('dl', 18)}</button></span>`;
 
 /* ---------- modal ---------- */
-function openModal(html){ const m = $('modal'); m.querySelector('.msheet').innerHTML = html; m.hidden = false; return m.querySelector('.msheet'); }
-function closeModal(){ $('modal').hidden = true; }
+function openModal(html){ const m = $('modal'); delete m.dataset.lock; m.querySelector('.msheet').innerHTML = html; m.hidden = false; return m.querySelector('.msheet'); }
+function closeModal(){ const m = $('modal'); if (m.dataset.lock) return; m.hidden = true; }
 function promptName({ title, value = '', cta, onOk }){
   openModal(`<h3>${esc(title)}</h3><input id="mIn" class="minp" maxlength="80" value="${esc(value)}" placeholder="Playlist name" autocomplete="off"><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="mOk">${esc(cta)}</button></div>`);
   const inp = $('mIn'); inp.focus(); inp.select();
