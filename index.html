@@ -863,6 +863,15 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .dlsh{display:flex;align-items:baseline;justify-content:space-between;margin-top:28px}.dlsh .sec0{margin:0}
 .offb{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);font-size:13px;font-weight:600}
 .offb i{width:8px;height:8px;border-radius:50%;background:#ffb454}
+/* offline mode: the app revolves around downloads */
+.offpill{display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(255,180,84,.14);border:1px solid rgba(255,180,84,.45);color:#ffd9a3;font-size:13px;font-weight:700;white-space:nowrap}
+.offpill i{width:8px;height:8px;border-radius:50%;background:#ffb454;animation:navpulse 1.4s ease-in-out infinite alternate}
+body.offline .offpill{display:inline-flex}
+body.offline .sbx{display:none!important}
+body.offline #nav [data-view="home"],body.offline #nav [data-view="search"]{display:none}
+body.offline .tr.nodl{opacity:.38}
+.offmsg{text-align:center;padding:48px 20px;color:var(--mute)}
+.offmsg b{display:block;font-size:20px;color:var(--fg);margin-bottom:8px}
 @media(max-width:380px){#lkBoxes{gap:6px}#lkBoxes input{height:52px}}
 </style>
 <style>
@@ -1000,6 +1009,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   <span class="sp"></span>
 </aside>
 <header class="top">
+  <span id="offpill" class="offpill" role="status" aria-live="polite"><i></i>You're offline</span>
   <a class="logo" id="logo" title="Home"><img src="https://thirai.uk/static/thiraiwhite.png" alt="Thirai"></a>
   <div class="sbx" id="sbx"><input id="hq" placeholder="Search songs, albums, artists, playlists" autocomplete="off" enterkeyhint="search"><button class="sbi" id="sbtn" data-ic="search" aria-label="Search"></button></div>
 </header>
@@ -1129,6 +1139,7 @@ function pickLang(){
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
 async function api(path){
   if (!window.__unlocked) throw new Error('Sign in required');
+  if (!navigator.onLine) throw new Error("You're offline");
   let r;
   try { r = await fetch(base() + path, { headers: hd() }); }
   catch { throw new Error('Cannot reach the API at ' + base() + '. Is the server running?'); }
@@ -1296,7 +1307,9 @@ const trow = (t, i, withCover, rm) => `<div class="tr lrow ${current && current.
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="back" title="Back"></button>`;
 
+const NET_ONLY = ['home', 'search', 'charts', 'mood', 'entity'];
 function show(v, arg, back){
+  if (!navigator.onLine && NET_ONLY.includes(v)) { v = 'downloads'; arg = undefined; toast("You're offline · showing your downloads"); }
   closeNP();
   document.querySelectorAll('body > #backBtn,body > #amenu').forEach(b => b.remove());
   const detail = ['list', 'entity', 'mood', 'upl'].includes(v);
@@ -1319,6 +1332,11 @@ new MutationObserver(() => {
   document.body.appendChild(b);
 }).observe($('main'), { childList: true, subtree: true });
 function goBack(){ const p = stack.pop() || { v: 'home' }; show(p.v, p.arg, true); }
+/* offline mode: body.offline drives the "You're offline" pill, hides Home/Search and dims songs that aren't downloaded */
+function setOnlineUI(){ document.body.classList.toggle('offline', !navigator.onLine); try { markPlaying(); } catch {} }
+window.addEventListener('offline', setOnlineUI);
+window.addEventListener('online', setOnlineUI);
+setOnlineUI();
 
 /* ---------- browser / swipe-back: step through the app's own pages, only exit from Home ---------- */
 let hHave = 0, hSkip = false, hPop = false, hFirst = true;
@@ -1695,6 +1713,8 @@ function syncBadges(){
 }
 function markPlaying(){
   syncBadges();
+  { const off = !navigator.onLine, have = off ? new Set(dls.map(d => d.id)) : null;
+    document.querySelectorAll('.tr.lrow').forEach(r => r.classList.toggle('nodl', off && !have.has(r.dataset.id))); }
   document.querySelectorAll('.card,.lrow').forEach(c => {
     const on = !!current && c.dataset.id === current.id;
     c.classList.toggle(c.classList.contains('card') ? 'pl' : 'cur', on);
@@ -1702,6 +1722,11 @@ function markPlaying(){
 }
 function playFrom(key, i, open = true){
   queue = lists[key] || []; queueName = names[key] || ''; qi = i;
+  if (!navigator.onLine) {   // offline: only downloaded songs can play, so queue just those
+    const have = new Set(dls.map(d => d.id)), cur = queue[i];
+    if (!cur || !have.has(cur.id)) { toast("You're offline · this song isn't downloaded", true); return; }
+    queue = queue.filter(t => have.has(t.id)); qi = queue.indexOf(cur);
+  }
   setTab('queue', true); playCurrent();
   if (open && !isMobile()) openNP();
 }
@@ -1738,6 +1763,7 @@ async function playCurrent(startAt = 0){
   try {
     const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
     if (my !== token) return;
+    if (!blob && !navigator.onLine) throw new Error("You're offline · this song isn't downloaded");
     let url, blobUrl = null;
     if (blob) url = blobUrl = URL.createObjectURL(blob);
     else url = audioUrl(t.id);
@@ -1841,7 +1867,7 @@ const wire = el => {
     }
     repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true);
   };
-  el.onerror = () => { if (el === a && el.src) toast('Playback failed. Check that the server is running and try again.', true); };
+  el.onerror = () => { if (el === a && el.src) toast(navigator.onLine ? 'Playback failed. Check that the server is running and try again.' : "You're offline · only downloaded songs can play", true); };
   el.ontimeupdate = () => {
     if (el === a && !pending && npTab === 'lyrics') lyUpdate();
     if (el === a) msPos();
@@ -2207,6 +2233,7 @@ function renderDownloads(){
   let rows = '';
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
   else if (!items.length && q) rows = `<p class="qmsg">No downloads match “${esc(dlQ)}”.</p>`;
+  else if (!items.length && !navigator.onLine) rows = '<div class="offmsg"><b>You\'re offline</b>You have no downloaded songs yet. Reconnect and tap the download icon on any song to keep it for offline listening.</div>';
   else if (!items.length) rows = '<p class="qmsg">Nothing downloaded yet. Tap the download icon on any song and it will be saved here for offline playback.</p>';
   else if (q) rows = items.map(dlrow).join('');
   else if (mode === 'home') {
@@ -2283,7 +2310,7 @@ function renderDownloads(){
   $('main').innerHTML = `<div class="pg">${updBanner}<div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
       <div class="dlhb"><button class="btn ghost" id="dlNew" data-dlnew hidden>↻ Refresh list</button><button class="btn ghost" id="dlProg" data-dlq>See progress</button>${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div></div>
     <p class="dlsub" id="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
-    ${navigator.onLine ? '' : '<div class="offb"><i></i>Offline · playing from your downloads</div>'}
+    ${navigator.onLine ? '' : '<div class="offb"><i></i>You\'re offline · playing from your downloads</div>'}
     <label class="dlq">${ic('search', 18)}<input id="dlq" placeholder="Search your downloads" autocomplete="off" value="${esc(dlQ)}"></label>
     <div class="dltabs">${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode && !q ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
     <div id="dlSum"></div>
@@ -3364,7 +3391,7 @@ updateInstallBtn();
 
   /* Boot: nothing hits the Isai API until a valid session exists */
   const tok = getTok();
-  window.addEventListener('offline', () => { if (!started) return; toast("You're offline · showing your downloads"); if (view === 'home' || view === 'search') show('downloads'); else if (view === 'downloads') renderDownloads(); });
+  window.addEventListener('offline', () => { if (!started) return; toast("You're offline · showing your downloads"); if (NET_ONLY.includes(view)) show('downloads'); else if (view === 'downloads') renderDownloads(); });
   window.addEventListener('online', () => { if (started) { toast('Back online'); if (view === 'downloads') renderDownloads(); } });
   if (!tok) { showLock(); if (!navigator.onLine) $('lkErr').textContent = "You're offline. Connect to sign in."; return; }
   if (!navigator.onLine) { startApp(); return; } // offline: skip the check, go straight to downloads
