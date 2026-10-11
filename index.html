@@ -1285,6 +1285,28 @@ body.offline .tr.nodl{opacity:.38}
 .ly.rich.on .w.tw.wd,.ly.rich.on .w.tw.wc{opacity:1}
 .lychips button.tlb{margin-left:4px}
 </style>
+<style>
+#instpage{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#instpage.on{display:flex}
+#instpage [hidden],#sInstRow[hidden]{display:none!important}
+#instpage .ibox{width:100%;max-width:460px;max-height:92vh;overflow:auto;background:#141419;border:1px solid var(--line);border-radius:24px;padding:26px 22px 22px;position:relative}
+#instpage .ix{position:absolute;top:12px;right:14px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);color:var(--fg);font-size:18px}
+#instpage .ihead{text-align:center;margin-bottom:18px}
+#instpage .ihead img{width:68px;height:68px;border-radius:16px;margin-bottom:10px}
+#instpage h2{font-size:22px;margin:0 0 4px}
+#instpage .ihead p{color:var(--mute);font-size:14px;margin:0}
+#instpage .icard{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:16px;margin-top:12px}
+#instpage .icard.me{border-color:rgba(255,255,255,.35)}
+#instpage .icard h3{font-size:15px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+#instpage .icard .tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#fff;color:#000;border-radius:999px;padding:2px 8px}
+#instpage .icard p{color:var(--mute);font-size:13px;margin:0 0 12px;line-height:1.45}
+#instpage .icard .btn{width:100%;justify-content:center;text-decoration:none}
+#instpage ol{margin:0;padding:0 0 0 20px;color:var(--fg);font-size:14px;line-height:1.55}
+#instpage ol li{margin:0 0 7px}
+#instpage ol b{font-weight:600}
+#instpage .isub{color:var(--mute);font-size:12px;margin-top:10px;line-height:1.4}
+#instpage .shr{display:inline-block;vertical-align:-3px;width:17px;height:17px}
+</style>
 </head>
 <body>
 <div id="bg"></div>
@@ -1354,6 +1376,28 @@ body.offline .tr.nodl{opacity:.38}
   </div>
 </div>
 
+<div id="instpage" role="dialog" aria-modal="true" aria-label="Install Isai"><div class="ibox">
+  <button class="ix" id="instX" aria-label="Close">✕</button>
+  <div class="ihead"><img src="/apple-touch-icon.png" alt=""><h2>Install Isai</h2><p>Get the app on your phone</p></div>
+  <div class="icard" id="instAndroid">
+    <h3>Android <span class="tag" id="instAndTag" hidden>Your device</span></h3>
+    <p>Download the Isai app (APK). Plays in the background with media controls and notifications.</p>
+    <a class="btn" id="instApk" href="https://github.com/nithinana/isai-app/releases/download/v1.0_publicbeta/isai-debug.apk" download>Download APK</a>
+    <div class="isub">After it downloads, open the file and tap Install. If Android blocks it, allow “Install unknown apps” for your browser when asked.</div>
+    <button class="btn ghost" id="instPwa" style="margin-top:10px" hidden>Or install as web app</button>
+  </div>
+  <div class="icard" id="instIos">
+    <h3>iPhone &amp; iPad <span class="tag" id="instIosTag" hidden>Your device</span></h3>
+    <p>Install Isai as an app straight from Safari. No App Store needed.</p>
+    <ol>
+      <li>Open <b>isai.thirai.uk</b> in <b>Safari</b> (it won’t work from Chrome or in-app browsers).</li>
+      <li>Tap the <b>Share</b> button <svg class="shr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg> at the bottom (or top right on iPad).</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b> in the top right.</li>
+      <li>Open <b>Isai</b> from your Home Screen.</li>
+    </ol>
+  </div>
+</div></div>
 <div id="langpick" role="dialog" aria-modal="true" aria-label="Choose music language"><div class="lpbox">
   <h2>What do you listen to?</h2><p>We'll tailor your home page. You can change this anytime in Settings.</p>
   <button data-lang="tamil">தமிழ் · Tamil<small>Kollywood hits, classics, playlists</small></button>
@@ -2252,6 +2296,9 @@ function renderLiked(){
 function renderSettings(){
   const dsz = dls.reduce((n, d) => n + (d.size || 0), 0);
   $('main').innerHTML = `<div class="bkrow">${backBtn()}</div><div class="pg set"><h1 class="t">Settings</h1>
+    <section class="sgrp glass" id="sInstRow" ${isInstalled() ? 'hidden' : ''}><h3>Get the app</h3>
+      <div class="srow"><div><b>Install Isai</b><span>Android app (APK) or add to your iPhone Home Screen</span></div><button class="btn ghost" onclick="window.__openInstall()">Install</button></div>
+    </section>
     <section class="sgrp glass"><h3>Account</h3>
       <div class="srow"><div><b>Signed in</b><span>Sign out to lock Isai on this device</span></div><button class="btn ghost" id="sOut">Sign out</button></div>
     </section>
@@ -4915,45 +4962,55 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 let deferredPrompt = null;
 const pwaBtn = $('pwaInstall');
 
+const isInstalled = () => !!window.IsaiNative || window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || window.navigator.standalone === true || store.get('installed', '') === '1';
+const isIOS = () => (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
+const isAndroid = () => /Android/i.test(navigator.userAgent);
+const instBox = $('instpage');
+
 function updateInstallBtn() {
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  if (pwaBtn) {
-    if (isStandalone) pwaBtn.style.display = 'none';
-    else pwaBtn.style.display = '';
-  }
+  const done = isInstalled();
+  if (pwaBtn) pwaBtn.style.display = done ? 'none' : '';
+  const row = $('sInstRow'); if (row) row.hidden = done;
+  if (done) closeInstall();
+}
+function openInstall() {
+  if (isInstalled()) return;
+  const ios = isIOS(), and = isAndroid();
+  $('instAndTag').hidden = !and; $('instIosTag').hidden = !ios;
+  $('instPwa').hidden = !deferredPrompt;
+  /* the visitor's own platform goes first */
+  const box = instBox.querySelector('.ibox');
+  box.insertBefore(ios ? $('instIos') : $('instAndroid'), ios ? $('instAndroid') : $('instIos'));
+  $('instAndroid').classList.toggle('me', and); $('instIos').classList.toggle('me', ios);
+  instBox.classList.add('on');
+}
+function closeInstall() { if (instBox) instBox.classList.remove('on'); }
+if (instBox) {
+  $('instX').onclick = closeInstall;
+  instBox.addEventListener('click', e => { if (e.target === instBox) closeInstall(); });
+  $('instPwa').onclick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const c = await deferredPrompt.userChoice;
+    if (c && c.outcome === 'accepted') { deferredPrompt = null; closeInstall(); }
+  };
 }
 
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  if (pwaBtn) pwaBtn.style.display = '';
+  updateInstallBtn();
 });
 
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
-  if (pwaBtn) pwaBtn.style.display = 'none';
+  store.set('installed', '1');
+  updateInstallBtn();
   toast('Isai installed successfully!');
 });
 
-if (pwaBtn) {
-  pwaBtn.onclick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice && choice.outcome === 'accepted') {
-        deferredPrompt = null;
-        pwaBtn.style.display = 'none';
-      }
-    } else {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      if (isIOS) {
-        toast('To install: tap Share and select "Add to Home Screen"');
-      } else {
-        toast('To install: click the Install icon in your browser address bar or menu');
-      }
-    }
-  };
-}
+if (pwaBtn) pwaBtn.onclick = openInstall;
+window.__openInstall = openInstall;
 updateInstallBtn();
 
 /* ---------- login gate (logic from Thirai index) ---------- */
