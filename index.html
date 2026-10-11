@@ -738,7 +738,6 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   transform-origin:left center;
   transition:opacity .5s var(--ease), transform .5s var(--ease), filter .5s var(--ease);
   filter:blur(1.5px);
-  will-change:opacity,transform,filter;
 }
 .ly:hover{opacity:.55;filter:blur(0);transform:scale(.98) translateY(2px)}
 .ly.on{
@@ -752,8 +751,10 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .ly.plain,.ly.plain:hover{opacity:.85;filter:none;transform:none;cursor:default;font-size:18px;font-weight:600;padding:4px 8px;text-shadow:none}
 .ly.plain.on{opacity:1;transform:none;filter:none}
 .ly.plain.past{opacity:.4;filter:none;transform:none}
-.ly.rich.on .w{opacity:.35;transition:opacity .18s}
-.ly.rich.on .w.wd,.ly.rich.on .w.wc{opacity:1}
+.ly.rich.on .w{opacity:.35;transition:none}
+.ly.rich.on .w.wd,.ly.rich.on .w.wc{opacity:1;transition:opacity .18s}
+/* a word-synced line lights up instantly (its unsung words are already as bright as the dimmed line was), so it never dips then brightens */
+.ly.rich.on{transition:transform .5s var(--ease),filter .5s var(--ease)}
 .lyf{display:flex;gap:8px;margin:8px 4px 6px}
 .lyf .minp{height:42px}
 .lyf .btn{padding:8px 16px;white-space:nowrap;font-size:13px}
@@ -1173,8 +1174,8 @@ body.offline .tr.nodl{opacity:.38}
 #lybg,#lyhead{display:none}
 @media(max-width:720px){
   /* smooth left-to-right word fill (phone only) */
-  .ly.rich.on .w{opacity:1;color:rgba(255,255,255,.38);transition:color .18s}
-  .ly.rich.on .w.wd{color:#fff}
+  .ly.rich.on .w{opacity:1;color:rgba(255,255,255,.38);transition:none}
+  .ly.rich.on .w.wd{color:#fff;transition:none}
   .ly.rich.on .w.wc{color:transparent;-webkit-text-fill-color:transparent;transition:none;-webkit-background-clip:text;background-clip:text;
     background-image:linear-gradient(90deg,#fff var(--p,-10%),rgba(255,255,255,.38) calc(var(--p,-10%) + 10%))}
   #npv .npl{z-index:2}
@@ -2659,16 +2660,27 @@ const idb = (() => {
     if (!window.indexedDB) return rej(new Error('IndexedDB is not available in this browser'));
     const r = indexedDB.open('thirai', 3);
     r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'id' }); if (!d.objectStoreNames.contains('blobs')) d.createObjectStore('blobs'); if (!d.objectStoreNames.contains('artists')) d.createObjectStore('artists', { keyPath: 'key' }); if (!d.objectStoreNames.contains('extras')) d.createObjectStore('extras', { keyPath: 'id' }); };
-    r.onsuccess = () => res(r.result);
+    r.onsuccess = () => {
+      const d = r.result;
+      d.onclose = () => { p = null; };                       // browser dropped the connection (iOS does this when the app is suspended)
+      d.onversionchange = () => { d.close(); p = null; };
+      res(d);
+    };
     r.onerror = () => { p = null; rej(r.error); };
   }));
-  const run = async (stores, mode, fn) => {
-    const d = await open();
-    return new Promise((res, rej) => {
-      const t = d.transaction(stores, mode), r = fn(t);
-      t.oncomplete = () => res(r && 'result' in r ? r.result : undefined);
-      t.onerror = t.onabort = () => rej(t.error);
-    });
+  const run = async (stores, mode, fn, retry = true) => {
+    try {
+      const d = await open();
+      return await new Promise((res, rej) => {
+        const t = d.transaction(stores, mode), r = fn(t);
+        t.oncomplete = () => res(r && 'result' in r ? r.result : undefined);
+        t.onerror = t.onabort = () => rej(t.error || new DOMException('Transaction aborted', 'AbortError'));
+      });
+    } catch (e) {
+      /* a dead connection used to fail every read until the app was force-closed: reopen once and retry */
+      if (retry && e && /InvalidState|UnknownError|AbortError/.test(e.name || '')) { p = null; return run(stores, mode, fn, false); }
+      throw e;
+    }
   };
   return {
     all: () => run('meta', 'readonly', t => t.objectStore('meta').getAll()),
@@ -2683,7 +2695,30 @@ const idb = (() => {
   };
 })();
 let dlsReady = false;
-idb.all().then(r => { dls = r || []; }).catch(() => {}).then(() => loadExtras()).finally(() => { dlsReady = true; queueAutoDl(); if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); ensureExtras(); });
+let dlsFailed = false;
+async function loadDls(){
+  for (let i = 0; i < 4; i++) {
+    try { dls = await idb.all() || []; dlsFailed = false; return true; }
+    catch { await new Promise(r => setTimeout(r, 350 * (i + 1))); }
+  }
+  dlsFailed = true; return false;   // read failed: the songs are still on disk, we just couldn't list them yet
+}
+/* ask for persistent storage up front (not only after a download) so the browser doesn't evict downloads under storage pressure */
+async function keepStorage(){
+  try {
+    if (!navigator.storage || !navigator.storage.persist) return;
+    if (navigator.storage.persisted && await navigator.storage.persisted()) return;
+    await navigator.storage.persist();
+  } catch {}
+}
+keepStorage();
+document.addEventListener('pointerdown', keepStorage, { once: true });   // some browsers only grant it after a tap
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  keepStorage();
+  if (dlsFailed) loadDls().then(ok => { if (!ok) return; extrasP = null; loadExtras().then(() => { if (view === 'downloads') renderDownloads(); else syncBadges(); }); });
+});
+loadDls().then(ok => { if (!ok) toast("Couldn't read your downloads yet. They're still on this device, so reopen the app to try again.", true); }).then(() => loadExtras()).finally(() => { dlsReady = true; queueAutoDl(); if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); ensureExtras(); });
 
 /* ---------- offline album art + lyrics for downloads ---------- */
 const EXTRA_VER = 1;
@@ -4484,16 +4519,17 @@ function lyUpdate(){
   if (i >= 0 && L[i].words) {
     const ws = L[i].words; let n = 0;
     while (n < ws.length && ws[n].t <= tm) n++;
-    const sp = lyEls[i].querySelectorAll('.w');
+    const sp = lyEls[i]._w || (lyEls[i]._w = lyEls[i].querySelectorAll('.w'));   // cached: no DOM query every frame
     if (n !== lyWn) {
       lyWn = n;
-      sp.forEach((s, k) => { s.classList.toggle('wd', k < n - 1); s.classList.toggle('wc', k === n - 1); if (k !== n - 1) s.style.removeProperty('--p'); });
+      sp.forEach((s, k) => { s.classList.toggle('wd', k < n - 1); s.classList.toggle('wc', k === n - 1); if (k !== n - 1) { s.style.removeProperty('--p'); s._p = null; } });
     }
     if (n > 0 && sp[n - 1]) {   // fill the word being sung, left to right
       const w0 = ws[n - 1], nx = ws[n] ? ws[n].t : (L[i + 1] ? L[i + 1].t : w0.t + 1);
       const end = (typeof w0.e === 'number' && w0.e > w0.t) ? w0.e : nx;
       const p = Math.min(1, Math.max(0, (tm - w0.t) / Math.max(.12, Math.min(end - w0.t, 1.4))));
-      sp[n - 1].style.setProperty('--p', (p * 110 - 10).toFixed(1) + '%');
+      const pv = (p * 110 - 10).toFixed(1) + '%', cs = sp[n - 1];
+      if (cs._p !== pv) { cs._p = pv; cs.style.setProperty('--p', pv); }   // only repaint when the fill actually moved
     }
   }
 }
