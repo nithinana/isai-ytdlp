@@ -1232,6 +1232,15 @@ body.offline .tr.nodl{opacity:.38}
   #npv.lyfull .qlist.lyr .qmsg:not(.err),#npv.lyfull .qlist.lyr .lyf,#npv.lyfull .qlist.lyr .mhint{opacity:0;pointer-events:none}
   #npv.lyfull .npl{touch-action:none}
 }
+
+/* ---- pronunciation (romanised lyrics) ---- */
+.tw{display:inline-block;vertical-align:top;text-align:left}
+.tw .o{display:block}
+.tw small.tl{display:block;font-size:.4em;line-height:1.25;font-weight:600;letter-spacing:.01em;opacity:.72;margin-top:1px;white-space:nowrap}
+.ly.plain .tw small.tl{font-size:.62em}
+.ly.rich.on .w.tw{opacity:.35}
+.ly.rich.on .w.tw.wd,.ly.rich.on .w.tw.wc{opacity:1}
+.lychips button.tlb{margin-left:4px}
 </style>
 </head>
 <body>
@@ -2182,6 +2191,7 @@ function renderSettings(){
     </section>
     <section class="sgrp glass"><h3>Music</h3>
       <label class="srow"><div><b>Music language</b><span>Customises your home page and moods</span></div><select id="sLang">${LANGS.map(l => `<option value="${l}" ${l === lang() ? 'selected' : ''}>${LANG_LABEL[l]}</option>`).join('')}</select></label>
+      <label class="srow"><div><b>Pronunciation</b><span>Show Tanglish / romanised text under lyrics (Tamil, Hindi, Telugu, Korean and more)</span></div><select id="sTl"><option value="0" ${lyTl() ? '' : 'selected'}>Off</option><option value="1" ${lyTl() ? 'selected' : ''}>On</option></select></label>
     </section>
     <section class="sgrp glass"><h3>Server</h3>
       <label class="srow"><div><b>API base URL</b><span>Where your Thirai server is running</span></div><input id="sBase" value="${esc(base())}" spellcheck="false" autocapitalize="off"></label>
@@ -2201,6 +2211,7 @@ function renderSettings(){
   $('sUser').onclick = () => askUsername(() => { closeModal(); toast('Username saved'); if (view === 'settings') renderSettings(); });
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
   $('sKey').onchange = e => store.set('key', e.target.value);
+  $('sTl').onchange = e => { store.set('lytl', e.target.value); toast(e.target.value === '1' ? 'Pronunciation on' : 'Pronunciation off'); };
   $('sLang').onchange = e => { applyLang(e.target.value); toast('Language set to ' + LANG_LABEL[e.target.value]); };
   $('sFmt').onchange = e => { store.set('fmt', e.target.value); toast('Format set to ' + e.target.value); };
   $('sRef').onclick = () => { homeData = null; for (const k in entCache) delete entCache[k]; toast('Refreshing…'); show('home'); loadHome(true); };
@@ -2638,7 +2649,8 @@ $('npmore').onclick = () => {
     ${row('dl', dls.some(d => d.id === t.id) ? 'Downloaded' : 'Download', ic('dl', 20))}
     ${(t.album_id || t.album) ? row('album', 'Go to album', ic('note', 20)) : ''}
     ${artistsOf(t)[0] ? row('artist', 'Go to artist', ic('chev', 20)) : ''}
-    ${lyState === 'found' ? row('lyr', 'Lyrics', ic('note', 20)) : ''}`);
+    ${lyState === 'found' ? row('lyr', 'Lyrics', ic('note', 20)) : ''}
+    ${lyState === 'found' ? row('tl', lyTl() ? 'Hide pronunciation' : 'Show pronunciation', ic('note', 20)) : ''}`);
   sheet.onclick = e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
     const k = b.dataset.act; closeModal();
@@ -2648,6 +2660,7 @@ $('npmore').onclick = () => {
     else if (k === 'album') openAlbumOf(t);
     else if (k === 'artist') { const x = artistsOf(t)[0]; if (x) openArtist(x.id, x.name); }
     else if (k === 'lyr') { setTab('lyrics'); $('npr').classList.add('up'); }
+    else if (k === 'tl') lyToggleTl();
   };
 };
 $('exp').onclick = toggleNP;
@@ -4393,6 +4406,201 @@ async function renderMood(name){
 async function renderCharts(){ show('home'); }
 $('mAdd').onclick = $('npAdd').onclick = () => current && openAddModal([current]);
 
+/* ---------- pronunciation (romanised lyrics) ---------- */
+const lyTl = () => store.get('lytl', '0') === '1';
+const TL_RE = /[\u0900-\u0D7F\u1100-\u11FF\uAC00-\uD7AF\u3040-\u30FF\u31F0-\u31FF\u0400-\u04FF\u0370-\u03FF]/;
+const tlHas = s => TL_RE.test(s);
+const TL = (() => {
+  /* ---- Tamil -> Tanglish (voicing-aware: ka/ga, tha/dha, pa/ba ...) ---- */
+  const TV = { 0xB85: 'a', 0xB86: 'aa', 0xB87: 'i', 0xB88: 'ee', 0xB89: 'u', 0xB8A: 'oo', 0xB8E: 'e', 0xB8F: 'ae', 0xB90: 'ai', 0xB92: 'o', 0xB93: 'oh', 0xB94: 'au' };
+  const TM = { 0xBBE: 'aa', 0xBBF: 'i', 0xBC0: 'ee', 0xBC1: 'u', 0xBC2: 'oo', 0xBC6: 'e', 0xBC7: 'ae', 0xBC8: 'ai', 0xBCA: 'o', 0xBCB: 'oh', 0xBCC: 'au' };
+  const TC = { 0xB95: ['k', 'g'], 0xB99: 'ng', 0xB9A: ['ch', 's'], 0xB9C: 'j', 0xB9E: 'nj', 0xB9F: ['t', 'd'], 0xBA3: 'n', 0xBA4: ['th', 'dh'], 0xBA8: 'n', 0xBA9: 'n',
+    0xBAA: ['p', 'b'], 0xBAE: 'm', 0xBAF: 'y', 0xBB0: 'r', 0xBB1: ['r', 'r'], 0xBB2: 'l', 0xBB3: 'l', 0xBB4: 'zh', 0xBB5: 'v', 0xBB6: 'sh', 0xBB7: 'sh', 0xBB8: 's', 0xBB9: 'h' };
+  const NAS = new Set([0xB99, 0xB9E, 0xBA3, 0xBA8, 0xBA9, 0xBAE]);
+  function tamil(run){
+    const U = [];
+    for (let i = 0; i < run.length; i++) {
+      const c = run.charCodeAt(i);
+      if (TC[c] !== undefined) {
+        const u = { c, v: 'a' }, n = run.charCodeAt(i + 1);
+        if (n === 0xBCD) { u.v = null; i++; }
+        else if (TM[n] !== undefined) {
+          let m = TM[n]; const n2 = run.charCodeAt(i + 2);
+          if (n === 0xBC6 && n2 === 0xBBE) { m = 'o'; i++; } else if (n === 0xBC7 && n2 === 0xBBE) { m = 'oh'; i++; } else if (n === 0xBC6 && n2 === 0xBD7) { m = 'au'; i++; }
+          u.v = m; i++;
+        }
+        U.push(u);
+      }
+      else if (TV[c] !== undefined) U.push({ c: 0, v: TV[c] });
+      else if (c === 0xB83) U.push({ c: 0, v: 'h' });
+      else if (c >= 0xBE6 && c <= 0xBEF) U.push({ c: 0, v: String(c - 0xBE6) });
+      else U.push({ c: 0, v: '' });
+    }
+    let o = '';
+    U.forEach((u, i) => {
+      if (!u.c) { o += u.v; return; }
+      const p = U[i - 1], nx = U[i + 1];
+      let s = TC[u.c];
+      if (u.c === 0xBB1) {
+        s = (u.v === null && nx && nx.c === 0xBB1) ? 't' : (p && p.c === 0xBA9 && p.v === null) ? 'dr' : 'r';
+      } else if (typeof s !== 'string') {
+        let vd = false;
+        if (u.v !== null && p) vd = (p.c && p.v === null) ? (p.c !== u.c && NAS.has(p.c)) : true;
+        s = vd ? ((u.c === 0xB9A && p.c === 0xB9E) ? 'j' : s[1]) : s[0];
+      }
+      o += s + (u.v === null ? '' : u.v);
+    });
+    return o;
+  }
+
+  /* ---- other Indic scripts (Hindi, Bengali, Punjabi, Gujarati, Odia, Telugu, Kannada, Malayalam) share one layout ---- */
+  const CONS = ['k','kh','g','gh','ng','ch','chh','j','jh','ny','t','th','d','dh','n','t','th','d','dh','n','n','p','ph','b','bh','m','y','r','r','l','l','zh','v','sh','sh','s','h'];
+  const EXTRA = ['q','kh','gh','z','r','rh','f','y'];
+  const VOW = ['a','aa','i','ee','u','oo','ri','lri','e','e','e','ai','o','o','o','au'];
+  const MAT = ['aa','i','ee','u','oo','ri','ri','e','e','e','ai','o','o','o','au'];
+  const NUK = { k: 'q', g: 'gh', j: 'z', d: 'r', dh: 'rh', ph: 'f' };
+  const CHILLU = { 0xD7A: 'n', 0xD7B: 'n', 0xD7C: 'r', 0xD7D: 'l', 0xD7E: 'l', 0xD7F: 'k' };
+  function indic(run){
+    const c0 = run.charCodeAt(0), bs = c0 & ~0x7F;
+    const north = bs === 0x900 || bs === 0x980 || bs === 0xA00 || bs === 0xA80 || bs === 0xB00;
+    const U = [];
+    for (let i = 0; i < run.length; i++) {
+      const cp = run.charCodeAt(i), b = cp & ~0x7F, o = cp - b;
+      if (CHILLU[cp]) { U.push({ c: CHILLU[cp], v: '' }); continue; }
+      let cs = (o >= 0x15 && o <= 0x39) ? CONS[o - 0x15] : (o >= 0x58 && o <= 0x5F) ? EXTRA[o - 0x58] : null;
+      if (cs !== null) {
+        if (run.charCodeAt(i + 1) - b === 0x3C) { cs = NUK[cs] || cs; i++; }
+        const n = run.charCodeAt(i + 1), no = n - b, u = { c: cs, v: 'a', inh: true };
+        if (n === n && no === 0x4D) { u.v = ''; u.inh = false; i++; }
+        else if (no >= 0x3E && no <= 0x4C && MAT[no - 0x3E]) { u.v = MAT[no - 0x3E]; u.inh = false; i++; }
+        U.push(u);
+      }
+      else if (o >= 0x05 && o <= 0x14) U.push({ c: '', v: VOW[o - 5] });
+      else if (o === 0x01 || o === 0x02 || cp === 0xA70) U.push({ c: north ? 'n' : 'm', v: '', m: true });
+      else if (o === 0x03) U.push({ c: 'h', v: '', m: true });
+      else if (o >= 0x66 && o <= 0x6F) U.push({ c: String(o - 0x66), v: '', m: true });
+      else if (o === 0x64 || o === 0x65 || o === 0x3C || o === 0x3D || cp === 0xA71 || o === 0x4D) { /* danda, nukta, avagraha, addak: drop */ }
+      else U.push({ c: String.fromCharCode(cp), v: '', m: true });
+    }
+    if (north) {   // Hindi-style schwa deletion: kamal, not kamala
+      let last = U.length - 1; while (last > 0 && U[last].m) last--;
+      for (let i = last; i >= 0; i--) {
+        const u = U[i]; if (!u.inh) continue;
+        if (i === last) { u.v = ''; u.inh = false; continue; }
+        if (i > 0 && U[i - 1].v && U[i + 1] && U[i + 1].v && !U[i + 1].m) { u.v = ''; u.inh = false; }
+      }
+    } else if (bs === 0xD00) {   // Malayalam: a word-final chandrakkala is read as a short 'u'
+      let last = U.length - 1; while (last > 0 && U[last].m) last--;
+      const u = U[last]; if (u && u.c && u.v === '' && !u.m && !CHILLU_SET.has(u.c)) u.v = 'u';
+    }
+    return U.map(u => u.c + u.v).join('');
+  }
+  const CHILLU_SET = new Set(Object.values(CHILLU));
+
+  /* ---- Korean (Revised Romanization with basic linking) ---- */
+  const HL = ['g','kk','n','d','tt','r','m','b','pp','s','ss','','j','jj','ch','k','t','p','h'];
+  const HV = ['a','ae','ya','yae','eo','e','yeo','ye','o','wa','wae','oe','yo','u','wo','we','wi','yu','eu','ui','i'];
+  const HT = ['','k','k','k','n','n','n','t','l','k','m','l','l','l','p','l','m','p','p','t','t','ng','t','t','k','t','p','t'];
+  const HC = { 1: 'g', 2: 'kk', 4: 'n', 7: 'd', 8: 'r', 16: 'm', 17: 'b', 19: 's', 20: 'ss', 22: 'j', 23: 'ch', 24: 'k', 25: 't', 26: 'p', 27: '' };
+  function hangul(run){
+    const S = [...run].map(ch => { const s = ch.charCodeAt(0) - 0xAC00; return (s >= 0 && s < 11172) ? { l: (s / 588) | 0, v: ((s % 588) / 28) | 0, t: s % 28 } : { raw: ch }; });
+    S.forEach((y, i) => { const n = S[i + 1]; if (!y.raw && y.t && n && !n.raw && n.l === 11 && HC[y.t] !== undefined) { y.cd = ''; n.on = HC[y.t]; } });
+    return S.map(y => y.raw !== undefined ? y.raw : (y.on !== undefined ? y.on : HL[y.l]) + HV[y.v] + (y.cd !== undefined ? y.cd : HT[y.t])).join('');
+  }
+
+  /* ---- Japanese kana (Hepburn). Kanji can't be read without a dictionary, so it is left as is ---- */
+  const KH = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽゐゑゔ';
+  const KR = 'a i u e o ka ki ku ke ko sa shi su se so ta chi tsu te to na ni nu ne no ha hi fu he ho ma mi mu me mo ya yu yo ra ri ru re ro wa wo n ga gi gu ge go za ji zu ze zo da ji zu de do ba bi bu be bo pa pi pu pe po wi we vu'.split(' ');
+  const KM = {}; [...KH].forEach((c, i) => KM[c] = KR[i]);
+  function kana(run){
+    const h = run.replace(/[\u30A1-\u30F6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+    let o = '', last = '', sok = false;
+    const push = r => { if (sok) { r = r.startsWith('ch') ? 't' + r : r[0] + r; sok = false; } o += r; last = r; };
+    const rep = r => { o = o.slice(0, o.length - last.length) + r; last = r; };
+    for (const ch of h) {
+      if (ch === 'っ') { sok = true; continue; }
+      if (ch === 'ー') { if (last) o += last[last.length - 1]; continue; }
+      const y = { 'ゃ': 'a', 'ゅ': 'u', 'ょ': 'o' }[ch];
+      if (y) { if (last.length > 1 && last.endsWith('i')) rep(['shi', 'chi', 'ji'].includes(last) ? last.slice(0, -1) + y : last.slice(0, -1) + 'y' + y); else push('y' + y); continue; }
+      const v = { 'ぁ': 'a', 'ぃ': 'i', 'ぅ': 'u', 'ぇ': 'e', 'ぉ': 'o' }[ch];
+      if (v) { if (last === 'u') rep('w' + v); else if (last) rep(last.slice(0, -1) + v); else push(v); continue; }
+      const r = KM[ch];
+      if (r === undefined) { o += ch; last = ''; } else push(r);
+    }
+    return o;
+  }
+
+  /* ---- Cyrillic + Greek ---- */
+  const CY = {}; 'а a|б b|в v|г g|д d|е e|ё yo|ж zh|з z|и i|й y|к k|л l|м m|н n|о o|п p|р r|с s|т t|у u|ф f|х kh|ц ts|ч ch|ш sh|щ shch|ъ |ы y|ь |э e|ю yu|я ya|і i|ї yi|є ye|ґ g'.split('|').forEach(p => { CY[p[0]] = p.slice(2); });
+  const cyr = run => [...run.toLowerCase()].map(c => CY[c] !== undefined ? CY[c] : c).join('');
+  const GR = {}; 'α a|β v|γ g|δ d|ε e|ζ z|η i|θ th|ι i|κ k|λ l|μ m|ν n|ξ x|ο o|π p|ρ r|σ s|ς s|τ t|υ y|φ f|χ ch|ψ ps|ω o'.split('|').forEach(p => { GR[p[0]] = p.slice(2); });
+  const grk = run => [...run.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ου/g, 'ou')].map(c => GR[c] !== undefined ? GR[c] : c).join('');
+
+  const RUNS = /[\u0B80-\u0BFF]+|[\u0900-\u0B7F\u0C00-\u0D7F]+|[\u1100-\u11FF\uAC00-\uD7AF]+|[\u3040-\u30FF\u31F0-\u31FF]+|[\u0400-\u04FF]+|[\u0370-\u03FF]+/g;
+  function word(s){
+    return s.replace(RUNS, r => {
+      const c = r.charCodeAt(0);
+      try {
+        if (c >= 0xB80 && c <= 0xBFF) return tamil(r);
+        if (c >= 0x900 && c <= 0xD7F) return indic(r);
+        if ((c >= 0x1100 && c <= 0x11FF) || c >= 0xAC00) return hangul(r);
+        if (c >= 0x3040) return kana(r);
+        if (c >= 0x400) return cyr(r);
+        return grk(r);
+      } catch { return r; }
+    });
+  }
+  /* rom for each lyric piece: pieces that touch (no space between) are read as one word, then split back so the voicing/endings stay right */
+  function pieces(arr){
+    const out = new Array(arr.length).fill(''); let g = [];
+    const flush = () => {
+      let acc = '', prev = '';
+      g.forEach(k => {
+        acc += arr[k].trim(); const full = word(acc);
+        out[k] = full.startsWith(prev) ? full.slice(prev.length) : word(arr[k].trim());
+        prev = full;
+      });
+      g = [];
+    };
+    arr.forEach((w, k) => {
+      if (!w.trim()) { flush(); return; }
+      if (g.length && /^\s/.test(w)) flush();
+      g.push(k);
+      if (/\s$/.test(w)) flush();
+    });
+    flush();
+    return out;
+  }
+  return { word, pieces };
+})();
+const tlWord = s => TL.word(s);
+function lyBody(l, rich){
+  const tl = lyTl();
+  if (rich && l.words) {
+    const ws = l.words.map(w => w.w);
+    if (!tl || !tlHas(ws.join(''))) return ws.map(w => `<span class="w">${esc(w)}</span>`).join('');
+    const pr = TL.pieces(ws);
+    return ws.map((w, k) => {
+      const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(w);
+      if (!m[2]) return `<span class="w">${esc(w)}</span>`;
+      const r = pr[k] === m[2] ? '' : pr[k];
+      return `${m[1] ? ' ' : ''}<span class="w tw"><span class="o">${esc(m[2])}</span><small class="tl">${esc(r) || '&nbsp;'}</small></span>${m[3] ? ' ' : ''}`;
+    }).join('');
+  }
+  const txt = l.text || '';
+  if (!txt) return '♪';
+  if (!tl || !tlHas(txt)) return esc(txt);
+  return txt.split(/\s+/).filter(Boolean).map(t => {
+    const r = tlWord(t);
+    return `<span class="tw"><span class="o">${esc(t)}</span><small class="tl">${r === t ? '&nbsp;' : esc(r)}</small></span>`;
+  }).join(' ');
+}
+function lyToggleTl(){
+  const on = !lyTl(); store.set('lytl', on ? '1' : '0');
+  if (lyCur && current && npTab === 'lyrics') { const bx = $('npq'), st = bx.scrollTop, sy = lyCur.synced; paintLyrics(lyCur, current); if (!sy) bx.scrollTop = st; }
+  toast(on ? 'Pronunciation on' : 'Pronunciation off');
+}
+
 /* ---------- lyrics ---------- */
 const lyCache = {}; let lyCur = null, lyEls = [], lyIdx = -1, lyWn = -1, lyRaf = 0, lyUserTs = 0;
 let isrcs = jget('isrcs', {});
@@ -4407,7 +4615,7 @@ function lyHeader(d){
   const keys = av.length > 1 ? ['auto', ...av] : av;   // only sources that have lyrics (Auto only when there's a choice)
   const chips = keys.map(k => `<button data-lsrc="${k}" class="${(lyEff === k || keys.length === 1) ? 'on' : ''}">${LY_NAMES[k]}</button>`).join('');
   const info = d && d.found ? `via ${({ lrcred: 'lrc.red', lrclib: 'LRCLIB' })[d.source] || 'Unison'} · ${SYNC_LABEL[d.syncType] || ''}` : '';
-  $('lyhd').innerHTML = `<span class="lysrc">${esc(info)}</span><span class="lychips">${chips}</span>`;
+  $('lyhd').innerHTML = `<span class="lysrc">${esc(info)}</span><span class="lychips">${chips}<button class="tlb ${lyTl() ? 'on' : ''}" data-tl title="Show pronunciation under lyrics">Aa</button></span>`;
 }
 function syncLyTab(){
   const show = lyState === 'found' || (lyState === 'loading' && npTab === 'lyrics');
@@ -4458,6 +4666,7 @@ async function lyProbeSources(t){
   if (current === t && npTab === 'lyrics') lyHeader(lyCur);
 }
 $('lyhd').onclick = e => {
+  if (e.target.closest('[data-tl]')) return lyToggleTl();
   const b = e.target.closest('[data-lsrc]'); if (!b) return;
   store.set('lsrc', b.dataset.lsrc); loadLyrics();
 };
@@ -4498,7 +4707,7 @@ function paintLyrics(d, t){
   box.innerHTML = d.lines.map((l, i) => {
     const raw = rich && l.words ? l.words.map(w => w.w).join('') : (l.text || '');
     const cls = ['ly', d.synced ? '' : 'plain', rich && l.words ? 'rich' : '', /^\s*[(\[].*[)\]]\s*$/.test(raw) ? 'bgv' : ''].filter(Boolean).join(' ');
-    const body = rich && l.words ? l.words.map(w => `<span class="w">${esc(w.w)}</span>`).join('') : (esc(l.text) || '♪');
+    const body = lyBody(l, rich);
     return `<p class="${cls}" data-i="${i}">${body}</p>`;
   }).join('');
   lyEls = [...box.querySelectorAll('.ly')];
