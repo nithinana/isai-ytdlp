@@ -10,6 +10,38 @@
 <!-- Web App Manifest -->
 <link rel="manifest" href="/manifest.json" />
 <meta charset="utf-8">
+<style>.isai-app #pwaInstall{display:none!important}</style>
+<script>
+/* Isai app: native bridge (media notification + background downloads). No-op in a normal browser. */
+(function(){
+  var N=window.IsaiNative; if(!N) return;
+  try{ document.documentElement.classList.add('isai-app'); }catch(e){}
+  var ms=navigator.mediaSession;
+  if(!ms){ ms={}; try{ Object.defineProperty(navigator,'mediaSession',{value:ms,configurable:true}); }catch(e){} }
+  if(typeof window.MediaMetadata==='undefined'){ window.MediaMetadata=function(o){ o=o||{}; this.title=o.title||''; this.artist=o.artist||''; this.album=o.album||''; this.artwork=o.artwork||[]; }; }
+  var H={}, md=null, ps='none', st={t:'',a:'',al:'',art:'',dur:0,pos:0,rate:1,state:'none'};
+  var send=function(){ try{ N.update(JSON.stringify(st)); }catch(e){} };
+  try{
+    Object.defineProperty(ms,'metadata',{configurable:true,get:function(){return md;},set:function(m){
+      md=m;
+      if(m){ st.t=m.title||''; st.a=m.artist||''; st.al=m.album||''; var aw=m.artwork||[]; st.art=aw.length?aw[Math.min(2,aw.length-1)].src:''; }
+      else { st.t=''; st.art=''; }
+      send(); }});
+    Object.defineProperty(ms,'playbackState',{configurable:true,get:function(){return ps;},set:function(v){ ps=v; st.state=v; send(); }});
+    ms.setPositionState=function(s){ if(!s) return; st.dur=s.duration||0; st.pos=s.position||0; st.rate=s.playbackRate||1; send(); };
+    ms.setActionHandler=function(n,f){ if(f) H[n]=f; else delete H[n]; };
+    window.__isaiMedia=function(n,arg){
+      var f=H[n];
+      if(f){ try{ f(arg||{}); }catch(e){} return; }
+      var id={play:'pp',pause:'pp',nexttrack:'next',previoustrack:'prev'}[n];
+      var el=id&&document.getElementById(id); if(el) el.click();
+    };
+    try{ N.hello(JSON.stringify({ms:!!navigator.mediaSession,meta:typeof MediaMetadata})); }catch(e){}
+  }catch(e){}
+  /* tell the app when downloads are running so it keeps the CPU awake in the background */
+  setInterval(function(){ try{ N.downloads(Object.keys(dlActive).length); }catch(e){} }, 2000);
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Isai</title>
 <link rel="manifest" href="manifest.json">
@@ -1439,13 +1471,22 @@ hydrate(document);
 function fillRange(el){ el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min) * 100) + '%'); }
 
 /* ---------- API + covers ---------- */
-const defBase = 'https://isaiapi.thirai.uk';
+const PUBLIC_API = 'https://isaiapi.thirai.uk';
+const MIN_API = 0;   /* raise when the frontend needs endpoints an older on-device backend lacks */
+const localApi = (() => {
+  try {
+    if (window.IsaiNative && IsaiNative.backendInfo) {
+      const i = JSON.parse(IsaiNative.backendInfo() || 'null');
+      if (i && i.url && (i.api || 0) >= MIN_API) return i.url;
+    }
+  } catch (e) {}
+  return '';
+})();
+const defBase = localApi || PUBLIC_API;
 const base = () => {
-  let b = store.get('base', defBase);
-  if (!b || b === 'https://ytdlpapi-jd2j.onrender.com') {
-    b = defBase;
-    store.set('base', defBase);
-  }
+  let b = store.get('base', '');
+  /* only a server the user typed in themselves is remembered; auto-picked ones never are */
+  if (!b || b === 'https://ytdlpapi-jd2j.onrender.com' || b === 'http://127.0.0.1:8765' || b === PUBLIC_API) b = defBase;
   return b.replace(/\/$/, '');
 };
 const LANGS = ['english', 'tamil', 'both'];
