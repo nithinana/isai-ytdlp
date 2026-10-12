@@ -20,11 +20,24 @@
   if(!ms){ ms={}; try{ Object.defineProperty(navigator,'mediaSession',{value:ms,configurable:true}); }catch(e){} }
   if(typeof window.MediaMetadata==='undefined'){ window.MediaMetadata=function(o){ o=o||{}; this.title=o.title||''; this.artist=o.artist||''; this.album=o.album||''; this.artwork=o.artwork||[]; }; }
   var H={}, md=null, ps='none', st={t:'',a:'',al:'',art:'',dur:0,pos:0,rate:1,state:'none'};
-  var send=function(){ try{ N.update(JSON.stringify(st)); }catch(e){} };
+  var send=function(){ try{ N.update(JSON.stringify(st)); st.artData=''; }catch(e){} };  /* isai-shim-v2 */
   try{
     Object.defineProperty(ms,'metadata',{configurable:true,get:function(){return md;},set:function(m){
       md=m;
-      if(m){ st.t=m.title||''; st.a=m.artist||''; st.al=m.album||''; var aw=m.artwork||[], best=null, bs=-1; aw.forEach(function(x){ var z=parseInt(x.sizes)||0; if(z>=bs){ bs=z; best=x; } }); st.art=best?best.src:''; }
+      if(m){ st.t=m.title||''; st.a=m.artist||''; st.al=m.album||''; var aw=m.artwork||[], best=null, bs=-1; aw.forEach(function(x){ var z=parseInt(x.sizes)||0; if(z>=bs){ bs=z; best=x; } }); st.art=best?best.src:'';
+        /* downloaded songs use a page-local blob: cover the app can't fetch -> hand the image over as base64 (retry once) */
+        var u=st.art;
+        if(/^data:/.test(u)){ st.artData=u; }
+        else if(/^blob:/.test(u)){
+          var grab=function(n){
+            fetch(u).then(function(r){ return r.blob(); }).then(function(bl){
+              var fr=new FileReader();
+              fr.onload=function(){ if(st.art===u){ st.artData=String(fr.result); send(); } };
+              fr.readAsDataURL(bl);
+            }).catch(function(e){ if(n>0&&st.art===u) setTimeout(function(){ grab(n-1); },400); else { try{ N.hello('blob cover failed: '+e); }catch(x){} } });
+          };
+          grab(1);
+        } }
       else { st.t=''; st.art=''; }
       send(); }});
     Object.defineProperty(ms,'playbackState',{configurable:true,get:function(){return ps;},set:function(v){ ps=v; st.state=v; send(); }});
@@ -1576,6 +1589,27 @@ async function api(path){
     throw new Error(m);
   }
   return r;
+}
+/* Spotify / YouTube Music routes: try the on-device backend first; if it is an older build without the route (404/405), use the public API */
+async function apiFB(path, body){
+  if (!window.__unlocked) throw new Error('Sign in required');
+  if (!navigator.onLine) throw new Error("You're offline");
+  const bases = [base()]; if (bases[0] !== PUBLIC_API) bases.push(PUBLIC_API);
+  let last;
+  for (let i = 0; i < bases.length; i++) {
+    let r;
+    try {
+      r = await fetch(bases[i] + path, body === undefined ? { headers: hd() }
+        : { method: 'POST', headers: { 'Content-Type': 'application/json', ...hd() }, body: JSON.stringify(body) });
+    } catch { last = new Error('Cannot reach the API at ' + bases[i] + '. Is the server running?'); continue; }
+    if (r.ok) return r;
+    let m = r.statusText;
+    try { const d = await r.json(); m = d.detail || m; } catch {}
+    const e = new Error(typeof m === 'string' ? m : 'Request was rejected'); e.status = r.status; last = e;
+    if ((r.status === 404 || r.status === 405) && i < bases.length - 1) continue;
+    throw e;
+  }
+  throw last;
 }
 /* lyrics always come from the public API (never the on-device backend) */
 async function apiPublic(path){
@@ -4137,7 +4171,7 @@ function openSpotifyImport(prefill = ''){
     const v = inp.value.trim(); if (!v) return inp.focus();
     err(''); const b = $('spGo'); b.disabled = true; b.textContent = 'Reading…';
     try {
-      const d = await (await api('/spotify/import?url=' + encodeURIComponent(v))).json();
+      const d = await (await apiFB('/spotify/import?url=' + encodeURIComponent(v))).json();
       if (spAlive(run)) spMatchAndSave(run, d.title, d.tracks, { partial: d.maybe_partial, spotifyId: d.id, thumb: d.thumbnail });
     } catch (e) { err(e.message); if (spAlive(run)) { b.disabled = false; b.textContent = 'Import'; } }
   };
@@ -4171,7 +4205,7 @@ async function spMatchAndSave(run, name, tracks, extra){
       if (!spAlive(run)) return;
       const batch = tracks.slice(i, i + 20); let res;
       for (let tries = 0; ; tries++) {
-        try { res = (await apiPost('/spotify/match', { tracks: batch.map(t => ({ title: t.title, artists: t.artists, duration: t.duration })) })).results; break; }
+        try { res = (await (await apiFB('/spotify/match', { tracks: batch.map(t => ({ title: t.title, artists: t.artists, duration: t.duration })) })).json()).results; break; }
         catch (e) { if (tries >= 2 || [400, 401, 403, 501].includes(e.status)) throw e; await sleep(1500 * (tries + 1)); }
       }
       res.forEach((r, j) => {
