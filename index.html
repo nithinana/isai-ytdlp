@@ -2568,6 +2568,62 @@ let a = $('audio'), standby = mkMedia(), pending = false, loading = false;   // 
 standby.preload = 'auto';
 let resume = { id: null, n: 0 }, lastAuto = 0;   // guards against streams that report 'ended' early
 const resetSeek = () => { $('seek').value = $('mseek').value = 0; fillRange($('seek')); fillRange($('mseek')); $('mprog').style.width = '0'; };
+
+/* ---------- preload the next song ----------
+   While a song plays, the song that will come after it is already being fetched into a spare
+   media element (`pre`). When playback moves on, playCurrent() adopts that element instead of
+   starting from scratch, so the next track starts instantly. */
+let pre = null, preTok = 0, preT = 0, nextPick = { q: null, qi: -1, idx: -1 };
+function releaseEl(e){
+  if (!e) return;
+  try { e.pause(); e.removeAttribute('src'); e.load(); } catch {}
+  if (e._blob) { URL.revokeObjectURL(e._blob); e._blob = null; }
+}
+function dropPre(){ preTok++; clearTimeout(preT); releaseEl(pre); pre = null; }
+/* index of the song step(1) would go to (a shuffle pick is remembered so step() uses the very same one); -1 = none */
+function peekNextIdx(){
+  const len = queue.length; if (!len || qi < 0) return -1;
+  if (shuffle && len > 1) {
+    const p = nextPick;
+    if (p.q !== queue || p.qi !== qi || p.idx < 0 || p.idx >= len || p.idx === qi) {
+      let n; do { n = Math.floor(Math.random() * len); } while (n === qi);
+      nextPick = { q: queue, qi, idx: n };
+    }
+    return nextPick.idx;
+  }
+  const n = qi + 1;
+  if (n >= len) return (repeat === 'off' || len < 2) ? -1 : 0;   // end of the queue with repeat off: nothing follows
+  return n;
+}
+async function preloadNext(){
+  const my = ++preTok;
+  if (!current || loading) return;
+  const i = peekNextIdx(), t = i >= 0 ? queue[i] : null;
+  if (!t || t.id === current.id) { releaseEl(pre); pre = null; return; }
+  if (pre && pre._tid === t.id && !pre._err) return;               // already preloaded
+  releaseEl(pre); pre = null;
+  try {
+    let url = null, blobUrl = null;
+    if (dls.some(d => d.id === t.id)) {                              // downloaded: read it from the device
+      const bl = await idb.blob(t.id).catch(() => null);
+      if (my !== preTok) return;
+      if (bl) url = blobUrl = URL.createObjectURL(bl);
+    }
+    if (!url) {
+      if (!isOnline()) return;
+      if (navigator.connection && navigator.connection.saveData) return;   // respect Data Saver
+      url = audioUrl(t.id);
+    }
+    if (my !== preTok) { if (blobUrl) URL.revokeObjectURL(blobUrl); return; }
+    const e = mkMedia(); wire(e);
+    e.volume = a.volume; e._tid = t.id; e._blob = blobUrl;
+    e.addEventListener('error', () => { e._err = true; });
+    e.src = url; e.load();
+    pre = e;
+  } catch {}
+}
+const schedulePreload = (ms = 2500) => { clearTimeout(preT); preT = setTimeout(preloadNext, ms); };   // small delay so the current song gets the bandwidth first
+
 async function playCurrent(startAt = 0){
   const t = queue[qi]; if (!t) return;
   const my = ++token; current = t; loading = true;
@@ -2579,6 +2635,8 @@ async function playCurrent(startAt = 0){
     if (standby && !standby.paused) standby.pause();
   } catch {}
   pending = false;
+  clearTimeout(preT); preTok++;                                    // cancel any preload in flight
+  if (pre && pre._tid !== t.id) { releaseEl(pre); pre = null; }     // keep it only if it's the song we're about to play
 
   $('player').classList.add('on');
   setImg($('pimg'), t, 160);
@@ -2592,21 +2650,27 @@ async function playCurrent(startAt = 0){
   markPlaying(); updateNP(); tint(t); msMeta(t);
   lyProbe(t);
   try {
-    const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
-    if (my !== token) return;
-    if (!blob && !isOnline()) throw new Error("You're offline · this song isn't downloaded");
-    let url, blobUrl = null;
-    if (blob) url = blobUrl = URL.createObjectURL(blob);
-    else url = audioUrl(t.id);
-    const n = standby;
-    n.volume = a.volume; n.src = url;
+    let n, blobUrl = null;
+    if (pre && pre._tid === t.id && !pre._err && !pre.error) {       // the song was preloaded: reuse it
+      n = pre; pre = null; blobUrl = n._blob || null; n.volume = a.volume;
+    } else {
+      if (pre) dropPre();
+      const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
+      if (my !== token) return;
+      if (!blob && !isOnline()) throw new Error("You're offline · this song isn't downloaded");
+      let url;
+      if (blob) url = blobUrl = URL.createObjectURL(blob);
+      else url = audioUrl(t.id);
+      n = standby;
+      n.volume = a.volume; n.src = url;
+    }
     await new Promise((res, rej) => {
       const ok = () => { off(); res(); }, bad = () => { off(); rej(new Error('Could not load this track')); };
       const off = () => { n.removeEventListener('canplay', ok); n.removeEventListener('error', bad); };
       n.addEventListener('canplay', ok); n.addEventListener('error', bad);
       if (n.readyState >= 3) ok();
     });
-    if (my !== token) { if (blobUrl) URL.revokeObjectURL(blobUrl); return; }
+    if (my !== token) { if (blobUrl) URL.revokeObjectURL(blobUrl); if (n !== standby) releaseEl(n); return; }
     const old = a;
     a = n; standby = old; pending = false; n._tid = t.id; loading = false;
     old.pause(); old.removeAttribute('src'); old.load();
@@ -2617,6 +2681,7 @@ async function playCurrent(startAt = 0){
     resetSeek(); $('dur').textContent = $('mdur').textContent = '-' + fmt(n.duration || t.duration);
     if (startAt > 1) { try { a.currentTime = startAt; } catch {} }
     await a.play(); setPP(); addRecent(t);
+    schedulePreload();
   } catch (e) {
     if (my === token) {
       pending = false; loading = false;
@@ -2637,7 +2702,7 @@ function addRecent(t){
 function step(d, auto){
   if (!queue.length) return;
   if (auto) { const now = Date.now(); if (now - lastAuto < 1500) return; lastAuto = now; }   // never double-advance
-  if (shuffle && d > 0 && queue.length > 1) { let n; do { n = Math.floor(Math.random() * queue.length) } while (n === qi); qi = n; }
+  if (shuffle && d > 0 && queue.length > 1) { qi = peekNextIdx(); nextPick.idx = -1; }
   else { const n = qi + d; if (auto && n >= queue.length && repeat === 'off') return; qi = (n + queue.length) % queue.length; }
   playCurrent();
 }
@@ -2648,12 +2713,13 @@ const doPP = () => {
   if (!a.src || a._tid !== current.id) return playCurrent();   // nothing valid loaded for this song (e.g. the load failed): retry it
   a.paused ? a.play() : a.pause();
 };
-function setShuffle(on){ shuffle = on; document.querySelectorAll('#shuf,#mshuf').forEach(b => b.classList.toggle('on', on)); }
+function setShuffle(on){ shuffle = on; document.querySelectorAll('#shuf,#mshuf').forEach(b => b.classList.toggle('on', on)); if (current) schedulePreload(600); }
 function doShuf(){ setShuffle(!shuffle); toast('Shuffle ' + (shuffle ? 'on' : 'off')); }
 function doRep(){
   repeat = { off: 'all', all: 'one', one: 'off' }[repeat];
   document.querySelectorAll('#rep,#mrep').forEach(b => b.className = repeat === 'off' ? '' : 'on ' + repeat);
   toast('Repeat: ' + repeat);
+  if (current) schedulePreload(600);
 }
 $('next').onclick = $('mnext').onclick = doNext;
 $('prev').onclick = $('mprev').onclick = doPrev;
