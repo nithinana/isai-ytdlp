@@ -974,6 +974,57 @@ body.offline .tr.nodl{opacity:.38}
   #npPlus{display:none}
   #mDl{display:none}
 }
+/* ---- motion polish ---- */
+.sbody.swap .pstat{animation:stSwap .55s var(--ease) both}
+.sbody.tick .pstat{animation:none}
+@keyframes stSwap{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+.pstat>img{transition:opacity .4s var(--ease)}
+.pg>*{animation:pgIn .5s var(--ease) both}
+.pg>*:nth-child(2){animation-delay:.04s}.pg>*:nth-child(3){animation-delay:.08s}.pg>*:nth-child(4){animation-delay:.12s}.pg>*:nth-child(n+5){animation-delay:.16s}
+@keyframes pgIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.card,.mood,.plr,.tr,.pstat,.frow,.srow .btn,.btn,.pill,.rb,.iconb{transition:transform .3s var(--ease),background-color .25s var(--ease),border-color .25s var(--ease),box-shadow .3s var(--ease),opacity .25s var(--ease),color .25s var(--ease)}
+.btn:active,.pill:active,.rb:active,.iconb:active,.plr:active{transform:scale(.96)}
+.card:hover{transform:translateY(-3px)}
+.card:active{transform:scale(.98)}
+.sw,.spick{will-change:transform}
+html{scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+/* ---- on-screen dialogs (confirm + picker) ---- */
+#dlg{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);animation:mfade .2s var(--ease) both}
+#dlg[hidden]{display:none}
+#dlg.closing{animation:mfadeout .18s var(--ease-io) both;pointer-events:none}
+.dsheet{width:min(380px,100%);max-height:80vh;overflow:auto;border-radius:24px;padding:22px 20px 18px;background:rgba(26,26,32,.96);text-align:center;animation:mpop .32s var(--ease) both}
+#dlg.closing .dsheet{animation:mpopout .18s var(--ease-io) both}
+.dsheet h3{margin:0 0 8px;font-size:19px;font-weight:800}
+.dsheet p{margin:0 0 18px;color:var(--mute);font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.dsheet .dbtns{display:flex;gap:10px}
+.dsheet .dbtns .btn{flex:1;justify-content:center;padding:12px 16px;font-size:15px}
+.dsheet.pick{text-align:left;padding:18px 12px 12px}
+.dsheet.pick h3{padding:0 8px 8px;text-align:left}
+.dsheet.pick .dopt{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:600;text-align:left;transition:background-color .2s}
+.dsheet.pick .dopt:hover{background:rgba(255,255,255,.08)}
+.dsheet.pick .dopt.on{background:rgba(255,255,255,.12)}
+.dsheet.pick .dopt svg{flex:none}
+@media(max-width:720px){
+  #dlg{place-items:end center;padding:12px 12px calc(12px + var(--sab))}
+  .dsheet{animation:sheetup .3s var(--ease) both}
+  #dlg.closing .dsheet{animation:sheetdown .22s var(--ease-io) both}
+}
+/* settings: picker button + switch */
+.srow .spick{flex:none;width:min(220px,50%);height:40px;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:600;transition:border-color .25s var(--ease),background-color .25s var(--ease)}
+.srow .spick:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25)}
+.srow .spick svg{opacity:.7;flex:none;transform:rotate(90deg)}
+.sw{position:relative;flex:none;width:50px;height:30px;border-radius:999px;background:rgba(255,255,255,.16);transition:background-color .25s var(--ease)}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:transform .25s var(--ease)}
+.sw[aria-checked=true]{background:#30d158}
+.sw[aria-checked=true]::after{transform:translateX(20px)}
+@media(max-width:720px){
+  .srow .spick{width:100%}
+  .srow.tgl{flex-wrap:nowrap}
+  .srow.tgl>div{flex:1 1 auto}
+}
 </style>
 <style>
 /* ---- activity + artist-profile update ---- */
@@ -1482,6 +1533,7 @@ body.offline .tr.nodl{opacity:.38}
 <div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
 <div id="modal" hidden><div class="msheet glass"></div></div>
 <video id="audio" playsinline webkit-playsinline preload="auto" style="display:none" aria-hidden="true"></video>
+<div id="dlg" hidden><div class="dsheet glass"></div></div>
 <div id="toast"></div>
 
 <script>
@@ -2338,15 +2390,15 @@ function renderSettings(){
       <div class="srow"><div><b>Signed in</b><span>Sign out to lock Isai on this device</span></div><button class="btn ghost" id="sOut">Sign out</button></div>
     </section>
     <section class="sgrp glass"><h3>Music</h3>
-      <label class="srow"><div><b>Music language</b><span>Customises your home page and moods</span></div><select id="sLang">${LANGS.map(l => `<option value="${l}" ${l === lang() ? 'selected' : ''}>${LANG_LABEL[l]}</option>`).join('')}</select></label>
-      <label class="srow"><div><b>Pronunciation</b><span>Show Tanglish / romanised text under lyrics (Tamil, Hindi, Telugu, Korean and more)</span></div><select id="sTl"><option value="0" ${lyTl() ? '' : 'selected'}>Off</option><option value="1" ${lyTl() ? 'selected' : ''}>On</option></select></label>
+      <div class="srow"><div><b>Music language</b><span>Customises your home page and moods</span></div><button class="spick" id="sLang" data-v="${lang()}"><span>${LANG_LABEL[lang()]}</span>${ic('chev', 14)}</button></div>
+      <div class="srow tgl"><div><b>Pronunciation</b><span>Show Tanglish / romanised text under lyrics (Tamil, Hindi, Telugu, Korean and more)</span></div><button class="sw" id="sTl" role="switch" aria-label="Pronunciation" aria-checked="${lyTl()}"></button></div>
     </section>
     <section class="sgrp glass"><h3>Server</h3>
       <label class="srow"><div><b>API base URL</b><span>Where your Thirai server is running</span></div><input id="sBase" value="${esc(base())}" spellcheck="false" autocapitalize="off"></label>
       <label class="srow"><div><b>API key</b><span>Only needed if the server has API_KEY set</span></div><input id="sKey" type="password" value="${esc(store.get('key', ''))}" placeholder="Optional" autocomplete="off"></label>
     </section>
     <section class="sgrp glass"><h3>Downloads</h3>
-      <label class="srow"><div><b>Format</b><span>Used for new downloads</span></div><select id="sFmt">${['mp3','m4a','opus','flac','wav','best'].map(f => `<option ${f === store.get('fmt', 'mp3') ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
+      <div class="srow"><div><b>Format</b><span>Used for new downloads</span></div><button class="spick" id="sFmt"><span>${store.get('fmt', 'mp3').toUpperCase()}</span>${ic('chev', 14)}</button></div>
       <div class="srow"><div><b>Stored offline</b><span>${dls.length} song${dls.length === 1 ? '' : 's'}${dsz ? ' · ' + fmtSize(dsz) : ''}</span></div><button class="btn ghost" data-view="downloads">Manage</button></div>
     </section>
     <section class="sgrp glass"><h3>Data</h3>
@@ -2359,9 +2411,18 @@ function renderSettings(){
   $('sUser').onclick = () => askUsername(() => { closeModal(); toast('Username saved'); if (view === 'settings') renderSettings(); });
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
   $('sKey').onchange = e => store.set('key', e.target.value);
-  $('sTl').onchange = e => { store.set('lytl', e.target.value); toast(e.target.value === '1' ? 'Pronunciation on' : 'Pronunciation off'); };
-  $('sLang').onchange = e => { applyLang(e.target.value); toast('Language set to ' + LANG_LABEL[e.target.value]); };
-  $('sFmt').onchange = e => { store.set('fmt', e.target.value); toast('Format set to ' + e.target.value); };
+  $('sTl').onclick = e => { const on = !lyTl(); store.set('lytl', on ? '1' : '0'); e.currentTarget.setAttribute('aria-checked', on); toast(on ? 'Pronunciation on' : 'Pronunciation off'); };
+  $('sLang').onclick = async () => {
+    const v = await pickDialog({ title: 'Music language', options: LANGS.map(l => ({ v: l, label: LANG_LABEL[l] })), value: lang() });
+    if (!v || v === lang()) return;
+    applyLang(v); toast('Language set to ' + LANG_LABEL[v]); if (view === 'settings') renderSettings();
+  };
+  $('sFmt').onclick = async () => {
+    const cur = store.get('fmt', 'mp3');
+    const v = await pickDialog({ title: 'Download format', options: ['mp3','m4a','opus','flac','wav','best'].map(f => ({ v: f, label: f.toUpperCase() })), value: cur });
+    if (!v || v === cur) return;
+    store.set('fmt', v); toast('Format set to ' + v.toUpperCase()); if (view === 'settings') renderSettings();
+  };
   $('sRef').onclick = () => { homeData = null; for (const k in entCache) delete entCache[k]; toast('Refreshing…'); show('home'); loadHome(true); };
   $('sClr').onclick = () => { recent = []; acct.send('DELETE', '/isai/library/recent'); toast('Cleared'); };
   $('sWipe').onclick = confirmClearData;
@@ -3170,7 +3231,7 @@ function renderDownloads(){
   if (dlFocus) { dq.focus(); dq.setSelectionRange(dq.value.length, dq.value.length); dlFocus = false; }
   const c = $('dlClear');
   if (c) c.onclick = async () => {
-    if (!confirm('Delete all downloaded songs from this device?')) return;
+    if (!(await askConfirm({ title: 'Delete all downloads?', msg: 'All downloaded songs will be removed from this device.', ok: 'Delete all', danger: true }))) return;
     try { await idb.clear(); dropAllExtras(); dls = []; for (const k in artProf) delete artProf[k]; for (const k in dlPlaylists) delete dlPlaylists[k]; saveDlPlaylists(); } catch (e) { toast(e.message, true); }
     renderDownloads();
   };
@@ -3428,11 +3489,11 @@ function renderActivity(){
     ${histTotal > hist.length ? '<button class="pill amore" data-actmore="hist">Show more</button>' : ''}</div>`;
   markPlaying();
 }
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   const r = e.target.closest('[data-actr]'); if (r) { actRange = r.dataset.actr; store.set('actrange', actRange); return renderActivity(); }
   const m = e.target.closest('[data-actmore]'); if (m) { if (m.dataset.actmore === 'top') actTopN += 15; else actHistN += 30; return renderActivity(); }
   if (e.target.closest('#actClr')) {
-    if (!confirm('Clear all listening activity (history, top artists and listening time)?')) return;
+    if (!(await askConfirm({ title: 'Clear listening activity?', msg: 'This clears your history, top artists and listening time.', ok: 'Clear', danger: true }))) return;
     lplays = []; ltracks = {}; ltime = { d: {}, h: new Array(24).fill(0) }; sess = { id: null, sec: 0, logged: false, last: 0 };
     acct.send('DELETE', '/isai/activity'); ltimeSent = blankTime(); actLoaded = true;
     return renderActivity();
@@ -3569,7 +3630,7 @@ function paintShare(pl, msg){
     }
     if (e.target.closest('#shNative')) { try { await navigator.share({ title: pl.name, text: pl.name + ' on Isai', url: shareUrl(pl) }); } catch {} return; }
     if (e.target.closest('#shNew')) {
-      if (!confirm('Reset the link? The current link will stop working.')) return;
+      if (!(await askConfirm({ title: 'Reset link?', msg: 'The current link will stop working.', ok: 'Reset link', danger: true }))) return;
       const r = await acct.now('POST', `/isai/playlists/${enc(pl.id)}/new-link`);
       if (r.ok) { pl.slug = r.d.slug; toast('New link created'); paintShare(pl); }
       else paintShare(pl, (r.d && r.d.error) || "Couldn't reset the link.");
@@ -3750,8 +3811,9 @@ function paintProfile(){
     ${(!status && !plSec && !statSec) ? '<div class="pempty">Nothing shared yet.</div>' : ''}</div>`;
   hydrate(main);
 }
-function statusHtml(){
-  const { d, own } = profCur, st = d.status;
+const stKey = st => st ? st.track.id + '|' + (st.playing ? 'on' : 'off|' + Math.floor((st.updated || 0) / 60000) + '|' + Math.floor(Date.now() / 60000)) : '';
+function statusBody(){
+  const { d } = profCur, st = d.status;
   let body;
   if (!st) body = '<div class="pempty">Nothing yet. Play a song and it shows up here.</div>';
   else {
@@ -3761,8 +3823,42 @@ function statusHtml(){
       <b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(a => a.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
       </div>`;
   }
-  return `<section class="psec"><div class="psh"><h2>Listening</h2>${visBtn('status')}</div>${body}</section>`;
+  return body;
 }
+function statusHtml(){
+  return `<section class="psec" id="pStatus" data-k="${esc(stKey(profCur.d.status))}"><div class="psh"><h2>Listening</h2>${visBtn('status')}</div><div class="sbody">${statusBody()}</div></section>`;
+}
+/* repaint only the Listening card when something changed (no full profile reload) */
+function refreshStatus(){
+  const sec = $('pStatus'); if (!sec || !profCur) return;
+  const k = stKey(profCur.d.status); if (sec.dataset.k === k) return;
+  const prevTrack = sec.dataset.k.split('|')[0], same = prevTrack === k.split('|')[0];
+  sec.dataset.k = k;
+  const b = sec.querySelector('.sbody'); if (!b) return;
+  b.innerHTML = statusBody(); hydrate(b);
+  b.classList.remove('swap', 'tick'); void b.offsetWidth; b.classList.add(same ? 'tick' : 'swap');
+}
+function ownLiveStatus(){
+  if (!profCur || !profCur.own || !$('pStatus') || typeof current === 'undefined' || !current) return;
+  const playing = !!(a && !a.paused && !loading), st = profCur.d.status;
+  if (st && st.track && st.track.id === current.id && !!st.playing === playing) { if (playing) st.updated = Date.now(); return; }
+  profCur.d.status = { track: slim(current), playing, updated: Date.now() };
+  refreshStatus();
+}
+let _stPoll = 0;
+async function pollStatus(){
+  if (document.hidden || _stPoll || !$('pStatus') || !profCur) return;
+  if (profCur.own && current) return;                      // own playback is tracked locally
+  _stPoll = 1; const uname = profCur.uname;
+  try {
+    const r = await acct.now('GET', '/isai/profile/' + enc(uname));
+    if (r.ok && profCur && profCur.uname === uname && $('pStatus')) { profCur.d.status = r.d.status; refreshStatus(); }
+  } catch {}
+  _stPoll = 0;
+}
+setInterval(ownLiveStatus, 1000);
+setInterval(pollStatus, 8000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { ownLiveStatus(); pollStatus(); } });
 function profPlCards(pls){
   return pls.map(p => ({ kind: 'sharedpl', id: p.slug, title: p.name, artist: plural(p.count, 'song'),
     thumbnail: p.thumb ? p.thumb : p.cover ? cov({ id: p.cover.id, thumbnail: p.cover.thumbnail }, 340) : PH }));
@@ -3895,7 +3991,7 @@ async function friendAction(kind){
   if (kind === 'add') r = await acct.now('POST', '/isai/friends/requests', { username: c.uname });
   else if (kind === 'cancel' || kind === 'decline') r = await acct.now('DELETE', '/isai/friends/requests/' + d.request_id);
   else if (kind === 'accept') r = await acct.now('POST', `/isai/friends/requests/${d.request_id}/accept`);
-  else if (kind === 'remove') { if (!confirm(`Remove @${c.uname} from your friends?`)) return; r = await acct.now('DELETE', '/isai/friends/' + enc(c.uname)); }
+  else if (kind === 'remove') { if (!(await askConfirm({ title: 'Remove friend?', msg: `Remove @${c.uname} from your friends?`, ok: 'Remove', danger: true }))) return; r = await acct.now('DELETE', '/isai/friends/' + enc(c.uname)); }
   if (!r) return;
   if (!r.ok) return toast((r.d && r.d.error) || 'Something went wrong', true);
   if (kind === 'add') toast(r.d.state === 'friends' ? `You and @${c.uname} are now friends` : 'Friend request sent');
@@ -4081,6 +4177,37 @@ const qaBtns = (t, rm) => `<span class="qa"><button data-a="like" class="${isLik
 /* ---------- modal ---------- */
 function openModal(html){ const m = $('modal'); clearTimeout(m._ct); m.classList.remove('closing'); delete m.dataset.lock; m.querySelector('.msheet').innerHTML = html; m.hidden = false; return m.querySelector('.msheet'); }
 function closeModal(){ const m = $('modal'); if (m.dataset.lock || m.hidden || m.classList.contains('closing')) return; m.classList.add('closing'); m._ct = setTimeout(() => { m.hidden = true; m.classList.remove('closing'); }, 200); }
+/* on-screen confirm / picker (replaces native confirm() and <select>) */
+let _dlgRes = null;
+function _dlgClose(v){
+  const d = $('dlg'); if (d.hidden || d.classList.contains('closing')) return;
+  const r = _dlgRes; _dlgRes = null;
+  d.classList.add('closing'); clearTimeout(d._ct);
+  d._ct = setTimeout(() => { d.hidden = true; d.classList.remove('closing'); }, 180);
+  if (r) r(v);
+}
+function _dlgOpen(html, cls){
+  if (_dlgRes) { const r = _dlgRes; _dlgRes = null; r(null); }
+  const d = $('dlg'), sh = d.querySelector('.dsheet'); clearTimeout(d._ct);
+  d.classList.remove('closing'); sh.className = 'dsheet glass' + (cls ? ' ' + cls : ''); sh.innerHTML = html; d.hidden = false;
+  return new Promise(res => { _dlgRes = res; });
+}
+function askConfirm({ title, msg = '', ok = 'Confirm', cancel = 'Cancel', danger = false }){
+  const p = _dlgOpen(`<h3>${esc(title)}</h3>${msg ? `<p>${esc(msg)}</p>` : ''}<div class="dbtns"><button class="btn ghost" data-dno>${esc(cancel)}</button><button class="btn${danger ? ' danger' : ''}" data-dyes>${esc(ok)}</button></div>`);
+  const b = $('dlg').querySelector('[data-dyes]'); if (b) b.focus();
+  return p.then(v => v === true);
+}
+function pickDialog({ title, options, value }){
+  const p = _dlgOpen(`<h3>${esc(title)}</h3>` + options.map(o => `<button class="dopt${String(o.v) === String(value) ? ' on' : ''}" data-dv="${esc(String(o.v))}"><span>${esc(o.label)}</span>${String(o.v) === String(value) ? ic('check', 18) : ''}</button>`).join(''), 'pick');
+  return p;
+}
+$('dlg').addEventListener('click', e => {
+  if (e.target.id === 'dlg') return _dlgClose(null);
+  if (e.target.closest('[data-dno]')) return _dlgClose(false);
+  if (e.target.closest('[data-dyes]')) return _dlgClose(true);
+  const o = e.target.closest('[data-dv]'); if (o) _dlgClose(o.dataset.dv);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('dlg').hidden) { e.stopImmediatePropagation(); _dlgClose(null); } }, true);
 function promptName({ title, value = '', cta, onOk }){
   openModal(`<h3>${esc(title)}</h3><input id="mIn" class="minp" maxlength="80" value="${esc(value)}" placeholder="Playlist name" autocomplete="off"><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="mOk">${esc(cta)}</button></div>`);
   const inp = $('mIn'); inp.focus(); inp.select();
@@ -4257,7 +4384,7 @@ async function ytmConnect(run){
 async function ytmUpload(pl){
   const ids = (pl.tracks || []).map(t => t.id).filter(Boolean);
   if (!ids.length) return toast('Nothing to upload yet', true);
-  if (pl.ytmId && !confirm(`"${pl.name}" was already uploaded to YouTube Music. Upload another copy?`)) return;
+  if (pl.ytmId && !(await askConfirm({ title: 'Upload another copy?', msg: `"${pl.name}" was already uploaded to YouTube Music.`, ok: 'Upload' }))) return;
   const run = ++spRun;
   const msg = (h, body, btns = spClose) => spSet(run, `<h3>${h}</h3>${body}<div class="mbtns">${btns}</div>`);
   const link = u => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">Open in YouTube Music</a>`;
@@ -4392,7 +4519,7 @@ function renderUserPl(id){
   $('uShare').onclick = () => openShare(pl);
   $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, { id: pl.id, label: pl.name }) : toast('Nothing to download yet');
   $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
-  $('amenu').onclick = e => {
+  $('amenu').onclick = async e => {
     const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
     const k = m.dataset.m;
     if (k === 'shuffle') { setShuffle(true); playFrom(key, Math.floor(Math.random() * tracks.length), false); }
@@ -4402,7 +4529,7 @@ function renderUserPl(id){
     else if (k === 'reorder') { plReorder = id; renderUserPl(id); }
     else if (k === 'sync') syncPl(pl);
     else if (k === 'find') show('search');
-    else if (k === 'del' && confirm(`Delete "${pl.name}"?`)) { playlists = playlists.filter(p => p.id !== id); savePl(); if (dlPlaylists[id]) { delete dlPlaylists[id]; saveDlPlaylists(); } toast('Playlist deleted'); goBack(); }
+    else if (k === 'del') { if (!(await askConfirm({ title: 'Delete playlist?', msg: `"${pl.name}" will be permanently deleted.`, ok: 'Delete', danger: true }))) return; playlists = playlists.filter(p => p.id !== id); savePl(); if (dlPlaylists[id]) { delete dlPlaylists[id]; saveDlPlaylists(); } toast('Playlist deleted'); goBack(); }
   };
   if (plReorder === id) { bindReorder(pl); $('roDone').onclick = () => { plReorder = null; renderUserPl(id); }; }
   if (tracks[0]) tintFrom(tracks[0]);
