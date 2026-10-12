@@ -766,7 +766,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
   #modal{place-items:end center;padding:0}
   .msheet{width:100%;border-radius:22px 22px 0 0;padding-bottom:calc(20px + var(--sab))}
   .libact .btn{flex:1;justify-content:center}
-  .libact .impbtn{flex:1}.impbtn .impl{flex:1;padding-left:12px;padding-right:8px}
+  .libact #impAny{flex:1}
 }
 
 /* ---- lyrics ---- */
@@ -2362,15 +2362,13 @@ function renderLiked(){
   lists.liked = liked; names.liked = 'Liked songs'; listKey = 'liked';
   const pc = plCards();
   $('main').innerHTML = `<div class="pg"><h1 class="t">Library</h1>
-    <div class="libact"><button class="btn" id="plNew">${ic('plus', 16)} New playlist</button><div class="btn ghost impbtn" id="impBtn" role="group" aria-label="Import"><button type="button" class="impl" id="impAny">Import</button><button type="button" class="impi" id="spImp" title="Import from Spotify" aria-label="Import from Spotify">${IMP_SP}</button><button type="button" class="impi" id="plImp" title="Import from YouTube Music" aria-label="Import from YouTube Music">${IMP_YT}</button></div></div>
+    <div class="libact"><button class="btn" id="plNew">${ic('plus', 16)} New playlist</button><button class="btn ghost" id="impAny">Import</button></div>
     <h3 class="sec0">Playlists</h3>
     ${pc.length ? gridHtml('uplist', pc) : '<p class="qmsg">No playlists yet. Create one, or paste the link of a public YouTube Music playlist to import it.</p>'}
     ${saved.length ? `<h3 class="sec0">Saved</h3>${gridHtml('saved', saved)}` : ''}
     <div class="lh"><h3 class="sec0">Liked songs</h3>${liked.length ? '<button class="pill" id="dlLiked">Download all</button>' : ''}</div>
     ${liked.length ? liked.map(lrow).join('') : '<p class="qmsg">Nothing here yet. Tap the heart on a song, or save an album or artist.</p>'}</div>`;
   $('plNew').onclick = () => promptName({ title: 'New playlist', cta: 'Create', onOk: v => { createPlaylist(v); toast(`Created "${v}"`); if (view === 'liked') renderLiked(); } });
-  $('plImp').onclick = openImport;
-  $('spImp').onclick = () => openSpotifyImport();
   $('impAny').onclick = () => {
     const sh = openModal(`<h3>Import playlist</h3>
       <button class="plr" data-imp="sp"><span class="plc">${IMP_SP}</span><span class="qm"><b>Spotify</b><span>Playlist, album or song link, or your data export</span></span></button>
