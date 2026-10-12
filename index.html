@@ -1286,26 +1286,30 @@ body.offline .tr.nodl{opacity:.38}
 .lychips button.tlb{margin-left:4px}
 </style>
 <style>
-#instpage{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#instpage{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.66);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 #instpage.on{display:flex}
 #instpage [hidden],#sInstRow[hidden]{display:none!important}
-#instpage .ibox{width:100%;max-width:460px;max-height:92vh;overflow:auto;background:#141419;border:1px solid var(--line);border-radius:24px;padding:26px 22px 22px;position:relative}
-#instpage .ix{position:absolute;top:12px;right:14px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);color:var(--fg);font-size:18px}
-#instpage .ihead{text-align:center;margin-bottom:18px}
-#instpage .ihead img{width:68px;height:68px;border-radius:16px;margin-bottom:10px}
-#instpage h2{font-size:22px;margin:0 0 4px}
-#instpage .ihead p{color:var(--mute);font-size:14px;margin:0}
-#instpage .icard{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:16px;margin-top:12px}
-#instpage .icard.me{border-color:rgba(255,255,255,.35)}
-#instpage .icard h3{font-size:15px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
-#instpage .icard .tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#fff;color:#000;border-radius:999px;padding:2px 8px}
-#instpage .icard p{color:var(--mute);font-size:13px;margin:0 0 12px;line-height:1.45}
-#instpage .icard .btn{width:100%;justify-content:center;text-decoration:none}
-#instpage ol{margin:0;padding:0 0 0 20px;color:var(--fg);font-size:14px;line-height:1.55}
-#instpage ol li{margin:0 0 7px}
+#instpage .ibox{width:100%;max-width:400px;max-height:92vh;overflow:auto;overscroll-behavior:contain;background:rgba(22,22,28,.96);border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:30px 22px 22px;position:relative;box-shadow:0 30px 80px rgba(0,0,0,.55);animation:mpop .42s var(--ease) both}
+#instpage .ix{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.07);color:var(--mute);font-size:14px;display:grid;place-items:center;transition:background-color .25s var(--ease),color .25s var(--ease)}
+#instpage .ix:hover{background:rgba(255,255,255,.14);color:#fff}
+#instpage .ihead{text-align:center;margin-bottom:22px}
+#instpage .ihead img{width:64px;height:64px;border-radius:15px;margin:0 auto 14px;box-shadow:0 10px 28px rgba(0,0,0,.45)}
+#instpage h2{font-size:21px;font-weight:800;letter-spacing:-.01em;margin:0 0 4px}
+#instpage .ihead p{color:var(--mute);font-size:13px;margin:0}
+#instpage .icard{padding:18px 0 0;margin-top:18px;border-top:1px solid rgba(255,255,255,.08)}
+#instpage .ihead+.icard{padding:0;margin:0;border-top:0}
+#instpage .icard h3{font-size:13px;font-weight:700;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+#instpage .icard .tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.12);color:var(--fg);border-radius:999px;padding:2px 8px}
+#instpage .icard p{color:var(--mute);font-size:13px;margin:0 0 14px;line-height:1.5}
+#instpage .icard .btn{width:100%;height:44px;justify-content:center;text-decoration:none;font-size:14px}
+#instpage .icard .btn+.btn{margin-top:8px}
+#instpage ol{margin:0;padding:0;list-style:none;counter-reset:s;color:var(--fg);font-size:13.5px;line-height:1.45}
+#instpage ol li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;margin:0 0 11px}
+#instpage ol li:last-child{margin-bottom:0}
+#instpage ol li::before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.09);color:var(--mute);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:-1px}
 #instpage ol b{font-weight:600}
-#instpage .isub{color:var(--mute);font-size:12px;margin-top:10px;line-height:1.4}
-#instpage .shr{display:inline-block;vertical-align:-3px;width:17px;height:17px}
+#instpage .isub{color:var(--mute);font-size:12px;margin-top:12px;line-height:1.5;text-align:center}
+#instpage .shr{display:inline-block;vertical-align:-3px;width:16px;height:16px}
 </style>
 </head>
 <body>
@@ -1378,23 +1382,20 @@ body.offline .tr.nodl{opacity:.38}
 
 <div id="instpage" role="dialog" aria-modal="true" aria-label="Install Isai"><div class="ibox">
   <button class="ix" id="instX" aria-label="Close">✕</button>
-  <div class="ihead"><img src="/apple-touch-icon.png" alt=""><h2>Install Isai</h2><p>Get the app on your phone</p></div>
+  <div class="ihead"><img src="/apple-touch-icon.png" alt=""><h2>Install Isai</h2><p>Add the app to your phone</p></div>
   <div class="icard" id="instAndroid">
     <h3>Android <span class="tag" id="instAndTag" hidden>Your device</span></h3>
-    <p>Download the Isai app (APK). Plays in the background with media controls and notifications.</p>
+    <p>Background playback with media controls and notifications.</p>
     <a class="btn" id="instApk" href="https://github.com/nithinana/isai-app/releases/download/v1.0_publicbeta/isai-debug.apk" download>Download APK</a>
-    <div class="isub">After it downloads, open the file and tap Install. If Android blocks it, allow “Install unknown apps” for your browser when asked.</div>
-    <button class="btn ghost" id="instPwa" style="margin-top:10px" hidden>Or install as web app</button>
+    <button class="btn ghost" id="instPwa" hidden>Or install as web app</button>
+    <div class="isub">Open the file and tap Install. If Android blocks it, allow “Install unknown apps” for your browser.</div>
   </div>
   <div class="icard" id="instIos">
     <h3>iPhone &amp; iPad <span class="tag" id="instIosTag" hidden>Your device</span></h3>
-    <p>Install Isai as an app straight from Safari. No App Store needed.</p>
     <ol>
-      <li>Open <b>isai.thirai.uk</b> in <b>Safari</b> (it won’t work from Chrome or in-app browsers).</li>
-      <li>Tap the <b>Share</b> button <svg class="shr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg> at the bottom (or top right on iPad).</li>
-      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
-      <li>Tap <b>Add</b> in the top right.</li>
-      <li>Open <b>Isai</b> from your Home Screen.</li>
+      <li><span>Open <b>isai.thirai.uk</b> in <b>Safari</b></span></li>
+      <li><span>Tap <b>Share</b> <svg class="shr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg> then <b>Add to Home Screen</b></span></li>
+      <li><span>Tap <b>Add</b>, then open <b>Isai</b> from your Home Screen</span></li>
     </ol>
   </div>
 </div></div>
