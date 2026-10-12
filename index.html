@@ -1375,6 +1375,32 @@ html{scroll-behavior:smooth}
 #instpage .isub{color:var(--mute);font-size:12px;margin-top:12px;line-height:1.5;text-align:center}
 #instpage .shr{display:inline-block;vertical-align:-3px;width:16px;height:16px}
 </style>
+<style>
+/* offline mode / incognito / device storage */
+.offpill,.incpill{cursor:pointer}
+.incpill{display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(167,139,250,.16);border:1px solid rgba(167,139,250,.5);color:#e0d6ff;font-size:13px;font-weight:700;white-space:nowrap}
+.incpill i{width:8px;height:8px;border-radius:50%;background:#a78bfa}
+body.incog .incpill{display:inline-flex}
+@media(max-width:720px){.top{gap:8px}.offpill,.incpill{padding:5px 10px;font-size:12px}}
+.stor{border-radius:18px;padding:14px 16px;margin:10px 0 12px}
+.stt{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.stt b{font-size:15px;font-weight:700}
+.stt span{color:var(--mute);font-size:13px;font-variant-numeric:tabular-nums}
+.stt span.low{color:#ffb454;font-weight:700}
+.stbar{display:flex;height:10px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;margin:12px 0 10px}
+.stbar i{display:block;height:100%;min-width:0;transition:width .5s var(--ease)}
+.stbar i+i{margin-left:1px}
+.stl i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:baseline}
+.stbar .sd,.stl .sd{background:#fff}
+.stbar .so,.stl .so{background:#8b8b9c}
+.stl .sf{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3)}
+.stl{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--mute)}
+.stl b{color:var(--fg);font-weight:600;margin-left:3px}
+.stw{margin:10px 0 0;font-size:13px;color:#ffb454}
+.dlmode{display:flex;align-items:center;justify-content:space-between;gap:16px;border-radius:18px;padding:12px 16px;margin:0 0 14px}
+.dlmode b{display:block;font-size:15px;font-weight:600}
+.dlmode span{display:block;color:var(--mute);font-size:13px;margin-top:2px}
+</style>
 </head>
 <body>
 <div id="bg"></div>
@@ -1480,7 +1506,8 @@ html{scroll-behavior:smooth}
   <button data-view="profile" id="navProfile" title="Profile" aria-label="Profile"><span data-ic="user"></span></button>
 </aside>
 <header class="top">
-  <span id="offpill" class="offpill" role="status" aria-live="polite"><i></i>You're offline</span>
+  <span id="offpill" class="offpill" role="status" aria-live="polite" data-view="settings" title="Offline settings"><i></i><span id="offtxt">You're offline</span></span>
+  <span id="incpill" class="incpill" role="status" aria-live="polite" data-view="settings" title="Incognito settings"><i></i>Incognito</span>
   <a class="logo" id="logo" title="Home"><img src="https://thirai.uk/static/thiraiwhite.png" alt="Thirai"></a>
   <div class="sbx" id="sbx"><input id="hq" placeholder="Search songs, albums, artists, playlists" autocomplete="off" enterkeyhint="search"><button class="sbi" id="sbtn" data-ic="search" aria-label="Search"></button></div>
 </header>
@@ -1547,6 +1574,50 @@ const store = {
   set(k, v){ try { localStorage.setItem(k, v) } catch {} }
 };
 const jget = (k, d) => { try { return JSON.parse(store.get(k, '')) ?? d } catch { return d } };
+
+/* ---------- device modes: Offline mode + Incognito ---------- */
+const MODE = {
+  off: store.get('offmode', '0') === '1',                                                   // Offline mode: kept until you turn it off
+  inc: (() => { try { return sessionStorage.getItem('incog') === '1'; } catch { return false; } })()   // Incognito: ends when Isai is closed
+};
+const isOnline = () => navigator.onLine && !MODE.off;
+/* in Offline mode no request leaves the device (blob:/data: downloads still work) */
+(() => {
+  const realFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    if (MODE.off && window.__unlocked) {
+      let u = ''; try { u = typeof input === 'string' ? input : ((input && input.url) || String(input)); } catch {}
+      if (/^https?:/i.test(u)) return Promise.reject(new TypeError('Offline mode is on'));
+    }
+    return realFetch(input, init);
+  };
+})();
+function syncModeUI(){
+  document.body.classList.toggle('incog', MODE.inc);
+  const op = $('offpill'); if (op) { const t = $('offtxt'); if (t) t.textContent = MODE.off ? 'Offline mode' : "You're offline"; }
+  [['sOff', MODE.off], ['dlOff', MODE.off], ['sInc', MODE.inc]].forEach(([id, v]) => { const e = $(id); if (e) e.setAttribute('aria-checked', v ? 'true' : 'false'); });
+}
+function setOffMode(on){
+  on = !!on; if (MODE.off === on) return;
+  MODE.off = on; store.set('offmode', on ? '1' : '0');
+  setOnlineUI(); syncModeUI();
+  if (on) {
+    toast('Offline mode on · playing from your downloads');
+    if (NET_ONLY.includes(view)) show('downloads'); else if (view === 'downloads') renderDownloads();
+  } else {
+    toast(navigator.onLine ? 'Offline mode off · back online' : 'Offline mode off · your device has no connection');
+    if (view === 'downloads') renderDownloads();
+  }
+}
+function setIncog(on){
+  on = !!on; if (MODE.inc === on) return;
+  try { actSave(true); } catch {}                                   // commit what was heard before the switch
+  MODE.inc = on;
+  try { on ? sessionStorage.setItem('incog', '1') : sessionStorage.removeItem('incog'); } catch {}
+  sess = { id: null, sec: 0, logged: false, last: 0 };               // start a clean listening session on either side of the switch
+  syncModeUI();
+  toast(on ? 'Incognito on · your listening isn’t saved' : 'Incognito off');
+}
 
 /* lyrics-mode helpers */
 const lyFull = () => $('npv').classList.contains('lyfull');
@@ -1631,7 +1702,7 @@ function pickLang(){
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
 async function api(path){
   if (!window.__unlocked) throw new Error('Sign in required');
-  if (!navigator.onLine) throw new Error("You're offline");
+  if (!isOnline()) throw new Error("You're offline");
   let r;
   try { r = await fetch(base() + path, { headers: hd() }); }
   catch { throw new Error('Cannot reach the API at ' + base() + '. Is the server running?'); }
@@ -1645,7 +1716,7 @@ async function api(path){
 /* Spotify / YouTube Music routes: try the on-device backend first; if it is an older build without the route (404/405), use the public API */
 async function apiFB(path, body){
   if (!window.__unlocked) throw new Error('Sign in required');
-  if (!navigator.onLine) throw new Error("You're offline");
+  if (!isOnline()) throw new Error("You're offline");
   const bases = [base()]; if (bases[0] !== PUBLIC_API) bases.push(PUBLIC_API);
   let last;
   for (let i = 0; i < bases.length; i++) {
@@ -1666,7 +1737,7 @@ async function apiFB(path, body){
 /* lyrics always come from the public API (never the on-device backend) */
 async function apiPublic(path){
   if (!window.__unlocked) throw new Error('Sign in required');
-  if (!navigator.onLine) throw new Error("You're offline");
+  if (!isOnline()) throw new Error("You're offline");
   let r;
   try { r = await fetch(PUBLIC_API + path, { headers: hd() }); }
   catch { throw new Error('Cannot reach the API at ' + PUBLIC_API); }
@@ -1893,7 +1964,7 @@ function pushPlaylists(){
 function savePl(){ clearTimeout(plT); plT = setTimeout(pushPlaylists, 400); queueAutoDl(); return true; }
 function queueAutoDl(){ clearTimeout(autoT); autoT = setTimeout(autoDlAll, 1500); }
 function autoDlAll(){ return;   // auto-download removed
-  if (!acctReady || !dlsReady || !navigator.onLine) return;
+  if (!acctReady || !dlsReady || !isOnline()) return;
   for (const p of playlists) if (p.autodl && p.tracks.length) downloadAll(p.tracks, p.name, { id: p.id, label: p.name }, true);
 }
 const flushPlaylists = () => { pushPlaylists(); return acct.flushed(); };
@@ -1915,7 +1986,7 @@ async function initAccount(){
   } catch (e) {
     toast("Couldn't load your library. Retrying…", true);
     clearTimeout(acctRetryT);
-    acctRetryT = setTimeout(() => { if (!acctReady && window.__unlocked && navigator.onLine) initAccount().then(refreshAccountView); }, 15000);
+    acctRetryT = setTimeout(() => { if (!acctReady && window.__unlocked && isOnline()) initAccount().then(refreshAccountView); }, 15000);
   }
 }
 function requireUsername(){
@@ -2008,7 +2079,7 @@ const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="b
 
 const NET_ONLY = ['home', 'search', 'charts', 'mood', 'entity', 'shared', 'user', 'profile'];
 function show(v, arg, back){
-  if (!navigator.onLine && NET_ONLY.includes(v)) { v = 'downloads'; arg = undefined; toast("You're offline · showing your downloads"); }
+  if (!isOnline() && NET_ONLY.includes(v)) { v = 'downloads'; arg = undefined; toast("You're offline · showing your downloads"); }
   closeNP();
   document.querySelectorAll('body > #backBtn,body > #amenu').forEach(b => b.remove());
   const detail = ['list', 'entity', 'mood', 'upl', 'shared', 'user', 'settings'].includes(v);
@@ -2033,10 +2104,10 @@ new MutationObserver(() => {
 }).observe($('main'), { childList: true, subtree: true });
 function goBack(){ const p = stack.pop() || { v: 'home' }; show(p.v, p.arg, true); }
 /* offline mode: body.offline drives the "You're offline" pill, hides Home/Search and dims songs that aren't downloaded */
-function setOnlineUI(){ document.body.classList.toggle('offline', !navigator.onLine); try { markPlaying(); } catch {} }
+function setOnlineUI(){ document.body.classList.toggle('offline', !isOnline()); try { syncModeUI(); } catch {} try { markPlaying(); } catch {} }
 window.addEventListener('offline', setOnlineUI);
 window.addEventListener('online', setOnlineUI);
-setOnlineUI();
+setOnlineUI(); syncModeUI();
 
 /* ---------- browser / swipe-back: step through the app's own pages, only exit from Home ---------- */
 let hHave = 0, hSkip = false, hPop = false, hFirst = true;
@@ -2300,6 +2371,7 @@ function paintRecs(){
   box.innerHTML = recent + `<div class="pg"><h3 class="sec0" style="margin-top:6px">Browse by mood</h3><div class="moods">${MOOD_DEF.map(([n, a, b]) => `<button class="mood" data-mood="${esc(n)}" style="--a:${a};--b:${b}"><i></i>${esc(n)}</button>`).join('')}</div></div>`;
 }
 function pushRecentSearch(q){
+  if (MODE.inc) return;                                              // Incognito: no recent searches
   store.set('rsearch', JSON.stringify([q, ...jget('rsearch', []).filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 8)));
 }
 function setChip(t){ searchType = t; document.querySelectorAll('.chip[data-type]').forEach(x => x.classList.toggle('on', x.dataset.type === t)); }
@@ -2387,6 +2459,10 @@ function renderSettings(){
     <section class="sgrp glass"><h3>Account</h3>
       <div class="srow"><div><b>Signed in</b><span>Sign out to lock Isai on this device</span></div><button class="btn ghost" id="sOut">Sign out</button></div>
     </section>
+    <section class="sgrp glass"><h3>Modes</h3>
+      <div class="srow tgl"><div><b>Offline mode</b><span>Play only your downloaded songs and stop all network use. Changes you make are saved and sync when you turn it off</span></div><button class="sw" id="sOff" role="switch" aria-label="Offline mode" aria-checked="${MODE.off}"></button></div>
+      <div class="srow tgl"><div><b>Incognito</b><span>Songs you play aren’t added to Listen again, listening activity, your listening status or recent searches. Ends when you close Isai</span></div><button class="sw" id="sInc" role="switch" aria-label="Incognito" aria-checked="${MODE.inc}"></button></div>
+    </section>
     <section class="sgrp glass"><h3>Music</h3>
       <div class="srow"><div><b>Music language</b><span>Customises your home page and moods</span></div><button class="spick" id="sLang" data-v="${lang()}"><span>${LANG_LABEL[lang()]}</span>${ic('chev', 14)}</button></div>
       <div class="srow tgl"><div><b>Pronunciation</b><span>Show Tanglish / romanised text under lyrics (Tamil, Hindi, Telugu, Korean and more)</span></div><button class="sw" id="sTl" role="switch" aria-label="Pronunciation" aria-checked="${lyTl()}"></button></div>
@@ -2405,6 +2481,8 @@ function renderSettings(){
       <div class="srow"><div><b>Listen again</b><span>Clear your recently played history</span></div><button class="btn ghost" id="sClr">Clear</button></div>
       <div class="srow"><div><b>Clear all data</b><span>Delete your playlists, liked songs, saved items and listening history</span></div><button class="btn ghost danger" id="sWipe">Clear data</button></div>
     </section></div>`;
+  $('sOff').onclick = () => setOffMode(!MODE.off);
+  $('sInc').onclick = () => setIncog(!MODE.inc);
   $('sOut').onclick = () => window.__signOut();
   $('sUser').onclick = () => askUsername(() => { closeModal(); toast('Username saved'); if (view === 'settings') renderSettings(); });
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
@@ -2462,7 +2540,7 @@ function syncBadges(){
 }
 function markPlaying(){
   syncBadges();
-  { const off = !navigator.onLine, have = off ? new Set(dls.map(d => d.id)) : null;
+  { const off = !isOnline(), have = off ? new Set(dls.map(d => d.id)) : null;
     document.querySelectorAll('.tr.lrow').forEach(r => r.classList.toggle('nodl', off && !have.has(r.dataset.id))); }
   document.querySelectorAll('.card,.lrow').forEach(c => {
     const on = !!current && c.dataset.id === current.id;
@@ -2471,7 +2549,7 @@ function markPlaying(){
 }
 function playFrom(key, i, open = true){
   queue = lists[key] || []; queueName = names[key] || ''; qi = i;
-  if (!navigator.onLine) {   // offline: only downloaded songs can play, so queue just those
+  if (!isOnline()) {   // offline: only downloaded songs can play, so queue just those
     const have = new Set(dls.map(d => d.id)), cur = queue[i];
     if (!cur || !have.has(cur.id)) { toast("You're offline · this song isn't downloaded", true); return; }
     queue = queue.filter(t => have.has(t.id)); qi = queue.indexOf(cur);
@@ -2513,7 +2591,7 @@ async function playCurrent(startAt = 0){
   try {
     const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
     if (my !== token) return;
-    if (!blob && !navigator.onLine) throw new Error("You're offline · this song isn't downloaded");
+    if (!blob && !isOnline()) throw new Error("You're offline · this song isn't downloaded");
     let url, blobUrl = null;
     if (blob) url = blobUrl = URL.createObjectURL(blob);
     else url = audioUrl(t.id);
@@ -2547,6 +2625,7 @@ async function playCurrent(startAt = 0){
   }
 }
 function addRecent(t){
+  if (MODE.inc) return;                                              // Incognito: no Listen again, no status
   recent = [slim(t), ...recent.filter(r => r.id !== t.id)].slice(0, 20);
   acct.send('POST', '/isai/library/recent', { items: [slim(t)] });
   queueStatus();
@@ -2623,7 +2702,7 @@ const wire = el => {
     }
     repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true);
   };
-  el.onerror = () => { if (el === a && el.src) toast(navigator.onLine ? 'Playback failed. Check that the server is running and try again.' : "You're offline · only downloaded songs can play", true); };
+  el.onerror = () => { if (el === a && el.src) toast(isOnline() ? 'Playback failed. Check that the server is running and try again.' : "You're offline · only downloaded songs can play", true); };
   el.ontimeupdate = () => {
     if (el === a && !pending && !loading && npTab === 'lyrics') lyUpdate();
     if (el === a) msPos();
@@ -2999,7 +3078,7 @@ async function ensureExtras(){
   await loadExtras();
   const todo = missingExtras();
   if (!todo.length) return;
-  if (!window.__unlocked || !navigator.onLine) return;
+  if (!window.__unlocked || !isOnline()) return;
   exMig.busy = true; exMig.on = todo.length > 1; exMig.total = todo.length; exMig.done = 0;
   if (exMig.on && view === 'downloads') renderDownloads();
   const q = todo.slice(), swapped = [];
@@ -3132,6 +3211,30 @@ function openDlGroup(id){
   show('list', key);
 }
 
+/* ---------- device storage (Downloads tab) ---------- */
+let stEst = null, stAt = 0, stDl = -1, stBusy = false;      // stEst: null = not asked yet, false = unsupported
+const stSz = b => fmtSize(b) || '0 KB';
+const dlBytes = () => dls.reduce((n, d) => n + (d.size || 0), 0);
+function storInner(){
+  const dsz = dlBytes(), e = stEst;
+  if (!e || !e.quota) return `<div class="stt"><b>Device storage</b><span>${e === null ? 'Checking…' : 'Not reported by this browser · downloads use ' + stSz(dsz)}</span></div>`;
+  const total = e.quota, used = Math.min(e.usage || 0, total), free = total - used,
+    dl = Math.min(dsz, used), other = used - dl, pc = n => (n / total * 100).toFixed(2),
+    low = free < Math.max(total * .05, 200 * 1048576);
+  return `<div class="stt"><b>Device storage</b><span class="${low ? 'low' : ''}">${stSz(free)} free of ${stSz(total)}</span></div>
+    <div class="stbar" role="img" aria-label="${stSz(free)} free of ${stSz(total)}"><i class="sd" style="width:${pc(dl)}%"></i><i class="so" style="width:${pc(other)}%"></i></div>
+    <div class="stl"><span><i class="sd"></i>Downloads <b>${stSz(dl)}</b></span><span><i class="so"></i>Other app data <b>${stSz(other)}</b></span><span><i class="sf"></i>Free <b>${stSz(free)}</b></span></div>
+    ${low ? '<p class="stw">Storage is almost full. Delete some downloads to make room.</p>' : ''}`;
+}
+async function refreshStorage(force){
+  const dsz = dlBytes();
+  if (stBusy) return;
+  if (!force && stEst !== null && dsz === stDl && Date.now() - stAt < 5000) return;
+  stBusy = true;
+  try { stEst = (navigator.storage && navigator.storage.estimate) ? await navigator.storage.estimate() : false; } catch { stEst = false; }
+  stBusy = false; stAt = Date.now(); stDl = dsz;
+  const el = $('dlStor'); if (el) el.innerHTML = storInner();
+}
 function renderDownloads(){
   const act = Object.values(dlActive), mode = store.get('dlsort', 'home'), q = dlQ.trim().toLowerCase(),
     items = sortDls(mode === 'home' ? 'recent' : mode).filter(t => !q || [t.title, t.artist, t.album].some(x => String(x || '').toLowerCase().includes(q)));
@@ -3142,7 +3245,7 @@ function renderDownloads(){
   let rows = '';
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
   else if (!items.length && q) rows = `<p class="qmsg">No downloads match “${esc(dlQ)}”.</p>`;
-  else if (!items.length && !navigator.onLine) rows = '<div class="offmsg"><b>You\'re offline</b>You have no downloaded songs yet. Reconnect and tap the download icon on any song to keep it for offline listening.</div>';
+  else if (!items.length && !isOnline()) rows = '<div class="offmsg"><b>You\'re offline</b>You have no downloaded songs yet. Reconnect and tap the download icon on any song to keep it for offline listening.</div>';
   else if (!items.length) rows = '<p class="qmsg">Nothing downloaded yet. Tap the download icon on any song and it will be saved here for offline playback.</p>';
   else if (q) rows = items.map(dlrow).join('');
   else if (mode === 'home') {
@@ -3219,11 +3322,15 @@ function renderDownloads(){
   $('main').innerHTML = `<div class="pg">${updBanner}<div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
       <div class="dlhb"><button class="btn ghost" id="dlNew" data-dlnew hidden>↻ Refresh list</button><button class="btn ghost" id="dlProg" data-dlq>See progress</button>${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div></div>
     <p class="dlsub" id="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
-    ${navigator.onLine ? '' : '<div class="offb"><i></i>You\'re offline · playing from your downloads</div>'}
+    <div class="stor glass" id="dlStor">${storInner()}</div>
+    <div class="dlmode glass"><div><b>Offline mode</b><span>Play only your downloads and stop all network use</span></div><button class="sw" id="dlOff" role="switch" aria-label="Offline mode" aria-checked="${MODE.off}"></button></div>
+    ${isOnline() ? '' : `<div class="offb"><i></i>${MODE.off ? 'Offline mode' : 'You\'re offline'} · playing from your downloads</div>`}
     <label class="dlq">${ic('search', 18)}<input id="dlq" placeholder="Search your downloads" autocomplete="off" value="${esc(dlQ)}"></label>
     <div class="dltabs">${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode && !q ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
     <div id="dlSum"></div>
     ${rows}</div>`;
+  $('dlOff').onclick = () => setOffMode(!MODE.off);
+  refreshStorage();
   const dq = $('dlq');
   dq.oninput = () => { dlQ = dq.value; dlFocus = true; renderDownloads(); };
   if (dlFocus) { dq.focus(); dq.setSelectionRange(dq.value.length, dq.value.length); dlFocus = false; }
@@ -3288,7 +3395,7 @@ async function ensureArtistProfiles(){
     if (!artMigDone) { artMigDone = true; store.set('artmig', '1'); if (view === 'downloads') renderDownloads(); }
     return;
   }
-  if (!window.__unlocked || !navigator.onLine) return;
+  if (!window.__unlocked || !isOnline()) return;
   const migrating = !artMigDone;
   artMig.busy = true; artMig.on = migrating; artMig.total = todo.length; artMig.done = 0;
   if (migrating && view === 'downloads') renderDownloads();
@@ -3354,12 +3461,14 @@ function actSave(force){
   lsaved = n; ldirty = false; pushTime();
 }
 function logPlay(t, ts){
+  if (MODE.inc) return;
   ltracks[t.id] = slim(t);
   lplays.push([t.id, ts]);
   if (lplays.length > 20000) lplays = lplays.slice(-20000);
   acct.send('POST', '/isai/plays', { track: slim(t), ts });
 }
 function actTick(){
+  if (MODE.inc) return;                                              // Incognito: no plays, no listening time
   const t = current; if (!t || !a || a.paused || pending) return;
   const ct = a.currentTime;
   if (sess.id !== t.id || (sess.logged && ct + 2 < sess.last)) { actSave(true); sess = { id: t.id, sec: 0, logged: false, last: ct }; }
@@ -4165,7 +4274,7 @@ let stT = 0;
 function queueStatus(){
   clearTimeout(stT);
   stT = setTimeout(() => {
-    if (!acctReady || !current) return;
+    if (!acctReady || !current || MODE.inc) return;
     acct.sendLatest('POST', '/isai/status', { track: slim(current), playing: !!(a && !a.paused && !loading) });
   }, 1500);
 }
@@ -4546,6 +4655,7 @@ function paintDlHead(){
   const s = $('dlsub');
   if (s) { const total = dls.reduce((n, d) => n + (d.size || 0), 0); s.textContent = `${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device`; }
   const n = $('dlNew'); if (n) n.hidden = !dlStale;
+  refreshStorage();
 }
 function paintDlSummary(){
   const host = $('dlSum'); if (!host) return;
@@ -5187,8 +5297,8 @@ updateInstallBtn();
     hideLock();
     if (started) return;
     started = true;
-    const go = () => show(navigator.onLine ? 'home' : 'downloads');
-    if (navigator.onLine) {
+    const go = () => show(isOnline() ? 'home' : 'downloads');
+    if (isOnline()) {
       $('main').innerHTML = '<p class="qmsg" style="padding:56px 24px;text-align:center">Loading your library…</p>';
       initAccount().finally(() => { go(); openDeepLink(); });
     } else go();
@@ -5354,9 +5464,9 @@ updateInstallBtn();
   /* Boot: nothing hits the Isai API until a valid session exists */
   const tok = getTok();
   window.addEventListener('offline', () => { if (!started) return; toast("You're offline · showing your downloads"); if (NET_ONLY.includes(view)) show('downloads'); else if (view === 'downloads') renderDownloads(); });
-  window.addEventListener('online', () => { if (started) { toast('Back online'); if (view === 'downloads') renderDownloads(); } });
+  window.addEventListener('online', () => { if (started && isOnline()) { toast('Back online'); if (view === 'downloads') renderDownloads(); } });
   if (!tok) { showLock(); if (!navigator.onLine) $('lkErr').textContent = "You're offline. Connect to sign in."; return; }
-  if (!navigator.onLine) { startApp(); return; } // offline: skip the check, go straight to downloads
+  if (!isOnline()) { startApp(); return; } // offline: skip the check, go straight to downloads
   fetch(SERVER + '/validate-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok }) })
     .then(r => r.json())
     .then(d => {
