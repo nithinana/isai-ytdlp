@@ -2142,7 +2142,38 @@ const isSaved = e => saved.some(s => s.kind === e.kind && s.id === e.id);
 /* ---------- artist / album links ---------- */
 const artistsOf = t => (t.artists && t.artists.length) ? t.artists : (t.artist ? t.artist.split(/,\s*/).map(n => ({ name: n })) : []);
 const EBADGE = '<i class="exp" title="Explicit" aria-label="Explicit">E</i>';
-const expTag = t => t && t.explicit ? EBADGE : '';
+/* explicit flags: playlist tracks saved earlier (or copies from the server) may not carry the flag, so it is looked up once and remembered on this device */
+let expCache = {}; try { expCache = JSON.parse(localStorage.getItem('expc') || '{}') || {}; } catch {}
+const expSave = () => { try { localStorage.setItem('expc', JSON.stringify(expCache)); } catch {} };
+const isExp = t => !!t && !!(t.explicit || expCache[t.id] === 1);
+const expTag = t => isExp(t) ? EBADGE : '';
+function paintExplicit(root = document){
+  root.querySelectorAll('[data-id]').forEach(r => {
+    if (expCache[r.dataset.id] !== 1) return;
+    const sp = r.querySelector('.qm > span, .pm > span, .pt > span') || (r.classList.contains('card') ? r.querySelector(':scope > span') : null);
+    if (sp && !sp.querySelector('.exp')) sp.insertAdjacentHTML('afterbegin', EBADGE);
+  });
+}
+let expBusy = false;
+async function backfillExplicit(tracks){
+  if (expBusy || !window.__unlocked || !isOnline()) return;
+  const todo = (tracks || []).filter(t => t && t.id && !t.explicit && expCache[t.id] === undefined).slice(0, 80);
+  if (!todo.length) return;
+  expBusy = true; let found = false, i = 0, stop = false;
+  const work = async () => {
+    while (i < todo.length && !stop) {
+      const t = todo[i++];
+      try {
+        const r = (await (await api('/search?limit=8&type=songs&q=' + encodeURIComponent(`${t.title || ''} ${t.artist || ''}`.trim()))).json()).results || [];
+        const hit = r.find(x => x.id === t.id);
+        expCache[t.id] = hit ? (hit.explicit ? 1 : 0) : -1;
+        if (hit && hit.explicit) { found = true; paintExplicit(); }
+      } catch { stop = true; }                      // offline / server busy: try again next time this list opens
+    }
+  };
+  try { await Promise.all([work(), work(), work()]); } finally { expBusy = false; expSave(); }
+  if (found) paintExplicit();
+}
 const artistLinks = t => expTag(t) + artistsOf(t).map(a => a.id ? `<a data-artist="${esc(a.id)}">${esc(a.name)}</a>` : `<a data-aname="${esc(a.name)}">${esc(a.name)}</a>`).join(', ');
 async function firstResult(type, q){
   const r = (await (await api(`/search?limit=1&type=${type}&q=${encodeURIComponent(q)}`)).json()).results;
@@ -3315,7 +3346,13 @@ $('npmore').onclick = () => {
   };
 };
 $('exp').onclick = toggleNP;
-document.querySelector('.np').onclick = e => { if (e.target.closest('a,[data-go]')) return; toggleNP(); };
+document.querySelector('.np').onclick = e => {
+  if (e.target.closest('a,[data-go]')) {
+    if (!isMobile()) return;   // desktop: title/artist still open the album/artist
+    e.preventDefault(); e.stopPropagation();   // mobile pill: any tap just expands the player
+  }
+  toggleNP();
+};
 
 /* ---------- IndexedDB store ---------- */
 const idb = (() => {
@@ -3476,7 +3513,7 @@ async function saveWithExtras(t){
 /* ---------- download ---------- */
 const fmtSize = b => !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 const fmtDate = ts => { const d = new Date(ts), n = new Date(); return d.toDateString() === n.toDateString() ? 'Today ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }); };
-const slim = t => ({ id: t.id, title: t.title, artist: t.artist, artists: t.artists, album: t.album, album_id: t.album_id, thumbnail: t.thumbnail, duration: t.duration, explicit: t.explicit || undefined });
+const slim = t => ({ id: t.id, title: t.title, artist: t.artist, artists: t.artists, album: t.album, album_id: t.album_id, thumbnail: t.thumbnail, duration: t.duration, explicit: isExp(t) || undefined });
 function saveFile(blob, name){
   const url = URL.createObjectURL(blob);
   const el = Object.assign(document.createElement('a'), { href: url, download: name });
@@ -4185,6 +4222,7 @@ async function renderShared(slug){
       ${mine ? '' : `<div class="alib"><button class="btn ${fol ? 'ghost' : ''}" id="shSave" title="${fol ? 'Tap to remove from your library' : 'Keeps it as @' + esc(d.owner || 'their') + '\'s playlist and stays up to date'}">${ic(fol ? 'check' : 'plus', 16)} ${fol ? 'In your library' : 'Add to library'}</button><button class="btn ghost" id="shDup" title="Makes your own editable copy that no longer follows ${esc(d.owner ? '@' + d.owner : 'the original')}">Duplicate as my own</button></div>`}</aside>
       <div class="alb-r"><div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true)).join('') : '<p class="qmsg">This playlist is empty.</p>'}</div></div></div>`;
   hydrate(main); bindPlay(key, tracks.length);
+  backfillExplicit(tracks);
   $('shShare').onclick = async () => {
     if (mine) return openShare(mine);
     const url = slugUrl(slug);
@@ -5059,6 +5097,7 @@ function renderUserPl(id){
       </aside>
       <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `${tracks.length > 1 ? plSortBar(id, mode) : ''}<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, !pl.virtual)).join('') : `<p class="qmsg">${pl.virtual ? 'Nothing here yet. Tap the heart on any song to add it to Liked songs.' : 'This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.'}</p>`}</div>`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
+  backfillExplicit(tracks);
   if ($('uShare')) $('uShare').onclick = () => openShare(pl);
   if ($('plSort')) $('plSort').onclick = () => openPlSort(id);
   $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, dlOpt) : toast('Nothing to download yet');
