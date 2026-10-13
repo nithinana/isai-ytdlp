@@ -60,10 +60,11 @@
       var frac=0, c=0; act.forEach(function(a){ if(a.total>0){ frac+=Math.min(1,a.loaded/a.total); c++; } });
       var pct=-1; if(T>0) pct=Math.round(Math.min(100,(D+frac)/T*100)); else if(c) pct=Math.round(frac/c*100);
       var busy=n>0||jobs.some(function(j){ return !j.stop && (j.todo||[]).length>0; });
+      var sig=n+'|'+pct+'|'+busy+'|'+label+'|'+D+'/'+T; if(!busy&&sig===window.__dlSig) return; window.__dlSig=sig;
       N.downloads(n);
       if(N.downloadStatus) N.downloadStatus(JSON.stringify({busy:busy,n:n,title:n&&act[0].t?act[0].t.title:'',pct:pct,done:D,total:T,label:label}));
     }catch(e){}
-  }, 1500);
+  }, 2500);
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1275,7 +1276,7 @@ html{scroll-behavior:smooth}
 .shacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .merr{color:#ff7a90!important;min-height:1em}
 </style>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>if(!window.IsaiNative){var g=document.createElement('script');g.src='https://accounts.google.com/gsi/client';g.async=true;document.head.appendChild(g);}</script>
 
 <style id="lyfull-css">
 /* ======== lyrics mode (phone): the real player pieces morph into the lyrics layout ======== */
@@ -1439,6 +1440,24 @@ body.incog .incpill{display:inline-flex}
 #notice .nsteps span{display:block;color:var(--mute);font-size:13px;line-height:1.5}
 #notice .btn{width:100%;height:48px;justify-content:center;font-size:15px}
 #notice .nfoot{margin:12px 0 0;text-align:center;color:var(--mute);font-size:12px}
+
+/* ---- app: no Google sign-in ---- */
+.isai-app #lkG,.isai-app #lkRegG,.isai-app #lkGErr,.isai-app #lkRegGErr,.isai-app #lock .or{display:none!important}
+/* ---- Lite mode: fewer effects, less battery + GPU (auto on slow / low-power devices) ---- */
+html.lite{transition:none!important;scroll-behavior:auto!important}
+html.lite *,html.lite *::before,html.lite *::after{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+html.lite .glass,html.lite .menu,html.lite #toast{background:rgba(30,30,38,.96)}
+html.lite #player.glass{background:rgba(24,24,30,.98)}
+html.lite #nav{background:rgba(14,14,20,.98)}
+html.lite .top::before{background:#0d0d11}
+html.lite #modal,html.lite #dlg,html.lite #notice,html.lite #instpage,html.lite #langpick{background:rgba(0,0,0,.82)}
+html.lite #main.enter>*,html.lite .pg>*,html.lite .prof .psec,html.lite .psc .card,html.lite .pplc .card,html.lite .pfull .grid .card,html.lite .pexp .pextra,html.lite #npv.open,html.lite #npv.open>.npl,html.lite #npv.open>.npr{animation:none!important}
+html.lite .cv img{transition:none!important;will-change:auto}
+html.lite .card:hover{transform:none}
+html.lite .card:hover .cv img{transform:none}
+html.lite .ly,html.lite .ly.past{filter:none!important;transition:opacity .25s linear!important}
+html.lite .sk .cv,html.lite .skl,html.lite .sk-av,html.lite .sk-ln{animation:none!important;opacity:.5}
+html.lite .eq i{animation:none;height:8px}
 </style>
 </head>
 <body>
@@ -1766,6 +1785,14 @@ function pickLang(){
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
 /* slow-connection detection (Network Information API where available) */
 const slowNet = () => { const c = navigator.connection; if (!c) return false; return !!c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || '') || (c.downlink > 0 && c.downlink < 1.5); };
+const LITE = () => {
+  const m = store.get('lite', 'auto'); if (m === 'on') return true; if (m === 'off') return false;
+  const dm = navigator.deviceMemory, hc = navigator.hardwareConcurrency;
+  return slowNet() || (!!dm && dm <= 3) || (!!hc && hc <= 4);
+};
+const applyLite = () => { try { document.documentElement.classList.toggle('lite', !!LITE()); } catch {} };
+applyLite();
+try { if (navigator.connection && navigator.connection.addEventListener) navigator.connection.addEventListener('change', applyLite); } catch {}
 /* fetch with a timeout (counted until headers arrive) and one quiet retry on network failure */
 async function fetchT(url, opt, ms, retry){
   for (let n = 0; ; n++) {
@@ -1843,7 +1870,7 @@ function imgErr(el){
   if (!el.src.includes('/cover/')) { el.onerror = () => imgErr(el); el.src = `${base()}/cover/${id}?s=320`; }
   else { el.onerror = () => { el.onerror = null; el.src = PH; }; el.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg'; }
 }
-const imgTag = (t, s, extra = '') => `<img ${extra} loading="lazy" src="${esc(cov(t, s))}" alt="" data-id="${esc(t.id)}" ${t.kind ? 'data-e="1"' : ''} onerror="imgErr(this)">`;
+const imgTag = (t, s, extra = '') => `<img ${extra} loading="lazy" decoding="async" src="${esc(cov(t, s))}" alt="" data-id="${esc(t.id)}" ${t.kind ? 'data-e="1"' : ''} onerror="imgErr(this)">`;
 function setImg(el, t, s){
   const u = cov(t, s); el.dataset.id = t.id; el.onerror = () => imgErr(el);
   if (!el.getAttribute('src')) { el.src = u; return; }
@@ -2288,10 +2315,10 @@ async function fillArtistRecs(){
       if (name && !seen.has(name.toLowerCase())) {
         seen.add(name.toLowerCase());
         artists.push({ name, id: a.id });
-        if (artists.length >= 3) break;
+        if (artists.length >= (LITE() ? 1 : 3)) break;
       }
     }
-    if (artists.length >= 3) break;
+    if (artists.length >= (LITE() ? 1 : 3)) break;
   }
   if (!artists.length) { box.innerHTML = ''; return; }
   /* Show skeleton placeholders while loading */
@@ -2560,6 +2587,9 @@ function renderSettings(){
       <div class="srow tgl"><div><b>Offline mode</b><span>Play only your downloaded songs and stop all network use. Changes you make are saved and sync when you turn it off</span></div><button class="sw" id="sOff" role="switch" aria-label="Offline mode" aria-checked="${MODE.off}"></button></div>
       <div class="srow tgl"><div><b>Incognito</b><span>Songs you play aren’t added to Listen again, listening activity, your listening status or recent searches. Ends when you close Isai</span></div><button class="sw" id="sInc" role="switch" aria-label="Incognito" aria-checked="${MODE.inc}"></button></div>
     </section>
+    <section class="sgrp glass"><h3>Performance</h3>
+      <div class="srow"><div><b>Lite mode</b><span>Turns off blur and animations to save battery and data. Auto switches on for slow connections and low-power phones</span></div><button class="spick" id="sLite"><span>${({ auto: 'Auto', on: 'Lite', off: 'Full' })[store.get('lite', 'auto')] || 'Auto'}</span>${ic('chev', 14)}</button></div>
+    </section>
     <section class="sgrp glass"><h3>Music</h3>
       <div class="srow"><div><b>Music language</b><span>Customises your home page and moods</span></div><button class="spick" id="sLang" data-v="${lang()}"><span>${LANG_LABEL[lang()]}</span>${ic('chev', 14)}</button></div>
       <div class="srow tgl"><div><b>Pronunciation</b><span>Show Tanglish / romanised text under lyrics (Tamil, Hindi, Telugu, Korean and more)</span></div><button class="sw" id="sTl" role="switch" aria-label="Pronunciation" aria-checked="${lyTl()}"></button></div>
@@ -2578,6 +2608,12 @@ function renderSettings(){
       <div class="srow"><div><b>Listen again</b><span>Clear your recently played history</span></div><button class="btn ghost" id="sClr">Clear</button></div>
       <div class="srow"><div><b>Clear all data</b><span>Delete your playlists, liked songs, saved items and listening history</span></div><button class="btn ghost danger" id="sWipe">Clear data</button></div>
     </section></div>`;
+  $('sLite').onclick = async () => {
+    const cur = store.get('lite', 'auto');
+    const v = await pickDialog({ title: 'Lite mode', options: [{ v: 'auto', label: 'Auto' }, { v: 'on', label: 'Lite (always)' }, { v: 'off', label: 'Full (all effects)' }], value: cur });
+    if (!v || v === cur) return;
+    store.set('lite', v); applyLite(); toast('Lite mode: ' + ({ auto: 'Auto', on: 'On', off: 'Off' })[v]); if (view === 'settings') renderSettings();
+  };
   $('sNotice').onclick = showNotice;
   $('sOff').onclick = () => setOffMode(!MODE.off);
   $('sInc').onclick = () => setIncog(!MODE.inc);
@@ -2700,6 +2736,7 @@ async function preloadNext(){
   }
   const i = peekNextIdx(), t = i >= 0 ? queue[i] : null;
   if (!t || t.id === current.id) { releaseEl(pre); pre = null; return; }
+  try { new Image().src = cov(t, 160); if (!LITE()) new Image().src = cov(t, 600); } catch {}   // next song's art is ready before it starts
   if (pre && pre._tid === t.id && !pre._err) return;               // already preloaded
   releaseEl(pre); pre = null;
   try {
@@ -2861,7 +2898,7 @@ function msMeta(t){
   try {
     const art = artistsOf(t).map(x => x.name).join(', ') || t.artist || '';
     MS.metadata = new MediaMetadata({ title: t.title || '', artist: art, album: t.album || '',
-      artwork: [96, 192, 256, 384, 512].map(n => ({ src: new URL(cov(t, n), location.href).href, sizes: n + 'x' + n })) });
+      artwork: ((slowNet() || LITE()) ? [96, 256] : [96, 192, 256, 384, 512]).map(n => ({ src: new URL(cov(t, n), location.href).href, sizes: n + 'x' + n })) });
     document.title = (t.title ? t.title + ' · ' : '') + art;
   } catch {}
 }
@@ -4276,7 +4313,7 @@ function refreshStatus(){
   b.classList.remove('swap', 'tick'); void b.offsetWidth; b.classList.add(same ? 'tick' : 'swap');
 }
 function ownLiveStatus(){
-  if (!profCur || !profCur.own || !$('pStatus') || typeof current === 'undefined' || !current) return;
+  if (document.hidden || !profCur || !profCur.own || !$('pStatus') || typeof current === 'undefined' || !current) return;
   const playing = !!(a && !a.paused && !loading), st = profCur.d.status;
   if (st && st.track && st.track.id === current.id && !!st.playing === playing) { if (playing) st.updated = Date.now(); return; }
   profCur.d.status = { track: slim(current), playing, updated: Date.now() };
@@ -5713,6 +5750,7 @@ updateInstallBtn();
     w.style.transform = `scale(${cw / r.width}, ${ch / r.height})`;
   }
   function renderG(elId, mode){
+    if (window.IsaiNative) return;   // Google sign-in doesn't work inside the app
     const el = $(elId), errEl = $(GERR[mode]);
     let tries = 0;
     const wait = () => {
