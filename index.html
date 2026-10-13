@@ -1401,8 +1401,28 @@ body.incog .incpill{display:inline-flex}
 .dlmode{display:flex;align-items:center;justify-content:space-between;gap:16px;border-radius:18px;padding:12px 16px;margin:0 0 14px}
 .dlmode b{display:block;font-size:15px;font-weight:600}
 .dlmode span{display:block;color:var(--mute);font-size:13px;margin-top:2px}
-.plsort{display:flex;justify-content:flex-end;margin:0 0 8px}
-.plsort .pill svg{transform:rotate(90deg);opacity:.7}
+
+/* ---- queue, song menu, swipe-to-queue ---- */
+.lrow{position:relative;touch-action:pan-y}
+.lrow.swiping{background:rgba(255,255,255,.07)}
+.lrow.swiping>*:not(.swq){transform:translateX(var(--sw,0));transition:none}
+.lrow.swiback>*:not(.swq){transition:transform .28s var(--ease)}
+.swq{position:absolute;left:12px;top:50%;margin-top:-18px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff;opacity:var(--sp,0);transform:scale(calc(.55 + var(--sp,0)*.45));pointer-events:none;transition:background-color .15s,color .15s}
+.lrow.armed .swq,.swq.done{background:#fff;color:#000}
+.swq.done{opacity:1;transform:scale(1)}
+.qh{padding:14px 10px 6px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.qr.qd{box-shadow:inset 3px 0 0 rgba(255,255,255,.55)}
+.smh{display:flex;align-items:center;gap:12px;padding:2px 4px 14px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.smh img{width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--panel);flex:none}
+.plr.danger .plc,.plr.danger b{color:#ff7a90}
+.qa button[data-a="more"]{color:var(--mute)}
+/* playlist sort bar */
+.plsort{display:flex;justify-content:flex-end;margin:0 0 6px;padding:0 0 8px;border-bottom:1px solid var(--line)}
+.plsort .sortb{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;color:var(--mute);font-size:13px;font-weight:600}
+.plsort .sortb span{color:#fff}
+.plsort .sortb svg:last-child{transform:rotate(90deg);opacity:.55}
+.plsort .sortb:hover,.plsort .sortb:active{background:rgba(255,255,255,.09);color:#fff}
+.plr.sel{background:rgba(255,255,255,.08)}
 .plr .ck{margin-left:auto;display:grid;place-items:center;padding-right:6px}
 </style>
 </head>
@@ -1646,6 +1666,11 @@ const ICONS = {
   check:'M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'
 };
 const STROKES = {
+  queue:'<line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="10" y2="18"/><line x1="18" y1="13" x2="18" y2="21"/><line x1="14" y1="17" x2="22" y2="17"/>',
+  list:'<line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+  album:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
+  minusc:'<circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  sort:'<line x1="4" y1="7" x2="14" y2="7"/><line x1="4" y1="12" x2="10" y2="12"/><line x1="4" y1="17" x2="7" y2="17"/><polyline points="16 14 19 17 22 14"/><line x1="19" y1="7" x2="19" y2="17"/>',
   grip:'<line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="16" x2="20" y2="16"/>',
   shuffle:'<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>',
   repeat:'<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',
@@ -2016,6 +2041,7 @@ let dls = []; const dlActive = {}; let offUrl = null;
 let autoT = 0; const autoFailed = new Set();   // auto-download: debounce timer + songs that failed this session (not retried until reload)
 const dlJobs = []; let dlRunning = false, dlStale = false, dlPanelT = 0;   // download queue: playlist jobs + stale-list flag
 let queue = [], qi = -1, token = 0, current = null;
+let queueOwned = false, qEnd = -1;   // user queue: songs added with "Add to queue" sit right after the playing song, at indexes qi+1..qEnd
 let shuffle = false, repeat = 'off', queueName = '', npTab = 'queue', seeking = false;
 const isLiked = id => liked.some(t => t.id === id);
 const isSaved = e => saved.some(s => s.kind === e.kind && s.id === e.id);
@@ -2551,7 +2577,7 @@ function markPlaying(){
   });
 }
 function playFrom(key, i, open = true){
-  queue = lists[key] || []; queueName = names[key] || ''; qi = i;
+  queue = lists[key] || []; queueName = names[key] || ''; qi = i; queueOwned = false; qEnd = -1;
   if (!isOnline()) {   // offline: only downloaded songs can play, so queue just those
     const have = new Set(dls.map(d => d.id)), cur = queue[i];
     if (!cur || !have.has(cur.id)) { toast("You're offline · this song isn't downloaded", true); return; }
@@ -2583,6 +2609,7 @@ function dropPre(){ preTok++; clearTimeout(preT); releaseEl(pre); pre = null; }
 /* index of the song step(1) would go to (a shuffle pick is remembered so step() uses the very same one); -1 = none */
 function peekNextIdx(){
   const len = queue.length; if (!len || qi < 0) return -1;
+  if (qEnd > qi) return qi + 1;   // queued songs always come first, even with shuffle on
   if (shuffle && len > 1) {
     const p = nextPick;
     if (p.q !== queue || p.qi !== qi || p.idx < 0 || p.idx >= len || p.idx === qi) {
@@ -2702,6 +2729,7 @@ function addRecent(t){
 function step(d, auto){
   if (!queue.length) return;
   if (auto) { const now = Date.now(); if (now - lastAuto < 1500) return; lastAuto = now; }   // never double-advance
+  if (d > 0 && qEnd > qi) { qi++; playCurrent(); return; }   // play what the user queued first
   if (shuffle && d > 0 && queue.length > 1) { qi = peekNextIdx(); nextPick.idx = -1; }
   else { const n = qi + d; if (auto && n >= queue.length && repeat === 'off') return; qi = (n + queue.length) % queue.length; }
   playCurrent();
@@ -2827,7 +2855,7 @@ function updateNP(){
   syncLike();
   if ($('npv').classList.contains('open')) renderQueue();
 }
-const qrow = (t, i, kind) => `<div class="qr ${kind === 'q' && i === qi ? 'cur' : ''}" data-i="${i}" data-kind="${kind}" data-id="${esc(t.id)}">
+const qrow = (t, i, kind) => `<div class="qr ${kind === 'q' && i === qi ? 'cur' : ''}${kind === 'q' && qEnd > qi && i > qi && i <= qEnd ? ' qd' : ''}" data-i="${i}" data-kind="${kind}" data-id="${esc(t.id)}">
   <div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
   <div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div><em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 function renderQueue(){
@@ -2835,7 +2863,8 @@ function renderQueue(){
   box.classList.toggle('lyr', npTab === 'lyrics'); $('lyhd').hidden = npTab !== 'lyrics';
   if (npTab === 'lyrics') return loadLyrics();
   if (npTab === 'related') return loadRelated();
-  box.innerHTML = queue.map((t, i) => qrow(t, i, 'q')).join('');
+  const hasQ = qEnd > qi && qi >= 0;
+  box.innerHTML = queue.map((t, i) => (hasQ && i === qi + 1 ? '<div class="qh">Queued</div>' : hasQ && i === qEnd + 1 ? `<div class="qh">Next from ${esc(queueName || 'queue')}</div>` : '') + qrow(t, i, 'q')).join('');
   const c = box.querySelector('.cur'); if (c) box.scrollTop = c.offsetTop;
 }
 async function loadRelated(){
@@ -2864,7 +2893,7 @@ $('npq').onclick = e => {
   if (ly) return lySeek(+ly.dataset.i);
   const r = e.target.closest('.qr'); if (!r) return;
   if (r.dataset.kind === 'r') return playFrom('related', +r.dataset.i, false);
-  qi = +r.dataset.i; playCurrent();
+  const ni = +r.dataset.i; if (ni < qi) qEnd = -1; qi = ni; playCurrent();
 };
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   const up = $('npr').classList.contains('up');
@@ -2910,6 +2939,105 @@ function dragOn(el, o){
   };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
 }
+
+/* ---------- user queue: "Add to queue" ---------- */
+function addToQueue(t){
+  if (!t || !t.id) return;
+  if (!isOnline() && !dls.some(d => d.id === t.id)) return toast("You're offline · this song isn't downloaded", true);
+  if (!current || qi < 0 || !queue.length) {   // nothing playing yet: just start it
+    queue = [t]; queueName = ''; qi = 0; queueOwned = true; qEnd = -1;
+    setTab('queue', true); playCurrent(); toast('Nothing was playing · started this song');
+    return;
+  }
+  if (!queueOwned) { queue = queue.slice(); queueOwned = true; }   // never edit the playlist's own list
+  const pos = (qEnd > qi ? qEnd : qi) + 1;
+  queue.splice(pos, 0, t); qEnd = pos;
+  toast(`Added to queue · ${qEnd - qi} up next`);
+  if ($('npv').classList.contains('open') && npTab === 'queue') renderQueue();
+  schedulePreload(600);
+}
+const songLink = t => 'https://music.youtube.com/watch?v=' + encodeURIComponent(t.id);
+async function shareSong(t){
+  const data = { title: t.title, text: `${t.title}${t.artist ? ' · ' + t.artist : ''}`, url: songLink(t) };
+  if (navigator.share) { try { await navigator.share(data); } catch {} return; }
+  try { await navigator.clipboard.writeText(data.url); toast('Link copied'); } catch { toast(data.url); }
+}
+function pickArtist(t){
+  const as = artistsOf(t);
+  if (as.length < 2) return as[0] ? openArtist(as[0].id, as[0].name) : toast('No artist info for this track', true);
+  const sh = openModal(`<h3>Go to artist</h3>${as.map((a, i) => `<button class="plr act" data-i="${i}"><span class="plc">${ic('user', 20)}</span><span class="qm"><b>${esc(a.name)}</b></span></button>`).join('')}`);
+  sh.onclick = e => { const r = e.target.closest('[data-i]'); if (!r) return; const a = as[+r.dataset.i]; closeModal(); openArtist(a.id, a.name); };
+}
+function openSongMenu(t, o = {}){
+  const items = [
+    ['queue', 'queue', 'Add to queue'],
+    ['pl', 'plus', 'Add to playlist'],
+    o.rm ? ['rm', 'minusc', 'Remove from playlist', true] : null,
+    ['goq', 'list', 'Go to queue'],
+    (t.album_id || t.album) ? ['album', 'album', 'Go to album'] : null,
+    artistsOf(t).length ? ['artist', 'user', 'Go to artist'] : null,
+    ['share', 'share', 'Share'],
+    ['dl', 'dl', 'Download']
+  ].filter(Boolean);
+  const sh = openModal(`<div class="smh"><img src="${esc(cov(t, 120))}" alt=""><div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist || '')}</span></div></div>`
+    + items.map(([k, icn, label, danger]) => `<button class="plr act${danger ? ' danger' : ''}" data-k="${k}"><span class="plc">${ic(icn, 20)}</span><span class="qm"><b>${label}</b></span></button>`).join(''));
+  sh.onclick = e => {
+    const r = e.target.closest('[data-k]'); if (!r) return;
+    const k = r.dataset.k; closeModal();
+    if (k === 'queue') addToQueue(t);
+    else if (k === 'pl') openAddModal([t]);
+    else if (k === 'rm') removeFromPl(t);
+    else if (k === 'goq') { if (!current) return toast('Nothing is playing yet. Play a song or add one to the queue.'); setTab('queue'); openNP(); }
+    else if (k === 'album') openAlbumOf(t);
+    else if (k === 'artist') pickArtist(t);
+    else if (k === 'share') shareSong(t);
+    else if (k === 'dl') download(t, null);
+  };
+}
+/* swipe a song row to the right = add it to the queue (touch) */
+(function(){
+  let g = null;
+  const finish = (row, ok) => {
+    row.classList.remove('swiping'); row.classList.add('swiback'); row.style.removeProperty('--sw');
+    const q = row.querySelector('.swq'); if (q && ok) { q.classList.add('done'); q.innerHTML = ic('check', 20); }
+    setTimeout(() => { row.classList.remove('swiback'); const x = row.querySelector('.swq'); if (x) x.remove(); }, ok ? 650 : 280);
+  };
+  document.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || e.button > 0 || g) return;
+    const row = e.target.closest('.lrow'); if (!row || e.target.closest('button,input')) return;
+    g = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), axis: null, row };
+  });
+  document.addEventListener('pointermove', e => {
+    if (!g || e.pointerId !== g.id) return;
+    const dx = e.clientX - g.x, dy = e.clientY - g.y;
+    if (!g.axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) >= Math.abs(dx) || dx < 0) { g = null; return; }
+      g.axis = 'x'; g.row.classList.remove('swiback'); g.row.classList.add('swiping');
+      const q = document.createElement('span'); q.className = 'swq'; q.innerHTML = ic('queue', 20); g.row.appendChild(q);
+      try { g.row.setPointerCapture(e.pointerId); } catch {}
+    }
+    const d = Math.min(Math.max(dx, 0) * .6, 96), p = Math.min(1, d / 54);
+    g.armed = p >= 1;
+    g.row.style.setProperty('--sw', d + 'px'); g.row.style.setProperty('--sp', p);
+    g.row.classList.toggle('armed', g.armed);
+  });
+  const up = e => {
+    if (!g || e.pointerId !== g.id) return;
+    const G = g; g = null;
+    if (!G.axis) return;
+    noClickUntil = Date.now() + 350;
+    const dx = e.clientX - G.x, fast = dx / Math.max(Date.now() - G.t, 1) > .5;
+    const ok = e.type === 'pointerup' && (G.armed || (fast && dx > 40));
+    G.row.classList.remove('armed');
+    if (ok) {
+      const t = (lists[listKey] || [])[G.row.dataset.i];
+      if (t) { addToQueue(t); try { navigator.vibrate && navigator.vibrate(12); } catch {} }
+    }
+    finish(G.row, ok);
+  };
+  document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+})();
 function snapBack(el){
   el.style.transition = 'transform .28s var(--ease), opacity .28s var(--ease)'; el.style.transform = ''; el.style.opacity = '';
   setTimeout(() => { el.style.transition = ''; }, 320);
@@ -3690,6 +3818,7 @@ document.addEventListener('click', e => {
     if (b.dataset.a === 'save') { saveWithExtras(t).catch(err => toast(err.message, true)); return; }
     if (b.dataset.a === 'pl') return openAddModal([t]);
     if (b.dataset.a === 'rmpl') return removeFromPl(t);
+    if (b.dataset.a === 'more') return openSongMenu(t, { rm: !!b.dataset.rm });
     return b.dataset.a === 'dl' ? download(t, b) : toggleLike(t);
   }
   const c = e.target.closest('.card'); if (!c) return;
@@ -3751,10 +3880,10 @@ function plSorted(pl, mode){
   }
   return out;
 }
-const plSortBar = (id, mode) => `<div class="plsort"><button class="pill" id="plSort" aria-haspopup="dialog">Sort: ${PLSORTS[mode]}${ic('chev', 14)}</button></div>`;
+const plSortBar = (id, mode) => `<div class="plsort"><button class="sortb" id="plSort" aria-haspopup="dialog" title="Sort songs">${ic('sort', 16)}<span>${PLSORTS[mode]}</span>${ic('chev', 12)}</button></div>`;
 function openPlSort(id){
   const cur = plSortGet(id);
-  const sh = openModal(`<h3>Sort by</h3>${Object.entries(PLSORTS).map(([k, v]) => `<button class="plr" data-sort="${k}"><span class="qm"><b>${v}</b></span>${k === cur ? `<span class="ck">${ic('check', 20)}</span>` : ''}</button>`).join('')}<div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
+  const sh = openModal(`<h3>Sort by</h3>${Object.entries(PLSORTS).map(([k, v]) => `<button class="plr${k === cur ? ' sel' : ''}" data-sort="${k}"><span class="qm"><b>${v}</b></span>${k === cur ? `<span class="ck">${ic('check', 20)}</span>` : ''}</button>`).join('')}<div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
   sh.onclick = e => { const b = e.target.closest('[data-sort]'); if (!b) return; plSortSet(id, b.dataset.sort); closeModal(); renderUserPl(id); };
 }
 const likedCard = () => ({ kind: 'uplaylist', id: LIKED_ID, title: 'Liked songs', artist: `Pinned · ${liked.length} song${liked.length === 1 ? '' : 's'}`, thumbnail: LIKED_COVER });
@@ -4362,7 +4491,7 @@ function queueStatus(){
   }, 1500);
 }
 
-const qaBtns = (t, rm) => `<span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart', 18)}</button>${rm ? `<button data-a="rmpl" title="Remove from playlist">${ic('x', 18)}</button>` : `<button data-a="pl" title="Add to playlist">${ic('plus', 18)}</button>`}<button data-a="dl" title="Download">${ic('dl', 18)}</button></span>`;
+const qaBtns = (t, rm) => `<span class="qa"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart', 18)}</button>${rm ? `<button data-a="more" data-rm="1" title="More options" aria-label="More options">${ic('dots', 18)}</button>` : `<button data-a="pl" title="Add to playlist">${ic('plus', 18)}</button><button data-a="more" title="More options" aria-label="More options">${ic('dots', 18)}</button>`}<button data-a="dl" title="Download">${ic('dl', 18)}</button></span>`;
 
 /* ---------- modal ---------- */
 function openModal(html){ const m = $('modal'); clearTimeout(m._ct); m.classList.remove('closing'); delete m.dataset.lock; m.querySelector('.msheet').innerHTML = html; m.hidden = false; return m.querySelector('.msheet'); }
