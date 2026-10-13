@@ -1424,6 +1424,21 @@ body.incog .incpill{display:inline-flex}
 .plsort .sortb:hover,.plsort .sortb:active{background:rgba(255,255,255,.09);color:#fff}
 .plr.sel{background:rgba(255,255,255,.08)}
 .plr .ck{margin-left:auto;display:grid;place-items:center;padding-right:6px}
+
+/* ---- streaming notice ---- */
+#notice{position:fixed;inset:0;z-index:9998;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+#notice.on{display:flex;animation:mfade .35s var(--ease) both}
+#notice .nbox{width:100%;max-width:420px;max-height:92vh;overflow:auto;overscroll-behavior:contain;border-radius:28px;padding:30px 24px 22px;background:rgba(24,24,30,.96);border:1px solid rgba(255,255,255,.1);box-shadow:0 30px 80px rgba(0,0,0,.55);animation:mpop .45s var(--ease) both}
+#notice .nic{width:56px;height:56px;border-radius:18px;margin:0 auto 18px;display:grid;place-items:center;background:rgba(255,180,84,.14);border:1px solid rgba(255,180,84,.35);color:#ffc97a}
+#notice h2{margin:0 0 8px;text-align:center;font-size:22px;font-weight:800;letter-spacing:-.01em}
+#notice .nlead{margin:0 0 22px;text-align:center;color:var(--mute);font-size:14px;line-height:1.55}
+#notice .nsteps{list-style:none;margin:0 0 22px;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:n}
+#notice .nsteps li{counter-increment:n;display:flex;gap:14px;align-items:flex-start;padding:14px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+#notice .nsteps li::before{content:counter(n);flex:none;width:26px;height:26px;border-radius:50%;background:#fff;color:#000;font-size:13px;font-weight:800;display:grid;place-items:center}
+#notice .nsteps b{display:block;font-size:14.5px;font-weight:700;margin-bottom:2px}
+#notice .nsteps span{display:block;color:var(--mute);font-size:13px;line-height:1.5}
+#notice .btn{width:100%;height:48px;justify-content:center;font-size:15px}
+#notice .nfoot{margin:12px 0 0;text-align:center;color:var(--mute);font-size:12px}
 </style>
 </head>
 <body>
@@ -1512,6 +1527,18 @@ body.incog .incpill{display:inline-flex}
       <li><span>Tap <b>Add</b>, then open <b>Isai</b> from your Home Screen</span></li>
     </ol>
   </div>
+</div></div>
+<div id="notice" role="dialog" aria-modal="true" aria-labelledby="ntTitle"><div class="nbox">
+  <div class="nic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.9 4.9l2.8 2.8"/><path d="M16.3 16.3l2.8 2.8"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.9 19.1l2.8-2.8"/><path d="M16.3 7.7l2.8-2.8"/></svg></div>
+  <h2 id="ntTitle">Streaming can be slow</h2>
+  <p class="nlead">The main server is shared by everyone, so playing songs directly can buffer or lag. For the best experience, download your music and play it offline.</p>
+  <ol class="nsteps">
+    <li><div><b>Import your playlists</b><span>Library → Import. Bring them in from Spotify or YouTube Music with a link.</span></div></li>
+    <li><div><b>Download them</b><span>Open a playlist and tap the download button, or choose “Download all”.</span></div></li>
+    <li><div><b>Play offline</b><span>Downloaded songs start instantly, with album art and lyrics, even with no signal.</span></div></li>
+  </ol>
+  <button class="btn" id="ntOk" type="button">I understand</button>
+  <p class="nfoot">You can read this again anytime in Settings.</p>
 </div></div>
 <div id="langpick" role="dialog" aria-modal="true" aria-label="Choose music language"><div class="lpbox">
   <h2>What do you listen to?</h2><p>We'll tailor your home page. You can change this anytime in Settings.</p>
@@ -1644,6 +1671,14 @@ function setIncog(on){
 }
 
 /* lyrics-mode helpers */
+/* streaming notice: shown once (must be acknowledged), reopenable from Settings */
+function showNotice(){ const n = $('notice'); if (n) { n.classList.add('on'); setTimeout(() => $('ntOk').focus(), 60); } }
+function maybeShowNotice(){
+  if (store.get('slowAck', '') === '1' || base() !== PUBLIC_API) return;   // only for the shared main server
+  const lp = $('langpick'); if (lp && lp.classList.contains('on')) return setTimeout(maybeShowNotice, 1500);
+  showNotice();
+}
+$('ntOk').onclick = () => { store.set('slowAck', '1'); $('notice').classList.remove('on'); };
 const lyFull = () => $('npv').classList.contains('lyfull');
 const lyBack = () => $('npr').classList.remove('up');
 const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18.5" cy="12" r="2"/></svg>';
@@ -1729,12 +1764,23 @@ function pickLang(){
   });
 }
 const hd = () => store.get('key', '') ? { 'X-API-Key': store.get('key', '') } : {};
+/* slow-connection detection (Network Information API where available) */
+const slowNet = () => { const c = navigator.connection; if (!c) return false; return !!c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || '') || (c.downlink > 0 && c.downlink < 1.5); };
+/* fetch with a timeout (counted until headers arrive) and one quiet retry on network failure */
+async function fetchT(url, opt, ms, retry){
+  for (let n = 0; ; n++) {
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms);
+    try { const r = await fetch(url, Object.assign({}, opt, { signal: ac.signal })); clearTimeout(tm); return r; }
+    catch (e) { clearTimeout(tm); if (n >= (retry ? 1 : 0) || !isOnline()) throw e; await new Promise(r => setTimeout(r, 1200)); }
+  }
+}
+const LONG_API = /^\/(download|import|spotify|ytm)/;
 async function api(path){
   if (!window.__unlocked) throw new Error('Sign in required');
   if (!isOnline()) throw new Error("You're offline");
   let r;
-  try { r = await fetch(base() + path, { headers: hd() }); }
-  catch { throw new Error('Cannot reach the API at ' + base() + '. Is the server running?'); }
+  try { r = await fetchT(base() + path, { headers: hd() }, LONG_API.test(path) ? 180000 : 30000, !LONG_API.test(path)); }
+  catch { throw new Error(isOnline() ? 'The server is slow or unreachable right now. Check your connection and try again.' : "You're offline"); }
   if (!r.ok) {
     let m = r.statusText;
     try { m = (await r.json()).detail || m } catch {}
@@ -1784,6 +1830,7 @@ const cov = (t, s = 320) => {
   return rawCov(t, s);
 };
 const rawCov = (t, s = 320) => {
+  if (s > 400 && slowNet()) s = 400;
   const u = t.thumbnail || '';
   if (GOOG.test(u)) return u.replace(/=[wsh]\d+[^/]*$/, `=w${s}-h${s}-l90-rj`);
   if (t.kind) return u;
@@ -1803,6 +1850,17 @@ function setImg(el, t, s){
   const im = new Image();                       // keep the old cover until the new one is ready
   im.onload = im.onerror = () => { if (el.dataset.id === t.id) el.src = u; };
   im.src = u;
+}
+/* progressive cover: show the small (already loaded) art straight away, then swap in the sharp one when it arrives */
+function setImgProg(el, t, small, big){
+  const lo = cov(t, small), hi = cov(t, big);
+  const same = el.dataset.id === t.id;
+  el.dataset.id = t.id; el.onerror = () => imgErr(el);
+  if (!same || !el.getAttribute('src')) el.src = lo;
+  if (hi === lo) return;
+  const im = new Image();
+  im.onload = () => { if (el.dataset.id === t.id) el.src = hi; };
+  im.src = hi;
 }
 let tt;
 function toast(msg, err){
@@ -2166,18 +2224,25 @@ function renderHome(){
   fillCont();
   fillArtistRecs();
   if (homeData) return fillHome();
+  const c = jget('homecache', null);
+  if (c && c.lang === lang() && c.d && c.d.sections && c.d.sections.length) {   // show last time's home instantly, refresh in the background
+    homeData = c.d; fillHome(); loadHome(true, true); return;
+  }
   $('rows').innerHTML = skeleton() + skeleton();
   loadHome(false);
 }
 let homeP = null;
-function loadHome(refresh){
+function loadHome(refresh, quiet){
   if (homeP && !refresh) return homeP;
   homeP = (async () => {
     try {
-      homeData = await (await api('/home?lang=' + lang() + (refresh ? '&refresh=true' : ''))).json();
-      if (!homeData.sections.length) throw new Error('No results came back. Try updating yt-dlp and ytmusicapi.');
-      if (view === 'home') renderHome(); else if (view === 'search') paintRecs();
+      const d = await (await api('/home?lang=' + lang() + (refresh && !quiet ? '&refresh=true' : ''))).json();
+      if (!d.sections.length) throw new Error('No results came back. Try updating yt-dlp and ytmusicapi.');
+      homeData = d; store.set('homecache', JSON.stringify({ lang: lang(), d }));
+      if (quiet) { if (view === 'home' && $('rows')) paintSections(d.sections, 's_'); }
+      else if (view === 'home') renderHome(); else if (view === 'search') paintRecs();
     } catch (e) {
+      if (quiet) return;   // keep showing the cached home
       homeData = null;
       if (view === 'home' && $('rows')) { $('rows').innerHTML = `<div class="pg"><p class="err">${esc(e.message)}</p><button class="btn" id="retry">Retry</button></div>`; $('retry').onclick = renderHome; }
       else if (view === 'search' && $('recs')) $('recs').innerHTML = `<p class="qmsg err">${esc(e.message)}</p>`;
@@ -2485,6 +2550,9 @@ function renderSettings(){
     <section class="sgrp glass" id="sInstRow" ${isInstalled() ? 'hidden' : ''}><h3>Get the app</h3>
       <div class="srow"><div><b>Install Isai</b><span>Android app (APK) or add to your iPhone Home Screen</span></div><button class="btn ghost" onclick="window.__openInstall()">Install</button></div>
     </section>
+    <section class="sgrp glass"><h3>Help</h3>
+      <div class="srow"><div><b>Streaming tips</b><span>Why the main server can be slow and how to download playlists for offline listening</span></div><button class="btn ghost" id="sNotice">Read</button></div>
+    </section>
     <section class="sgrp glass"><h3>Account</h3>
       <div class="srow"><div><b>Signed in</b><span>Sign out to lock Isai on this device</span></div><button class="btn ghost" id="sOut">Sign out</button></div>
     </section>
@@ -2510,6 +2578,7 @@ function renderSettings(){
       <div class="srow"><div><b>Listen again</b><span>Clear your recently played history</span></div><button class="btn ghost" id="sClr">Clear</button></div>
       <div class="srow"><div><b>Clear all data</b><span>Delete your playlists, liked songs, saved items and listening history</span></div><button class="btn ghost danger" id="sWipe">Clear data</button></div>
     </section></div>`;
+  $('sNotice').onclick = showNotice;
   $('sOff').onclick = () => setOffMode(!MODE.off);
   $('sInc').onclick = () => setIncog(!MODE.inc);
   $('sOut').onclick = () => window.__signOut();
@@ -2625,6 +2694,10 @@ function peekNextIdx(){
 async function preloadNext(){
   const my = ++preTok;
   if (!current || loading) return;
+  if (slowNet() && !(dls.some(d => d.id === current.id))) {   // slow link: let the current song buffer fully first
+    const b = a.buffered, d = a.duration || 0;
+    if (!d || !b.length || b.end(b.length - 1) < d - 3) { clearTimeout(preT); preT = setTimeout(preloadNext, 6000); return; }
+  }
   const i = peekNextIdx(), t = i >= 0 ? queue[i] : null;
   if (!t || t.id === current.id) { releaseEl(pre); pre = null; return; }
   if (pre && pre._tid === t.id && !pre._err) return;               // already preloaded
@@ -2666,6 +2739,7 @@ async function playCurrent(startAt = 0){
   if (pre && pre._tid !== t.id) { releaseEl(pre); pre = null; }     // keep it only if it's the song we're about to play
 
   $('player').classList.add('on');
+  rememberLast(t);
   setImg($('pimg'), t, 160);
   $('ptitle').textContent = t.title; $('partist').innerHTML = artistLinks(t);
   $('dur').textContent = $('mdur').textContent = '-' + fmt(t.duration);
@@ -2695,6 +2769,8 @@ async function playCurrent(startAt = 0){
       const ok = () => { off(); res(); }, bad = () => { off(); rej(new Error('Could not load this track')); };
       const off = () => { n.removeEventListener('canplay', ok); n.removeEventListener('error', bad); };
       n.addEventListener('canplay', ok); n.addEventListener('error', bad);
+      const to = setTimeout(() => { off(); rej(new Error('Slow connection · tap play to try again')); }, 60000);
+      const clr = () => clearTimeout(to); n.addEventListener('canplay', clr, { once: true }); n.addEventListener('error', clr, { once: true });
       if (n.readyState >= 3) ok();
     });
     if (my !== token) { if (blobUrl) URL.revokeObjectURL(blobUrl); if (n !== standby) releaseEl(n); return; }
@@ -2707,6 +2783,7 @@ async function playCurrent(startAt = 0){
     $('mpp').classList.remove('loading');
     resetSeek(); $('dur').textContent = $('mdur').textContent = '-' + fmt(n.duration || t.duration);
     if (startAt > 1) { try { a.currentTime = startAt; } catch {} }
+    userPaused = false; buffering = false; wdN = 0; wdT = -1;
     await a.play(); setPP(); addRecent(t);
     schedulePreload();
   } catch (e) {
@@ -2718,6 +2795,27 @@ async function playCurrent(startAt = 0){
       if (e.name !== 'AbortError') toast(e.message || 'Could not load this track', true);
     }
   }
+}
+/* ---- last played song: shown in the pill when the app reopens ---- */
+let restorePos = 0, userPaused = false, buffering = false;
+function rememberLast(t, pos){
+  if (MODE.inc) return;
+  store.set('lastTrack', JSON.stringify({ t: slim(t), pos: pos || 0 }));
+}
+function restoreLast(){
+  if (current) return;
+  const o = jget('lastTrack', null);
+  const t = (o && o.t && o.t.id) ? o.t : recent[0];
+  if (!t) return;
+  queue = [t, ...recent.filter(r => r.id !== t.id)]; queueName = 'Listen again'; qi = 0; queueOwned = false; qEnd = -1;
+  current = t; restorePos = (o && o.t && o.t.id === t.id) ? (o.pos || 0) : 0;
+  $('player').classList.add('on');
+  setImg($('pimg'), t, 160);
+  $('ptitle').textContent = t.title; $('partist').innerHTML = artistLinks(t);
+  $('dur').textContent = $('mdur').textContent = '-' + fmt(t.duration);
+  $('cur').textContent = $('mcur').textContent = fmt(restorePos);
+  if (t.duration && restorePos) { const p = restorePos / t.duration; $('seek').value = $('mseek').value = p * 1000; fillRange($('seek')); fillRange($('mseek')); $('mprog').style.width = (p * 100) + '%'; }
+  setPP(); markPlaying(); updateNP(); tint(t); msMeta(t);
 }
 function addRecent(t){
   if (MODE.inc) return;                                              // Incognito: no Listen again, no status
@@ -2738,8 +2836,8 @@ const doNext = () => step(1);
 const doPrev = () => (!loading && a.currentTime > 4) ? (a.currentTime = 0) : step(-1);
 const doPP = () => {
   if (loading || !current) return;   // a new song is loading: don't resume the previous one
-  if (!a.src || a._tid !== current.id) return playCurrent();   // nothing valid loaded for this song (e.g. the load failed): retry it
-  a.paused ? a.play() : a.pause();
+  if (!a.src || a._tid !== current.id) { const p = restorePos; restorePos = 0; userPaused = false; return playCurrent(p); }   // nothing loaded yet (fresh launch / failed load): start it, resuming where it left off
+  if (a.paused) { userPaused = false; a.play().catch(() => playCurrent(a.currentTime || 0)); } else { userPaused = true; a.pause(); }
 };
 function setShuffle(on){ shuffle = on; document.querySelectorAll('#shuf,#mshuf').forEach(b => b.classList.toggle('on', on)); if (current) schedulePreload(600); }
 function doShuf(){ setShuffle(!shuffle); toast('Shuffle ' + (shuffle ? 'on' : 'off')); }
@@ -2778,7 +2876,7 @@ function msPos(force){
 if (MS) {
   const set = (n, f) => { try { MS.setActionHandler(n, f); } catch {} };
   set('play', () => { if (a.paused) doPP(); });
-  set('pause', () => { a.pause(); });
+  set('pause', () => { userPaused = true; a.pause(); });
   set('previoustrack', doPrev);
   set('nexttrack', doNext);
   set('seekbackward', null);   // seek-by-seconds buttons would replace the previous/next song buttons on the lock screen / notification
@@ -2787,9 +2885,11 @@ if (MS) {
   set('stop', () => { a.pause(); });
 }
 const SPIN = '<svg class="ppsp" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M12 3a9 9 0 019 9"/></svg>';
-const setPP = () => { const i = loading ? SPIN : ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
+const setPP = () => { const i = (loading || buffering) ? SPIN : ic(a.paused ? 'play' : 'pause'); $('pp').innerHTML = i; $('mpp').innerHTML = i; lyKick(); msState(); msPos(true); };
 const wire = el => {
   el.onplay = el.onpause = () => { if (el === a) { setPP(); actSave(true); queueStatus(); } };
+  el.onwaiting = () => { if (el === a && !loading && !el.paused) { buffering = true; stallAt = Date.now(); setPP(); } };
+  el.onplaying = el.oncanplay = () => { if (el === a && buffering) { buffering = false; setPP(); } };
   el.onended = () => {
     if (el !== a) return;
     /* a dropped connection can look like 'ended'. If we're far short of the song's real length, resume it instead of skipping */
@@ -2799,8 +2899,14 @@ const wire = el => {
     }
     repeat === 'one' ? (a.currentTime = 0, a.play()) : step(1, true);
   };
-  el.onerror = () => { if (el === a && el.src) toast(isOnline() ? 'Playback failed. Check that the server is running and try again.' : "You're offline · only downloaded songs can play", true); };
+  el.onerror = () => { if (el === a && el.src && !loading && current && isOnline()) {
+      if (errRetry.id !== current.id) errRetry = { id: current.id, n: 0 };
+      if (errRetry.n < 2) { errRetry.n++; return setTimeout(() => playCurrent(Math.max(a.currentTime - 0.5, 0)), 1500 * errRetry.n); }
+    }
+    if (el === a && el.src) toast(isOnline() ? 'Playback failed. Check that the server is running and try again.' : "You're offline · only downloaded songs can play", true); };
   el.ontimeupdate = () => {
+    if (el === a && buffering) { buffering = false; setPP(); }
+    if (el === a && !loading) { const n = Date.now(); if (n - posSaved > 5000) { posSaved = n; rememberLast(current, a.currentTime); } }
     if (el === a && !pending && !loading && npTab === 'lyrics') lyUpdate();
     if (el === a) msPos();
     if (el === a) actTick();
@@ -2814,7 +2920,19 @@ const wire = el => {
     }
   };
 };
+let stallAt = 0, posSaved = 0, wdT = -1, wdN = 0, errRetry = { id: null, n: 0 };
 wire(a); wire(standby);
+/* watchdog: if the song should be playing but time has stopped moving (slow / dropped connection), nudge it, then reload it from where it was */
+setInterval(() => {
+  if (!current || loading || userPaused || !a.src || a._tid !== current.id || a.paused || a.ended) { wdN = 0; return; }
+  const ct = a.currentTime;
+  if (Math.abs(ct - wdT) > 0.05) { wdT = ct; wdN = 0; return; }
+  wdN++;
+  if (!isOnline() && !dls.some(d => d.id === current.id)) return;
+  if (wdN === 3) { try { a.currentTime = ct + 0.01; a.play().catch(() => {}); } catch {} }          // ~6s stuck: gentle nudge
+  else if (wdN >= 6) { wdN = 0; toast('Slow connection · reconnecting…'); playCurrent(Math.max(ct - 0.5, 0)); }   // ~12s stuck: reload from here
+}, 2000);
+addEventListener('online', () => { if (current && !userPaused && a.src && a.paused && !loading && a._tid === current.id) a.play().catch(() => {}); });
 ['seek', 'mseek'].forEach(id => {
   $(id).oninput = () => { seeking = true; fillRange($(id)); };
   $(id).onchange = e => { if (loading) { resetSeek(); seeking = false; return; } const d = a.duration || 0; if (d) a.currentTime = e.target.value / 1000 * d; seeking = false; };
@@ -2848,7 +2966,7 @@ function syncLike(){
 }
 function updateNP(){
   const t = current; if (!t) return;
-  setImg($('npcover'), t, 800);
+  setImgProg($('npcover'), t, 160, 600);
   $('mtitle').textContent = t.title || ''; $('martist').innerHTML = artistLinks(t);
   $('npfrom').textContent = queueName || 'Queue';
   $('npAlbum').style.display = (t.album_id || t.album) ? '' : 'none';
@@ -5512,9 +5630,10 @@ updateInstallBtn();
     started = true;
     const go = () => show(isOnline() ? 'home' : 'downloads');
     if (isOnline()) {
-      $('main').innerHTML = '<p class="qmsg" style="padding:56px 24px;text-align:center">Loading your library…</p>';
-      initAccount().finally(() => { go(); openDeepLink(); });
-    } else go();
+      go();   // never make the user wait for the account on a slow connection
+      initAccount().finally(() => { refreshAccountView(); openDeepLink(); restoreLast(); });
+    } else { go(); restoreLast(); }
+    setTimeout(maybeShowNotice, 700);
     loadArtProfiles().then(() => ensureArtistProfiles());
     loadExtras().then(() => ensureExtras());
   }
