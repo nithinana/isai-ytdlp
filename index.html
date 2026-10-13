@@ -1082,6 +1082,7 @@ html{scroll-behavior:smooth}
 .pav{--h:210;display:grid;place-items:center;width:96px;height:96px;border-radius:50%;flex:none;font-style:normal;font-weight:800;font-size:38px;color:#fff;background:linear-gradient(135deg,hsl(var(--h) 62% 52%),hsl(calc(var(--h) + 48) 58% 32%));box-shadow:0 10px 36px rgba(0,0,0,.35)}
 .pav.xl{width:150px;height:150px;font-size:60px}
 .pav{position:relative;overflow:hidden}
+.exp{display:inline-grid;place-items:center;width:14px;height:14px;margin-right:5px;border-radius:3px;background:rgba(255,255,255,.62);color:#141418;font-style:normal;font-weight:800;font-size:10px;line-height:1;letter-spacing:0;vertical-align:-1px;flex:none}
 .pav .pavi{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .imgprev{display:flex;align-items:center;gap:12px;margin:10px 0 2px;min-height:64px}
 .imgprev img{width:64px;height:64px;object-fit:cover;border-radius:12px;background:rgba(255,255,255,.06)}
@@ -2139,7 +2140,9 @@ const isSaved = e => saved.some(s => s.kind === e.kind && s.id === e.id);
 
 /* ---------- artist / album links ---------- */
 const artistsOf = t => (t.artists && t.artists.length) ? t.artists : (t.artist ? t.artist.split(/,\s*/).map(n => ({ name: n })) : []);
-const artistLinks = t => artistsOf(t).map(a => a.id ? `<a data-artist="${esc(a.id)}">${esc(a.name)}</a>` : `<a data-aname="${esc(a.name)}">${esc(a.name)}</a>`).join(', ');
+const EBADGE = '<i class="exp" title="Explicit" aria-label="Explicit">E</i>';
+const expTag = t => t && t.explicit ? EBADGE : '';
+const artistLinks = t => expTag(t) + artistsOf(t).map(a => a.id ? `<a data-artist="${esc(a.id)}">${esc(a.name)}</a>` : `<a data-aname="${esc(a.name)}">${esc(a.name)}</a>`).join(', ');
 async function firstResult(type, q){
   const r = (await (await api(`/search?limit=1&type=${type}&q=${encodeURIComponent(q)}`)).json()).results;
   return r[0];
@@ -2164,7 +2167,7 @@ function cardHtml(t, key, i, removable){
     <div class="cv">${imgTag(t, 340)}<div class="ov">${ic('play', 40)}</div>
       ${removable ? `<button class="x" data-a="rm" title="Remove">${ic('x')}</button>` : ''}
       <div class="mini"><button data-a="like" class="${isLiked(t.id) ? 'on' : ''}" title="Like">${ic('heart')}</button><button data-a="pl" title="Add to playlist">${ic('plus')}</button><button data-a="dl" title="Download">${ic('dl')}</button></div>
-    </div><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>`;
+    </div><b>${esc(t.title)}</b><span>${expTag(t)}${esc(t.artist)}</span></div>`;
 }
 function rowHtml(title, key, items, removable, label){
   lists[key] = items; names[key] = title;
@@ -3018,7 +3021,7 @@ function updateNP(){
 }
 const qrow = (t, i, kind) => `<div class="qr ${kind === 'q' && i === qi ? 'cur' : ''}${kind === 'q' && qEnd > qi && i > qi && i <= qEnd ? ' qd' : ''}" data-i="${i}" data-kind="${kind}" data-id="${esc(t.id)}">
   <div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
-  <div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div><em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
+  <div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(t.artist)}</span></div><em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 function renderQueue(){
   const box = $('npq');
   box.classList.toggle('lyr', npTab === 'lyrics'); $('lyhd').hidden = npTab !== 'lyrics';
@@ -3140,7 +3143,7 @@ function openSongMenu(t, o = {}){
     ['share', 'share', 'Share'],
     ['dl', 'dl', 'Download']
   ].filter(Boolean);
-  const sh = openModal(`<div class="smh"><img src="${esc(cov(t, 120))}" alt=""><div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist || '')}</span></div></div>`
+  const sh = openModal(`<div class="smh"><img src="${esc(cov(t, 120))}" alt=""><div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(t.artist || '')}</span></div></div>`
     + items.map(([k, icn, label, danger]) => `<button class="plr act${danger ? ' danger' : ''}" data-k="${k}"><span class="plc">${ic(icn, 20)}</span><span class="qm"><b>${label}</b></span></button>`).join(''));
   sh.onclick = e => {
     const r = e.target.closest('[data-k]'); if (!r) return;
@@ -3470,7 +3473,7 @@ async function saveWithExtras(t){
 /* ---------- download ---------- */
 const fmtSize = b => !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 const fmtDate = ts => { const d = new Date(ts), n = new Date(); return d.toDateString() === n.toDateString() ? 'Today ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }); };
-const slim = t => ({ id: t.id, title: t.title, artist: t.artist, artists: t.artists, album: t.album, album_id: t.album_id, thumbnail: t.thumbnail, duration: t.duration });
+const slim = t => ({ id: t.id, title: t.title, artist: t.artist, artists: t.artists, album: t.album, album_id: t.album_id, thumbnail: t.thumbnail, duration: t.duration, explicit: t.explicit || undefined });
 function saveFile(blob, name){
   const url = URL.createObjectURL(blob);
   const el = Object.assign(document.createElement('a'), { href: url, download: name });
@@ -5106,7 +5109,7 @@ function paintDlSummary(){
   card.querySelector('i').style.width = j ? Math.round(n / j.total * 100) + '%' : '';
 }
 const dqRow = a => `<div class="qr dlrow"><div class="qt">${imgTag(a.t, 160)}</div>
-  <div class="qm"><b>${esc(a.t.title)}</b><span>${esc(a.t.artist || '')}</span>
+  <div class="qm"><b>${esc(a.t.title)}</b><span>${expTag(a.t)}${esc(a.t.artist || '')}</span>
   <span class="dlm"><span data-dls="${esc(a.t.id)}">Preparing…</span> · ${esc(a.fmt.toUpperCase())}</span>
   <div class="dlbar ${a.total ? '' : 'ind'}" data-dlp="${esc(a.t.id)}"><i></i></div></div></div>`;
 function dlPanelHtml(){
