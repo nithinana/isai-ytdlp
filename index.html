@@ -394,6 +394,7 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
   .tr .qt{width:46px;height:46px}
   .tr .qa{opacity:1}
   .tr .qa button{width:34px;height:34px}
+  .tr .qa button[data-a="like"],.tr .qa button[data-a="pl"]{display:none}
   .tr em{min-width:34px}
   .alb-r .rw{margin-top:30px}
   .alb-r .rh h2{font-size:22px}
@@ -1082,7 +1083,7 @@ html{scroll-behavior:smooth}
 .pav{--h:210;display:grid;place-items:center;width:96px;height:96px;border-radius:50%;flex:none;font-style:normal;font-weight:800;font-size:38px;color:#fff;background:linear-gradient(135deg,hsl(var(--h) 62% 52%),hsl(calc(var(--h) + 48) 58% 32%));box-shadow:0 10px 36px rgba(0,0,0,.35)}
 .pav.xl{width:150px;height:150px;font-size:60px}
 .pav{position:relative;overflow:hidden}
-.exp{display:inline-grid;place-items:center;width:14px;height:14px;margin-right:5px;border-radius:3px;background:rgba(255,255,255,.62);color:#141418;font-style:normal;font-weight:800;font-size:10px;line-height:1;letter-spacing:0;vertical-align:-1px;flex:none}
+.exp{display:inline-block;box-sizing:border-box;flex:none;width:1.38em;height:1.38em;margin:0 .5em 0 0;padding:0;overflow:hidden;border-radius:.22em;background:rgba(255,255,255,.62);color:#141418;font-style:normal;font-weight:800;font-size:.78em;line-height:1.38em;letter-spacing:0;text-align:center;text-indent:0;vertical-align:-.23em}
 .pav .pavi{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .imgprev{display:flex;align-items:center;gap:12px;margin:10px 0 2px;min-height:64px}
 .imgprev img{width:64px;height:64px;object-fit:cover;border-radius:12px;background:rgba(255,255,255,.06)}
@@ -2196,7 +2197,7 @@ const lrow = (t, i) => `<div class="qr lrow ${current && current.id === t.id ? '
 const trow = (t, i, withCover, rm) => `<div class="tr lrow ${current && current.id === t.id ? 'cur' : ''}" data-i="${i}" data-id="${esc(t.id)}">
   <span class="ix">${i + 1}</span><span class="ixp">${ic('play', 16)}</span>
   ${withCover ? `<div class="qt">${imgTag(t, 120)}</div>` : ''}
-  <div class="qm"><b>${esc(t.title)}</b><span>${(withCover && !rm) ? esc(t.album || '') : artistLinks(t)}</span></div>
+  <div class="qm"><b>${esc(t.title)}</b><span>${(withCover && !rm) ? expTag(t) + esc(t.album || '') : artistLinks(t)}</span></div>
   ${qaBtns(t, rm)}
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="back" title="Back"></button>`;
@@ -3135,6 +3136,7 @@ function pickArtist(t){
 function openSongMenu(t, o = {}){
   const items = [
     ['queue', 'queue', 'Add to queue'],
+    ['like', 'heart', isLiked(t.id) ? 'Remove from Liked songs' : 'Like'],
     ['pl', 'plus', 'Add to playlist'],
     o.rm ? ['rm', 'minusc', 'Remove from playlist', true] : null,
     ['goq', 'list', 'Go to queue'],
@@ -3149,6 +3151,7 @@ function openSongMenu(t, o = {}){
     const r = e.target.closest('[data-k]'); if (!r) return;
     const k = r.dataset.k; closeModal();
     if (k === 'queue') addToQueue(t);
+    else if (k === 'like') toggleLike(t);
     else if (k === 'pl') openAddModal([t]);
     else if (k === 'rm') removeFromPl(t);
     else if (k === 'goq') { if (!current) return toast('Nothing is playing yet. Play a song or add one to the queue.'); setTab('queue'); openNP(); }
@@ -3291,7 +3294,7 @@ $('npPlus').onclick = () => {
 $('npmore').onclick = () => {
   const t = current; if (!t) return;
   const row = (k, label, icon) => `<button class="plr act" data-act="${k}"><span class="plc">${icon}</span><span class="qm"><b>${label}</b></span></button>`;
-  const sheet = openModal(`<div class="shd"><img src="${esc(cov(t, 120))}" alt="" onerror="this.style.visibility='hidden'"><div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist || '')}</span></div></div>
+  const sheet = openModal(`<div class="shd"><img src="${esc(cov(t, 120))}" alt="" onerror="this.style.visibility='hidden'"><div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(t.artist || '')}</span></div></div>
     ${row('like', isLiked(t.id) ? 'Remove from Liked songs' : 'Like', ic('heart', 20))}
     ${row('pl', 'Add to playlist', ic('plus', 20))}
     ${row('dl', dls.some(d => d.id === t.id) ? 'Downloaded' : 'Download', ic('dl', 20))}
@@ -3905,7 +3908,7 @@ function renderActivity(){
   hist.forEach((t, i) => {
     const dl = dlabel(t._ts); if (dl !== lastDay) { lastDay = dl; hh += `<div class="hday">${esc(dl)}</div>`; }
     hh += `<div class="qr hrow" data-i="${i}" data-id="${esc(t.id)}"><div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
-      <div class="qm"><b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(x => x.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
+      <div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(artistsOf(t).map(x => x.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
       <em>${new Date(t._ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</em></div>`;
   });
   const histTotal = lplays.filter(p => ltracks[p[0]]).length;
@@ -4319,7 +4322,7 @@ function statusBody(){
     const t = st.track; lists.prof_status = [t]; names.prof_status = 'Listening';
     body = `<div class="pstat glass" data-pk="prof_status" data-pi="0">${imgTag(t, 160)}
       <div class="pt"><small>${st.playing ? 'Listening now<span class="eq"><i></i><i></i><i></i></span>' : 'Last listened · ' + ago(st.updated)}</small>
-      <b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(a => a.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
+      <b>${esc(t.title)}</b><span>${expTag(t)}${esc(artistsOf(t).map(a => a.name).join(', '))}${t.album ? ' · ' + esc(t.album) : ''}</span></div>
       </div>`;
   }
   return body;
@@ -4370,7 +4373,7 @@ function playlistsHtml(pls){
 }
 
 /* ---- stats ---- */
-const prow = (t, key, i, n, right) => `<div class="prow ${current && current.id === t.id ? 'cur' : ''}" data-pk="${key}" data-pi="${i}" data-id="${esc(t.id)}">${n !== '' ? `<span class="pn">${n}</span>` : ''}${imgTag(t, 120)}<div class="pm"><b>${esc(t.title)}</b><span>${esc(artistsOf(t).map(a => a.name).join(', '))}</span></div><em>${esc(right)}</em></div>`;
+const prow = (t, key, i, n, right) => `<div class="prow ${current && current.id === t.id ? 'cur' : ''}" data-pk="${key}" data-pi="${i}" data-id="${esc(t.id)}">${n !== '' ? `<span class="pn">${n}</span>` : ''}${imgTag(t, 120)}<div class="pm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(artistsOf(t).map(a => a.name).join(', '))}</span></div><em>${esc(right)}</em></div>`;
 function profArtistCard(a, i){
   const p = artProf[akey(a.name)];
   const im = p && p.url ? `<img loading="lazy" src="${esc(p.url)}" alt="" data-id="${esc(a.tid)}" onerror="imgErr(this)">` : imgTag({ id: a.tid, thumbnail: a.thumbnail }, 340);
@@ -4997,7 +5000,7 @@ function toggleAMenu(){
 addEventListener('resize', placeAMenu);
 addEventListener('scroll', e => { const m = $('amenu'); if (m && !m.hidden && e.target !== m) m.hidden = true; }, { passive: true, capture: true });
 let plReorder = null;
-const roRows = tracks => tracks.map((t, i) => `<div class="rrow" data-id="${esc(t.id)}"><button class="rgrip" title="Drag to reorder" aria-label="Drag to reorder">${ic('grip', 20)}</button><div class="qt">${imgTag(t, 120)}</div><div class="qm"><b>${esc(t.title)}</b><span>${esc((t.artists && t.artists.join(', ')) || t.artist || '')}</span></div><span class="rmv"><button data-mv="-1" title="Move up" aria-label="Move up">${ic('up', 18)}</button><button data-mv="1" title="Move down" aria-label="Move down">${ic('down', 18)}</button></span></div>`).join('');
+const roRows = tracks => tracks.map((t, i) => `<div class="rrow" data-id="${esc(t.id)}"><button class="rgrip" title="Drag to reorder" aria-label="Drag to reorder">${ic('grip', 20)}</button><div class="qt">${imgTag(t, 120)}</div><div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc((t.artists && t.artists.join(', ')) || t.artist || '')}</span></div><span class="rmv"><button data-mv="-1" title="Move up" aria-label="Move up">${ic('up', 18)}</button><button data-mv="1" title="Move down" aria-label="Move down">${ic('down', 18)}</button></span></div>`).join('');
 function bindReorder(pl){
   const box = $('roList'); if (!box) return;
   const commit = () => {
