@@ -93,6 +93,18 @@ button,input,select{font:inherit;color:inherit}
 button{background:none;border:0;cursor:pointer;padding:0}
 img{display:block}svg{display:block}
 a[data-artist],a[data-aname]{cursor:pointer;color:inherit}
+.sclr{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--mute);background:rgba(255,255,255,.1)}
+.sclr:hover{color:#fff;background:rgba(255,255,255,.2)}
+.sclr[hidden]{display:none}
+.dlnew{animation:dlfade .6s var(--ease) both}
+@keyframes dlfade{from{opacity:0}to{opacity:1}}
+.apr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.apr .qm{min-width:0}.apr b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.apr small{display:block;color:var(--mute);font-size:12px}
+.apr input{flex:none;width:20px;height:20px;accent-color:#4cd58a}
+.autol{max-height:50vh;overflow:auto;margin:8px 0 14px}
+.failul{padding-left:18px;margin:8px 0 14px}.failul li{margin:3px 0}
+.dlauto{margin:-6px 0 14px}
+.dlhb .btn[hidden]{display:none}
 a[data-artist]:hover,a[data-aname]:hover{text-decoration:underline;color:#fff}
 .glass{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(26px) saturate(1.5);-webkit-backdrop-filter:blur(26px) saturate(1.5);box-shadow:0 10px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
 
@@ -2064,9 +2076,12 @@ function pushPlaylists(){
 }
 function savePl(){ clearTimeout(plT); plT = setTimeout(pushPlaylists, 400); queueAutoDl(); return true; }
 function queueAutoDl(){ clearTimeout(autoT); autoT = setTimeout(autoDlAll, 1500); }
-function autoDlAll(){ return;   // auto-download removed
-  if (!acctReady || !dlsReady || !isOnline()) return;
-  for (const p of playlists) if (p.autodl && p.tracks.length) downloadAll(p.tracks, p.name, { id: p.id, label: p.name }, true);
+const autoOn = () => store.get('autodl', '0') === '1';
+const autoPlIds = () => new Set(jget('autodlpl', []));
+function autoDlAll(){
+  if (!autoOn() || !acctReady || !dlsReady || !isOnline()) return;
+  const ids = autoPlIds();
+  for (const p of playlists) if (ids.has(p.id) && p.tracks && p.tracks.length) downloadAll(p.tracks, p.name, { id: p.id, label: p.name }, true);
 }
 const flushPlaylists = () => { pushPlaylists(); return acct.flushed(); };
 
@@ -2110,7 +2125,7 @@ function openDeepLink(){
   } catch {}
 }
 let dls = []; const dlActive = {}; let offUrl = null;
-let autoT = 0; const autoFailed = new Set();   // auto-download: debounce timer + songs that failed this session (not retried until reload)
+let autoT = 0, autoFailList = []; const autoFailed = new Set();   // auto-download: debounce timer + songs that failed this session (not retried until reload)
 const dlJobs = []; let dlRunning = false, dlStale = false, dlPanelT = 0;   // download queue: playlist jobs + stale-list flag
 let queue = [], qi = -1, token = 0, current = null;
 let queueOwned = false, qEnd = -1;   // user queue: songs added with "Add to queue" sit right after the playing song, at indexes qi+1..qEnd
@@ -2219,7 +2234,6 @@ function show(v, arg, back){
   document.querySelectorAll('body > #backBtn,body > #amenu').forEach(b => b.remove());
   const detail = ['list', 'entity', 'mood', 'upl', 'shared', 'user', 'settings'].includes(v);
   if (!back) { if (detail) stack.push({ v: view, arg: viewArg }); else stack = []; }
-  if (v === 'search' && !back && view !== 'search' && !searchKeep) resetSearch();
   view = v; viewArg = arg;
   const hl = detail ? (stack[0] ? stack[0].v : (v === 'settings' ? 'profile' : 'home')) : v;
   document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === hl));
@@ -2490,13 +2504,16 @@ function renderArtist(d){
 const SEARCH_TABS = ['songs', 'albums', 'artists', 'playlists'];
 const qval = () => ((isMobile() && $('sq')) ? $('sq').value : $('hq').value).trim();
 function renderSearch(){
-  $('main').innerHTML = `<div class="pg"><label class="msb"><span data-ic="search"></span><input id="sq" placeholder="Search songs, albums, artists, playlists" autocomplete="off" enterkeyhint="search" value="${esc($('hq').value || lastSearch.q)}"></label>
+  $('main').innerHTML = `<div class="pg"><label class="msb"><span data-ic="search"></span><input id="sq" placeholder="Search songs, albums, artists, playlists" autocomplete="off" enterkeyhint="search" value="${esc($('hq').value || lastSearch.q)}"><button type="button" class="sclr" id="sclr" title="Clear search" aria-label="Clear search" hidden>${ic('x', 18)}</button></label>
     <div class="chips">${SEARCH_TABS.map(t => `<button class="chip ${t === searchType ? 'on' : ''}" data-type="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
     <div id="st"></div><div id="res"></div></div><div id="recs"></div>`;
   hydrate($('main'));
   const sq = $('sq');
   sq.onkeydown = e => { if (e.key === 'Enter') { sq.blur(); submitSearch(); } };
-  sq.oninput = () => { $('hq').value = sq.value; };
+  const sclr = $('sclr'), syncClr = () => { if (sclr) sclr.hidden = !(sq.value || lastSearch.q || lastSearch.items.length); };
+  sq.oninput = () => { $('hq').value = sq.value; syncClr(); };
+  if (sclr) sclr.onclick = () => { clearSearch(); sq.focus(); };
+  syncClr();
   document.querySelectorAll('.chip[data-type]').forEach(c => c.onclick = () => {
     setChip(c.dataset.type);
     if (qval()) runSearch(); else paintResults();
@@ -2509,8 +2526,9 @@ function paintRecs(){
   const box = $('recs'); if (!box) return;
   if (lastSearch.items.length) { box.innerHTML = ''; return; }
   const rs = jget('rsearch', []);
-  const recent = rs.length ? `<div class="pg" style="padding-bottom:0"><h3 class="sec0" style="margin-top:6px">Recent searches</h3><div class="chips" style="flex-wrap:wrap;overflow:visible">${rs.map(q => `<button class="chip" data-rs="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>` : '';
+  const recent = rs.length ? `<div class="pg" style="padding-bottom:0"><div class="dlsh" style="margin-top:0"><h3 class="sec0" style="margin-top:6px">Recent searches</h3><button class="linkb" id="rsClear">Clear</button></div><div class="chips" style="flex-wrap:wrap;overflow:visible">${rs.map(q => `<button class="chip" data-rs="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>` : '';
   box.innerHTML = recent + `<div class="pg"><h3 class="sec0" style="margin-top:6px">Browse by mood</h3><div class="moods">${MOOD_DEF.map(([n, a, b]) => `<button class="mood" data-mood="${esc(n)}" style="--a:${a};--b:${b}"><i></i>${esc(n)}</button>`).join('')}</div></div>`;
+  const rc = $('rsClear'); if (rc) rc.onclick = () => { store.set('rsearch', '[]'); paintRecs(); };
 }
 function pushRecentSearch(q){
   if (MODE.inc) return;                                              // Incognito: no recent searches
@@ -2524,6 +2542,14 @@ function paintResults(){
   if (searchType === 'songs') { lists.search = items; names.search = 'Search results'; listKey = 'search'; box.innerHTML = items.map(lrow).join(''); }
   else box.innerHTML = gridHtml('search_' + searchType, items);
   markPlaying();
+}
+function clearSearch(){
+  lastSearch = { q: '', type: lastSearch.type, items: [] };
+  $('hq').value = '';
+  const sq = $('sq'); if (sq) sq.value = '';
+  const st = $('st'); if (st) { st.className = ''; st.textContent = ''; }
+  const sc = $('sclr'); if (sc) sc.hidden = true;
+  paintResults(); paintRecs();
 }
 function resetSearch(){
   lastSearch = { q: '', type: 'songs', items: [] }; searchType = 'songs';
@@ -3583,13 +3609,9 @@ function openDlGroup(id){
   show('list', key);
 }
 
-function renderDownloads(){
-  const act = Object.values(dlActive), mode = store.get('dlsort', 'home'), q = dlQ.trim().toLowerCase(),
-    items = sortDls(mode === 'home' ? 'recent' : mode).filter(t => !q || [t.title, t.artist, t.album].some(x => String(x || '').toLowerCase().includes(q)));
-  lists.dls = items; names.dls = 'Downloads'; listKey = 'dls';
-  const total = dls.reduce((n, d) => n + (d.size || 0), 0);
-
-
+/* the list part of the Downloads page, kept separate so it can be refreshed in place */
+let dlRowsLast = '', dlSoftT = 0;
+function dlRowsHtml(items, mode, q){
   let rows = '';
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
   else if (!items.length && q) rows = `<p class="qmsg">No downloads match “${esc(dlQ)}”.</p>`;
@@ -3665,18 +3687,49 @@ function renderDownloads(){
       rows += dlrow(t, i);
     });
   } else rows = items.map(dlrow).join('');
+  return rows;
+}
+function softRefreshDls(){
+  clearTimeout(dlSoftT);
+  dlSoftT = setTimeout(() => {
+    const host = $('dlRows'); if (view !== 'downloads' || !host) return;
+    const mode = store.get('dlsort', 'home'), q = dlQ.trim().toLowerCase(),
+      items = sortDls(mode === 'home' ? 'recent' : mode).filter(t => !q || [t.title, t.artist, t.album].some(x => String(x || '').toLowerCase().includes(q)));
+    lists.dls = items; names.dls = 'Downloads'; listKey = 'dls';
+    const html = dlRowsHtml(items, mode, q);
+    paintDlHead();
+    const clr = $('dlClear'); if (clr) clr.hidden = !items.length;
+    if (html === dlRowsLast) return;
+    const had = new Set([...host.querySelectorAll('[data-id]')].map(e => e.dataset.id));
+    dlRowsLast = html; host.innerHTML = html;
+    host.querySelectorAll('[data-id]').forEach(e => { if (!had.has(e.dataset.id)) e.classList.add('dlnew'); });
+    markPlaying();
+  }, 350);
+}
+function renderDownloads(){
+  const act = Object.values(dlActive), mode = store.get('dlsort', 'home'), q = dlQ.trim().toLowerCase(),
+    items = sortDls(mode === 'home' ? 'recent' : mode).filter(t => !q || [t.title, t.artist, t.album].some(x => String(x || '').toLowerCase().includes(q)));
+  lists.dls = items; names.dls = 'Downloads'; listKey = 'dls';
+  const total = dls.reduce((n, d) => n + (d.size || 0), 0);
+
+
+  const rows = dlRowsHtml(items, mode, q); dlRowsLast = rows;
   const bn_ = exMig.on ? { l: 'Saving album art & lyrics', d: exMig.done, n: exMig.total } : { l: 'Saving artist profiles', d: artMig.done, n: artMig.total };
   const updBanner = (artMig.on || exMig.on) ? `<div class="updb" id="updb"><span class="spin"></span><div><b>Updating your downloads…</b><span class="ut" id="updT">${bn_.l} · ${bn_.d}/${bn_.n}</span><div class="dlbar"><i id="updI" style="width:${Math.round(bn_.d / Math.max(1, bn_.n) * 100)}%"></i></div></div></div>` : '';
   $('main').innerHTML = `<div class="pg">${updBanner}<div class="dlh"><h1 class="t" style="margin:6px 0 4px">Downloads</h1>
-      <div class="dlhb"><button class="btn ghost" id="dlNew" data-dlnew hidden>↻ Refresh list</button><button class="btn ghost" id="dlProg" data-dlq>See progress</button>${items.length ? '<button class="btn ghost" id="dlClear">Delete all</button>' : ''}</div></div>
+      <div class="dlhb"><button class="btn ghost" id="dlNew" data-dlnew hidden>↻ Refresh list</button><button class="btn ghost" id="dlProg" data-dlq${dlBusy() ? '' : ' hidden'}>See progress</button><button class="btn ghost" id="dlClear"${items.length ? '' : ' hidden'}>Delete all</button></div></div>
     <p class="dlsub" id="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
     <div class="dlmode glass"><div><b>Offline mode</b><span>Play only your downloads and stop all network use</span></div><button class="sw" id="dlOff" role="switch" aria-label="Offline mode" aria-checked="${MODE.off}"></button></div>
+    <div class="dlmode glass"><div><b>Auto</b><span>Automatically download chosen playlists. Songs that fail are listed at the end so you can retry or ignore them</span></div><button class="sw" id="dlAuto" role="switch" aria-label="Auto download" aria-checked="${autoOn()}"></button></div>
+    ${autoOn() ? `<div class="dlauto"><button class="btn ghost" id="dlAutoPick">Choose playlists · ${autoPlIds().size}</button></div>` : ''}
     ${isOnline() ? '' : `<div class="offb"><i></i>${MODE.off ? 'Offline mode' : 'You\'re offline'} · playing from your downloads</div>`}
     <label class="dlq">${ic('search', 18)}<input id="dlq" placeholder="Search your downloads" autocomplete="off" value="${esc(dlQ)}"></label>
     <div class="dltabs">${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode && !q ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
     <div id="dlSum"></div>
-    ${rows}</div>`;
+    <div id="dlRows">${rows}</div></div>`;
   $('dlOff').onclick = () => setOffMode(!MODE.off);
+  $('dlAuto').onclick = () => { const on = !autoOn(); store.set('autodl', on ? '1' : '0'); renderDownloads(); if (on) { if (autoPlIds().size) queueAutoDl(); else openAutoPick(); } };
+  const ap = $('dlAutoPick'); if (ap) ap.onclick = openAutoPick;
   const dq = $('dlq');
   dq.oninput = () => { dlQ = dq.value; dlFocus = true; renderDownloads(); };
   if (dlFocus) { dq.focus(); dq.setSelectionRange(dq.value.length, dq.value.length); dlFocus = false; }
@@ -3693,6 +3746,37 @@ function renderDownloads(){
 /* ---------- offline artist profiles ---------- */
 const akey = n => String(n || '').trim().toLowerCase();
 const artProf = {};                       // key -> { url, id, name, thumb }
+/* artist photos for artists you haven't downloaded (Activity / profile top artists): fetched on demand, kept in memory */
+const artPic = {}, artPicSeen = new Set(); let artPicQ = [], artPicRun = 0;
+function artImg(name, id){
+  const k = akey(name), p = artProf[k], pic = artPic[k];
+  const src = p && p.url ? p.url : pic && pic.thumbnail ? cov(pic, 340) : '';
+  if (src) return `<img loading="lazy" src="${esc(src)}" alt="" data-e="1" onerror="this.onerror=null;this.src=PH">`;
+  wantArtPic(name, id);
+  return `<img src="${PH}" alt="" data-e="1" data-apic="${esc(k)}">`;
+}
+function wantArtPic(name, id){
+  const k = akey(name); if (!k || artPicSeen.has(k)) return;
+  artPicSeen.add(k); artPicQ.push({ k, name, id }); pumpArtPic();
+}
+function pumpArtPic(){
+  while (artPicRun < 3 && artPicQ.length) {
+    const a = artPicQ.shift(); artPicRun++;
+    (async () => {
+      let d = null;
+      if (isOnline()) {
+        if (a.id) { try { d = await (await api('/artist/' + encodeURIComponent(a.id))).json(); } catch {} }
+        if (!d || !d.thumbnail) { try { const r = await firstResult('artists', a.name); if (r) d = { thumbnail: r.thumbnail }; } catch {} }
+      }
+      const th = (d && d.thumbnail) || '';
+      artPic[a.k] = { thumbnail: th, kind: 'artist', id: a.id || a.k };
+      if (th) document.querySelectorAll('img[data-apic]').forEach(el => {
+        if (el.dataset.apic !== a.k) return;
+        el.removeAttribute('data-apic'); el.onerror = () => { el.onerror = null; el.src = PH; }; el.src = cov(artPic[a.k], 340);
+      });
+    })().finally(() => { artPicRun--; pumpArtPic(); });
+  }
+}
 let artMigDone = store.get('artmig', '') === '1';
 const artMig = { on: false, total: 0, done: 0, busy: false };
 let profilesP = null, artT = 0;
@@ -3891,8 +3975,7 @@ function renderActivity(){
   /* top artists */
   const topArts = [...arts.values()].sort((x, y) => y.n - x.n || y.sec - x.sec).slice(0, 12);
   const artCard = (o, i) => {
-    const p = artProf[akey(o.name)], tr = ltracks[o.tid] || {};
-    const im = p && p.url ? `<img loading="lazy" src="${esc(p.url)}" alt="" data-id="${esc(o.tid)}" onerror="imgErr(this)">` : imgTag({ id: o.tid, thumbnail: tr.thumbnail }, 340);
+    const im = artImg(o.name, o.id);
     const link = o.id ? `data-artist="${esc(o.id)}"` : `data-aname="${esc(o.name)}"`;
     return `<div class="card artist acd"><a ${link}><div class="cv">${im}<em class="rk">${i + 1}</em></div><b>${esc(o.name)}</b><span>${o.n} play${o.n === 1 ? '' : 's'}${o.sec ? ' · ' + fmtDur(o.sec) : ''}</span></a></div>`;
   };
@@ -4384,8 +4467,7 @@ function playlistsHtml(pls){
 /* ---- stats ---- */
 const prow = (t, key, i, n, right) => `<div class="prow ${current && current.id === t.id ? 'cur' : ''}" data-pk="${key}" data-pi="${i}" data-id="${esc(t.id)}">${n !== '' ? `<span class="pn">${n}</span>` : ''}${imgTag(t, 120)}<div class="pm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(artistsOf(t).map(a => a.name).join(', '))}</span></div><em>${esc(right)}</em></div>`;
 function profArtistCard(a, i){
-  const p = artProf[akey(a.name)];
-  const im = p && p.url ? `<img loading="lazy" src="${esc(p.url)}" alt="" data-id="${esc(a.tid)}" onerror="imgErr(this)">` : imgTag({ id: a.tid, thumbnail: a.thumbnail }, 340);
+  const im = artImg(a.name, a.id);
   const link = a.id ? `data-artist="${esc(a.id)}"` : `data-aname="${esc(a.name)}"`;
   return `<div class="card artist acd"><a ${link}><div class="cv">${im}<em class="rk">${i + 1}</em></div><b>${esc(a.name)}</b><span>${plural(a.plays, 'play')}</span></a></div>`;
 }
@@ -5111,7 +5193,7 @@ function paintDlHead(){
 function paintDlSummary(){
   const host = $('dlSum'); if (!host) return;
   const singles = dlSingles(), j = dlJobs[0], count = dlJobs.length + singles.length;
-  const pb = $('dlProg'); if (pb) pb.textContent = count ? `See progress · ${count}` : 'See progress';
+  const pb = $('dlProg'); if (pb) { pb.hidden = !count; pb.textContent = count ? `See progress · ${count}` : 'See progress'; }
   if (!j && !singles.length) { host.innerHTML = ''; return; }
   let card = host.firstElementChild;
   if (!card) { host.innerHTML = '<div class="dlbulk" data-dlq><div><b></b><div class="dlbar"><i></i></div></div><span class="btn ghost">See progress</span></div>'; card = host.firstElementChild; }
@@ -5151,7 +5233,7 @@ function openDlPanel(){ openModal(dlPanelHtml()); Object.values(dlActive).forEac
 function dlTick(listChanged){
   const busy = dlBusy();
   document.querySelectorAll('#nav [data-view="downloads"]').forEach(b => b.classList.toggle('busy', busy));
-  if (view === 'downloads') { if (listChanged) dlStale = true; paintDlHead(); paintDlSummary(); }
+  if (view === 'downloads') { if (listChanged) softRefreshDls(); paintDlHead(); paintDlSummary(); }
   schedPanel();
 }
 async function runDlQueue(){
@@ -5163,7 +5245,7 @@ async function runDlQueue(){
         const t = job.todo.shift(); if (!t) break;
         if (dls.some(d => d.id === t.id) || dlActive[t.id]) { job.done++; dlTick(); continue; }   // already saved / being saved elsewhere
         const ok = await download(t, null, true, job);
-        if (ok) job.done++; else { job.fail++; if (job.auto) autoFailed.add(t.id); } dlTick();
+        if (ok) job.done++; else { job.fail++; if (job.auto) { autoFailed.add(t.id); autoFailList.push(t); } } dlTick();
       }
     };
     await Promise.all([worker(), worker()]);
@@ -5172,6 +5254,28 @@ async function runDlQueue(){
     dlTick(true);
   }
   dlRunning = false; dlTick(true);
+  if (autoFailList.length) promptAutoFail();
+}
+function promptAutoFail(){
+  if (!$('modal').hidden) return setTimeout(promptAutoFail, 4000);   // wait until whatever is open is closed
+  const seen = new Set(), list = autoFailList.filter(t => !seen.has(t.id) && seen.add(t.id));
+  autoFailList = [];
+  if (!list.length) return;
+  const rows = list.slice(0, 8).map(t => `<li>${esc(t.title)}${t.artist ? ' · ' + esc(t.artist) : ''}</li>`).join('') + (list.length > 8 ? `<li>+${list.length - 8} more</li>` : '');
+  const sh = openModal(`<h3>${list.length} song${list.length === 1 ? '' : 's'} couldn't be downloaded</h3><ul class="mhint failul">${rows}</ul><div class="mbtns"><button class="btn ghost" id="afIgn">Ignore</button><button class="btn" id="afRetry">Retry</button></div>`);
+  sh.querySelector('#afIgn').onclick = () => { closeModal(); toast('Ignored · they won\'t be retried until you reload'); };
+  sh.querySelector('#afRetry').onclick = () => { closeModal(); list.forEach(t => autoFailed.delete(t.id)); downloadAll(list, 'Retrying failed songs', null, true); };
+}
+function openAutoPick(){
+  const ids = autoPlIds(), list = playlists.filter(p => p.tracks && p.tracks.length);
+  if (!list.length) return toast('Create a playlist with songs first', true);
+  const sh = openModal(`<h3>Auto-download playlists</h3><p class="mhint">Pick the playlists to keep downloaded. New songs you add to them are downloaded automatically.</p><div class="autol">${list.map(p => `<label class="apr"><span class="qm"><b>${esc(p.name)}</b><small>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</small></span><input type="checkbox" data-ap="${esc(p.id)}" ${ids.has(p.id) ? 'checked' : ''}></label>`).join('')}</div><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="apSave">Save</button></div>`);
+  sh.querySelector('#apSave').onclick = () => {
+    const sel = [...sh.querySelectorAll('[data-ap]')].filter(x => x.checked).map(x => x.dataset.ap);
+    store.set('autodlpl', JSON.stringify(sel)); closeModal();
+    if (view === 'downloads') renderDownloads();
+    queueAutoDl();
+  };
 }
 function downloadAll(tracks, label, plMeta, auto){
   const todo = (tracks || []).filter((t, i, arr) => t && t.id && !dls.some(d => d.id === t.id) && arr.findIndex(x => x.id === t.id) === i
