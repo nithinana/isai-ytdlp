@@ -336,7 +336,12 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
 #mshuf,#mrep{color:var(--mute)}
 #mshuf.on,#mrep.on{color:#fff}
 .npctl .big{width:58px;height:58px;border-radius:50%;background:none;color:#fff}
-.npr{border-radius:22px;padding:4px 14px 10px;display:flex;flex-direction:column;min-height:0}
+.npr{position:relative;border-radius:22px;padding:4px 14px 10px;display:flex;flex-direction:column;min-height:0}
+.lysync{position:absolute;left:50%;bottom:18px;z-index:9;display:flex;align-items:center;gap:6px;height:36px;padding:0 16px 0 12px;border-radius:999px;color:#fff;font-weight:700;font-size:14px;background:rgba(40,40,48,.78);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 6px 22px rgba(0,0,0,.35);opacity:0;pointer-events:none;transform:translate(-50%,10px);transition:opacity .25s var(--ease),transform .25s var(--ease)}
+.lysync.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+.lysync:active{transform:translate(-50%,0) scale(.95)}
+.lysync svg{width:16px;height:16px}
+#npv.lyshow:not(.lyfull) .lysync{display:none}
 .grab{display:none}
 .tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.14)}
 .tabs button{flex:1;padding:14px 0;color:var(--mute);font-weight:600;letter-spacing:.04em;border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -1631,6 +1636,7 @@ body.incog .incpill{display:inline-flex}
     <div class="npf"><div><small>Playing from</small><b id="npfrom"></b></div><div class="dsk npfb"><button class="btn ghost" id="npAdd">Add to playlist</button><button class="btn ghost" id="npDl">Download</button><button class="btn" id="npLike">Like</button></div></div>
     <div id="lyhd" class="lyhd" hidden></div>
     <div id="npq" class="qlist"></div>
+    <button id="lysync" class="lysync" type="button" aria-label="Jump to the current line"></button>
   </div>
   <div id="lyhead"><button id="lymore" aria-label="More"></button></div>
 </section>
@@ -3052,7 +3058,7 @@ const qrow = (t, i, kind) => `<div class="qr ${kind === 'q' && i === qi ? 'cur' 
   <div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(t.artist)}</span></div><em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 function renderQueue(){
   const box = $('npq');
-  box.classList.toggle('lyr', npTab === 'lyrics'); $('lyhd').hidden = npTab !== 'lyrics';
+  box.classList.toggle('lyr', npTab === 'lyrics'); $('lyhd').hidden = npTab !== 'lyrics'; lySyncChk();
   if (npTab === 'lyrics') return loadLyrics();
   if (npTab === 'related') return loadRelated();
   const hasQ = qEnd > qi && qi >= 0;
@@ -5662,6 +5668,7 @@ function lyUpdate(){
     lyEls.forEach((el, k) => { el.classList.toggle('on', k === i); el.classList.toggle('past', k < i); el.style.setProperty('--d', Math.min(Math.abs(k - i), 6)); });
     lyIdx = i; lyWn = -1;
     if (i >= 0 && Date.now() - lyUserTs > 3500) lyCenter(true);
+    lySyncChk();
   }
   if (i >= 0 && L[i].words) {
     const ws = L[i].words; let n = 0;
@@ -5680,6 +5687,21 @@ function lyUpdate(){
     }
   }
 }
+/* "Sync" pill: shows when the current line has scrolled out of view, jumps back to it */
+let lySyncRaf = 0;
+function lySyncChk(){
+  const b = $('lysync'); if (!b) return;
+  let box, el; try { box = $('npq'); el = lyEls[lyIdx]; } catch { return; }   // not initialised yet
+  let dir = 0;
+  if (npTab === 'lyrics' && lyCur && lyCur.synced && el && lyIdx >= 0) {
+    const top = el.offsetTop, bot = top + el.offsetHeight, v0 = box.scrollTop, v1 = v0 + box.clientHeight;
+    if (bot < v0 + 20) dir = -1; else if (top > v1 - 20) dir = 1;
+  }
+  b.classList.toggle('show', !!dir);
+  if (dir && b._d !== dir) { b._d = dir; b.innerHTML = ic(dir < 0 ? 'up' : 'down', 16) + 'Sync'; }
+}
+$('npq').addEventListener('scroll', () => { if (!lySyncRaf) lySyncRaf = requestAnimationFrame(() => { lySyncRaf = 0; lySyncChk(); }); }, { passive: true });
+$('lysync').onclick = () => { lyUserTs = 0; lyCenter(true); };
 function lyCenter(smooth){
   if (lyIdx < 0 || !lyEls[lyIdx]) return;
   const box = $('npq');
