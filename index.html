@@ -344,6 +344,9 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
 .lysync:active{transform:translate(-50%,0) scale(.95)}
 .lysync svg{width:16px;height:16px}
 #npv.lyshow:not(.lyfull) .lysync{display:none}
+/* readable while browsing */
+#npv .qlist.lyr.lybrowse .ly:not(.on){filter:none!important;opacity:.78!important;transform:scale(.97)!important;transition:filter .3s var(--ease),opacity .3s var(--ease),transform .3s var(--ease)}
+#npv .qlist.lyr.lybrowse .ly.on{opacity:1!important;filter:none!important}
 /* clean lyrics view: just the lyrics */
 #lyclean{display:none;position:absolute;z-index:9;top:14px;right:66px;width:34px;height:34px;border-radius:50%;place-items:center;color:#fff;background:rgba(255,255,255,.14);transition:background-color .25s var(--ease),transform .25s var(--ease)}
 #lyclean:active{transform:scale(.92)}
@@ -2151,7 +2154,7 @@ function openDeepLink(){
   } catch {}
 }
 let dls = []; const dlActive = {}; let offUrl = null;
-let autoT = 0, autoFailList = []; const autoFailed = new Set();   // auto-download: debounce timer + songs that failed this session (not retried until reload)
+let autoT = 0, autoFailList = []; const autoFailed = new Set(), autoIgnored = new Set(jget('autoignore', []));   // autoIgnored: songs you chose to ignore, remembered for good   // auto-download: debounce timer + songs that failed this session (not retried until reload)
 const dlJobs = []; let dlRunning = false, dlStale = false, dlPanelT = 0;   // download queue: playlist jobs + stale-list flag
 let queue = [], qi = -1, token = 0, current = null;
 let queueOwned = false, qEnd = -1;   // user queue: songs added with "Add to queue" sit right after the playing song, at indexes qi+1..qEnd
@@ -5303,7 +5306,7 @@ async function runDlQueue(){
         const t = job.todo.shift(); if (!t) break;
         if (dls.some(d => d.id === t.id) || dlActive[t.id]) { job.done++; dlTick(); continue; }   // already saved / being saved elsewhere
         const ok = await download(t, null, true, job);
-        if (ok) job.done++; else { job.fail++; if (job.auto) { autoFailed.add(t.id); autoFailList.push(t); } } dlTick();
+        if (ok) job.done++; else { job.fail++; if (job.auto && !autoIgnored.has(t.id)) { autoFailed.add(t.id); autoFailList.push(t); } } dlTick();
       }
     };
     await Promise.all([worker(), worker()]);
@@ -5316,12 +5319,12 @@ async function runDlQueue(){
 }
 function promptAutoFail(){
   if (!$('modal').hidden) return setTimeout(promptAutoFail, 4000);   // wait until whatever is open is closed
-  const seen = new Set(), list = autoFailList.filter(t => !seen.has(t.id) && seen.add(t.id));
+  const seen = new Set(), list = autoFailList.filter(t => !autoIgnored.has(t.id) && !seen.has(t.id) && seen.add(t.id));
   autoFailList = [];
   if (!list.length) return;
   const rows = list.slice(0, 8).map(t => `<li>${esc(t.title)}${t.artist ? ' · ' + esc(t.artist) : ''}</li>`).join('') + (list.length > 8 ? `<li>+${list.length - 8} more</li>` : '');
   const sh = openModal(`<h3>${list.length} song${list.length === 1 ? '' : 's'} couldn't be downloaded</h3><ul class="mhint failul">${rows}</ul><div class="mbtns"><button class="btn ghost" id="afIgn">Ignore</button><button class="btn" id="afRetry">Retry</button></div>`);
-  sh.querySelector('#afIgn').onclick = () => { closeModal(); toast('Ignored · they won\'t be retried until you reload'); };
+  sh.querySelector('#afIgn').onclick = () => { list.forEach(t => autoIgnored.add(t.id)); store.set('autoignore', JSON.stringify([...autoIgnored])); closeModal(); toast('Ignored · they won\'t be tried or shown again'); };
   sh.querySelector('#afRetry').onclick = () => { closeModal(); list.forEach(t => autoFailed.delete(t.id)); downloadAll(list, 'Retrying failed songs', null, true); };
 }
 function openAutoPick(){
@@ -5337,7 +5340,7 @@ function openAutoPick(){
 }
 function downloadAll(tracks, label, plMeta, auto){
   const todo = (tracks || []).filter((t, i, arr) => t && t.id && !dls.some(d => d.id === t.id) && arr.findIndex(x => x.id === t.id) === i
-    && !(auto && (autoFailed.has(t.id) || dlActive[t.id])));
+    && !(auto && (autoFailed.has(t.id) || autoIgnored.has(t.id) || dlActive[t.id])));
   if (!todo.length) return auto ? 0 : toast('Everything here is already downloaded');
   const pid = plMeta && plMeta.id;
   const live = pid && dlJobs.find(j => j.pid === pid && !j.stop);
@@ -5666,8 +5669,16 @@ $('lyhd').onclick = e => {
   const b = e.target.closest('[data-lsrc]'); if (!b) return;
   store.set('lsrc', b.dataset.lsrc); loadLyrics();
 };
-$('npq').addEventListener('wheel', () => { lyUserTs = Date.now(); }, { passive: true });
-$('npq').addEventListener('touchmove', () => { lyUserTs = Date.now(); }, { passive: true });
+/* while you scroll the lyrics yourself the blur drops so everything is readable; it returns when you stop */
+let lyBrT = 0;
+function lyBrowse(on){
+  const box = $('npq'); clearTimeout(lyBrT);
+  if (on && box.classList.contains('lyr')) { box.classList.add('lybrowse'); lyBrT = setTimeout(() => box.classList.remove('lybrowse'), 2200); }
+  else box.classList.remove('lybrowse');
+}
+$('npq').addEventListener('wheel', () => { lyUserTs = Date.now(); lyBrowse(true); }, { passive: true });
+$('npq').addEventListener('touchmove', () => { lyUserTs = Date.now(); lyBrowse(true); }, { passive: true });
+$('npq').addEventListener('scroll', () => { if ($('npq').classList.contains('lybrowse')) lyBrowse(true); }, { passive: true });
 async function loadLyrics(){
   const t = current, box = $('npq'); if (!t) return;
   const my = ++lyLoadTok;
@@ -5753,7 +5764,7 @@ function lySyncChk(){
   if (dir && b._d !== dir) { b._d = dir; b.innerHTML = ic(dir < 0 ? 'up' : 'down', 16) + 'Sync'; }
 }
 $('npq').addEventListener('scroll', () => { if (!lySyncRaf) lySyncRaf = requestAnimationFrame(() => { lySyncRaf = 0; lySyncChk(); }); }, { passive: true });
-$('lysync').onclick = () => { lyUserTs = 0; lyCenter(true); };
+$('lysync').onclick = () => { lyUserTs = 0; lyBrowse(false); lyCenter(true); };
 function lyCleanApply(){
   const on = store.get('lyclean', '0') === '1';
   $('npv').classList.toggle('lyclean', on); $('lyclean').setAttribute('aria-pressed', on);
@@ -5778,7 +5789,7 @@ function lyLoop(){
 function lySeek(i){
   const l = lyCur && lyCur.synced && lyCur.lines[i];
   if (!l || !a.src) return;
-  a.currentTime = l.t; lyUserTs = 0; lyUpdate();
+  a.currentTime = l.t; lyUserTs = 0; lyBrowse(false); lyUpdate();
 }
 $('mLyr').onclick = () => { setTab('lyrics'); if (isMobile()) $('npr').classList.add('up'); };
 syncLyTab();   // lyrics tab starts hidden
