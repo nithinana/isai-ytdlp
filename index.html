@@ -4183,10 +4183,11 @@ async function renderShared(slug){
       <div class="aact">
         <button class="rb sm" id="shShare" title="Share">${ic('share', 18)}</button>
         ${tracks.length ? `<button class="rb sm" id="shDl" title="Download all">${ic('dl', 18)}</button>` : ''}
+        ${tracks.length > 1 ? `<button class="rb sm" id="lShuf" title="Shuffle">${ic('shuffle', 18)}</button>` : ''}
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         <button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button><button data-m="addall">Add all to playlist</button>' : ''}${d.visibility !== 'private' ? '<button data-m="copylink">Copy link</button>' : ''}
+          ${tracks.length ? '<button data-m="dlall">Download all</button><button data-m="addall">Add all to playlist</button>' : ''}${d.visibility !== 'private' ? '<button data-m="copylink">Copy link</button>' : ''}
         </div>
       </div>
       ${mine ? '' : `<div class="alib"><button class="btn ${fol ? 'ghost' : ''}" id="shSave" title="${fol ? 'Tap to remove from your library' : 'Keeps it as @' + esc(d.owner || 'their') + '\'s playlist and stays up to date'}">${ic(fol ? 'check' : 'plus', 16)} ${fol ? 'In your library' : 'Add to library'}</button><button class="btn ghost" id="shDup" title="Makes your own editable copy that no longer follows ${esc(d.owner ? '@' + d.owner : 'the original')}">Duplicate as my own</button></div>`}</aside>
@@ -5058,10 +5059,11 @@ function renderUserPl(id){
       <div class="aact">
         ${pl.virtual ? '' : `<button class="rb sm" id="uShare" title="Share">${ic('share', 18)}</button>`}
         <button class="rb sm" id="uDl" title="Download all">${ic('dl', 18)}</button>
+        ${tracks.length > 1 ? `<button class="rb sm" id="lShuf" title="Shuffle">${ic('shuffle', 18)}</button>` : ''}
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         ${pl.virtual && !tracks.length ? '' : `<button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          ${tracks.length ? '<button data-m="shuffle">Shuffle play</button><button data-m="dlall">Download all</button>' : ''}${pl.virtual ? '' : `${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button><button data-m="cover">Change cover</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>`}
+          ${tracks.length ? '<button data-m="dlall">Download all</button>' : ''}${pl.virtual ? '' : `${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button><button data-m="cover">Change cover</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>`}
         </div>`}
       </div>
       </aside>
