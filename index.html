@@ -103,7 +103,9 @@ a[data-artist],a[data-aname]{cursor:pointer;color:inherit}
 .apr input{flex:none;width:20px;height:20px;accent-color:#4cd58a}
 .autol{max-height:50vh;overflow:auto;margin:8px 0 14px}
 .failul{padding-left:18px;margin:8px 0 14px}.failul li{margin:3px 0}
-.dlauto{margin:-6px 0 14px}
+.dlmode.dlautor{padding:8px 14px;margin-bottom:10px;border-radius:14px;cursor:pointer}
+.dlautor b{font-size:14px}.dlautor span{font-size:12px;margin-top:1px}
+.dlautor .sw{width:42px;height:26px}.dlautor .sw::after{width:20px;height:20px}.dlautor .sw[aria-checked=true]::after{transform:translateX(16px)}
 .dlhb .btn[hidden]{display:none}
 a[data-artist]:hover,a[data-aname]:hover{text-decoration:underline;color:#fff}
 .glass{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(26px) saturate(1.5);-webkit-backdrop-filter:blur(26px) saturate(1.5);box-shadow:0 10px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
@@ -342,6 +344,23 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
 .lysync:active{transform:translate(-50%,0) scale(.95)}
 .lysync svg{width:16px;height:16px}
 #npv.lyshow:not(.lyfull) .lysync{display:none}
+/* clean lyrics view: just the lyrics */
+#lyclean{display:none;position:absolute;z-index:9;top:14px;right:66px;width:34px;height:34px;border-radius:50%;place-items:center;color:#fff;background:rgba(255,255,255,.14);transition:background-color .25s var(--ease),transform .25s var(--ease)}
+#lyclean:active{transform:scale(.92)}
+#lyclean[aria-pressed=true]{background:#fff;color:#000}
+#npv.lytab #lyclean{display:grid}
+@media(min-width:721px){
+  #npv.lyclean.open{grid-template-columns:minmax(0,1fr)}
+  #npv.lyclean .npl,#npv.lyclean .tabs,#npv.lyclean .npf,#npv.lyclean .lyhd{display:none}
+  #npv.lyclean .npr{justify-self:center;width:min(820px,100%)}
+}
+@media(max-width:720px){
+  #lyclean{top:calc(var(--sat) + 38px);right:68px}
+  #npv:not(.lyfull) #lyclean{display:none!important}
+  #npv.lyclean.lyshow .npcard{opacity:0;pointer-events:none;transition:opacity .3s var(--ease)}
+  #npv.lyclean.lyshow .npr{bottom:calc(var(--sab) + 24px)}
+  #npv.lyclean.lyshow #npq.lyr{padding-bottom:50%}
+}
 .grab{display:none}
 .tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.14)}
 .tabs button{flex:1;padding:14px 0;color:var(--mute);font-weight:600;letter-spacing:.04em;border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -1639,6 +1658,7 @@ body.incog .incpill{display:inline-flex}
     <button id="lysync" class="lysync" type="button" aria-label="Jump to the current line"></button>
   </div>
   <div id="lyhead"><button id="lymore" aria-label="More"></button></div>
+  <button id="lyclean" type="button" title="Clean view" aria-label="Clean view" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
 </section>
 <div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
 <div id="modal" hidden><div class="msheet glass"></div></div>
@@ -3032,7 +3052,7 @@ const TAB_ORDER = ['queue', 'related', 'lyrics'];
 function setTab(tab, silent){
   const prev = npTab, dir = TAB_ORDER.indexOf(tab) >= TAB_ORDER.indexOf(prev) ? 'r' : 'l';
   npTab = tab;
-  $('npr').classList.toggle('lyrmode', tab === 'lyrics');
+  $('npr').classList.toggle('lyrmode', tab === 'lyrics'); $('npv').classList.toggle('lytab', tab === 'lyrics');
   if (!silent && prev !== tab) { const b = $('npq'); b.classList.remove('tin-r', 'tin-l'); void b.offsetWidth; b.classList.add('tin-' + dir); }
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   syncLyTab();
@@ -3421,7 +3441,7 @@ document.addEventListener('visibilitychange', () => {
   keepStorage();
   if (dlsFailed) loadDls().then(ok => { if (!ok) return; extrasP = null; loadExtras().then(() => { if (view === 'downloads') renderDownloads(); else syncBadges(); }); });
 });
-loadDls().then(ok => { if (!ok) toast("Couldn't read your downloads yet. They're still on this device, so reopen the app to try again.", true); }).then(() => loadExtras()).finally(() => { dlsReady = true; queueAutoDl(); if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); ensureExtras(); });
+loadDls().then(ok => { if (!ok) toast("Couldn't read your downloads yet. They're still on this device, so reopen the app to try again.", true); }).then(() => loadExtras()).finally(() => { dlsReady = true; queueAutoDl(); checkResumeQueue(); if (view === 'downloads') renderDownloads(); else syncBadges(); loadArtProfiles().then(() => ensureArtistProfiles()); ensureExtras(); });
 
 /* ---------- offline album art + lyrics for downloads ---------- */
 const EXTRA_VER = 1;
@@ -3726,16 +3746,16 @@ function renderDownloads(){
       <div class="dlhb"><button class="btn ghost" id="dlNew" data-dlnew hidden>↻ Refresh list</button><button class="btn ghost" id="dlProg" data-dlq${dlBusy() ? '' : ' hidden'}>See progress</button><button class="btn ghost" id="dlClear"${items.length ? '' : ' hidden'}>Delete all</button></div></div>
     <p class="dlsub" id="dlsub">${dls.length} song${dls.length === 1 ? '' : 's'}${total ? ' · ' + fmtSize(total) : ''} stored on this device</p>
     <div class="dlmode glass"><div><b>Offline mode</b><span>Play only your downloads and stop all network use</span></div><button class="sw" id="dlOff" role="switch" aria-label="Offline mode" aria-checked="${MODE.off}"></button></div>
-    <div class="dlmode glass"><div><b>Auto</b><span>Automatically download chosen playlists. Songs that fail are listed at the end so you can retry or ignore them</span></div><button class="sw" id="dlAuto" role="switch" aria-label="Auto download" aria-checked="${autoOn()}"></button></div>
-    ${autoOn() ? `<div class="dlauto"><button class="btn ghost" id="dlAutoPick">Choose playlists · ${autoPlIds().size}</button></div>` : ''}
+    <div class="dlmode dlautor glass" id="dlAutoRow" role="button" tabindex="0" aria-label="Edit auto-download playlists"><div><b>Auto</b><span>${autoOn() ? (autoPlIds().size ? `${autoPlIds().size} playlist${autoPlIds().size === 1 ? '' : 's'} · tap to edit` : 'No playlists chosen · tap to choose') : 'Off · tap to choose playlists'}</span></div><button class="sw" id="dlAuto" role="switch" aria-label="Auto download" aria-checked="${autoOn()}"></button></div>
     ${isOnline() ? '' : `<div class="offb"><i></i>${MODE.off ? 'Offline mode' : 'You\'re offline'} · playing from your downloads</div>`}
     <label class="dlq">${ic('search', 18)}<input id="dlq" placeholder="Search your downloads" autocomplete="off" value="${esc(dlQ)}"></label>
     <div class="dltabs">${Object.entries(dlSorts).map(([k, v]) => `<button class="pill ${k === mode && !q ? 'on' : ''}" data-dlsort="${k}">${v}</button>`).join('')}</div>
     <div id="dlSum"></div>
     <div id="dlRows">${rows}</div></div>`;
   $('dlOff').onclick = () => setOffMode(!MODE.off);
-  $('dlAuto').onclick = () => { const on = !autoOn(); store.set('autodl', on ? '1' : '0'); renderDownloads(); if (on) { if (autoPlIds().size) queueAutoDl(); else openAutoPick(); } };
-  const ap = $('dlAutoPick'); if (ap) ap.onclick = openAutoPick;
+  $('dlAuto').onclick = e => { e.stopPropagation(); const on = !autoOn(); store.set('autodl', on ? '1' : '0'); renderDownloads(); if (on) { if (autoPlIds().size) queueAutoDl(); else openAutoPick(); } };
+  $('dlAutoRow').onclick = openAutoPick;
+  $('dlAutoRow').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAutoPick(); } };
   const dq = $('dlq');
   dq.oninput = () => { dlQ = dq.value; dlFocus = true; renderDownloads(); };
   if (dlFocus) { dq.focus(); dq.setSelectionRange(dq.value.length, dq.value.length); dlFocus = false; }
@@ -5236,7 +5256,39 @@ function paintDlPanel(){
 }
 const schedPanel = () => { if (dlPanelT) return; dlPanelT = setTimeout(() => { dlPanelT = 0; paintDlPanel(); }, 250); };
 function openDlPanel(){ openModal(dlPanelHtml()); Object.values(dlActive).forEach(a => dlProgress(a.t.id)); }
+/* remember the download queue so an accidental close can be resumed */
+let dlQReady = false, dlQT = 0;
+function saveDlQueue(){
+  if (!dlQReady) return;                       // don't overwrite the saved queue before the user has answered the resume prompt
+  clearTimeout(dlQT);
+  dlQT = setTimeout(() => {
+    const act = Object.values(dlActive), jobs = [];
+    dlJobs.forEach(j => {
+      if (j.auto) return;                      // auto-downloads restart by themselves
+      const tracks = [...act.filter(a => a.job === j).map(a => a.t), ...j.todo].map(slim);
+      if (tracks.length) jobs.push({ pid: j.pid || null, label: j.label, tracks });
+    });
+    const singles = act.filter(a => !a.job).map(a => slim(a.t));
+    if (singles.length) jobs.push({ pid: null, label: 'Individual songs', tracks: singles });
+    store.set('dlqueue', jobs.length ? JSON.stringify(jobs) : '[]');
+  }, 300);
+}
+async function checkResumeQueue(){
+  if (dlQReady) return;
+  if (!dlsReady || !window.__unlocked || !$('modal').hidden || !$('dlg').hidden) return setTimeout(checkResumeQueue, 1500);
+  const saved = jget('dlqueue', []);
+  const jobs = (Array.isArray(saved) ? saved : []).map(j => ({ ...j, tracks: (j.tracks || []).filter(t => t && t.id && !dls.some(d => d.id === t.id)) })).filter(j => j.tracks.length);
+  if (!jobs.length) { dlQReady = true; return; }
+  const n = new Set(jobs.flatMap(j => j.tracks.map(t => t.id))).size;
+  const yes = await askConfirm({ title: 'Continue your downloads?', msg: `${n} song${n === 1 ? '' : 's'} didn't finish downloading last time. Pick up where you left off?`, ok: 'Continue', cancel: 'Discard' });
+  if (yes && !isOnline()) toast("You're offline · reopen the app when you're back online to continue", true);
+  dlQReady = true;
+  if (!yes) return store.set('dlqueue', '[]');
+  if (!isOnline()) { dlQReady = false; return; }
+  jobs.forEach(j => downloadAll(j.tracks, j.label, j.pid ? { id: j.pid, label: j.label } : null));
+}
 function dlTick(listChanged){
+  saveDlQueue();
   const busy = dlBusy();
   document.querySelectorAll('#nav [data-view="downloads"]').forEach(b => b.classList.toggle('busy', busy));
   if (view === 'downloads') { if (listChanged) softRefreshDls(); paintDlHead(); paintDlSummary(); }
@@ -5275,10 +5327,10 @@ function promptAutoFail(){
 function openAutoPick(){
   const ids = autoPlIds(), list = playlists.filter(p => p.tracks && p.tracks.length);
   if (!list.length) return toast('Create a playlist with songs first', true);
-  const sh = openModal(`<h3>Auto-download playlists</h3><p class="mhint">Pick the playlists to keep downloaded. New songs you add to them are downloaded automatically.</p><div class="autol">${list.map(p => `<label class="apr"><span class="qm"><b>${esc(p.name)}</b><small>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</small></span><input type="checkbox" data-ap="${esc(p.id)}" ${ids.has(p.id) ? 'checked' : ''}></label>`).join('')}</div><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="apSave">Save</button></div>`);
+  const sh = openModal(`<h3>Auto-download playlists</h3><p class="mhint">Pick the playlists to keep downloaded. New songs you add are downloaded automatically, and any that fail are listed at the end so you can retry or ignore them.</p><div class="autol">${list.map(p => `<label class="apr"><span class="qm"><b>${esc(p.name)}</b><small>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</small></span><input type="checkbox" data-ap="${esc(p.id)}" ${ids.has(p.id) ? 'checked' : ''}></label>`).join('')}</div><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="apSave">Save</button></div>`);
   sh.querySelector('#apSave').onclick = () => {
     const sel = [...sh.querySelectorAll('[data-ap]')].filter(x => x.checked).map(x => x.dataset.ap);
-    store.set('autodlpl', JSON.stringify(sel)); closeModal();
+    store.set('autodlpl', JSON.stringify(sel)); store.set('autodl', sel.length ? '1' : '0'); closeModal();
     if (view === 'downloads') renderDownloads();
     queueAutoDl();
   };
@@ -5702,6 +5754,13 @@ function lySyncChk(){
 }
 $('npq').addEventListener('scroll', () => { if (!lySyncRaf) lySyncRaf = requestAnimationFrame(() => { lySyncRaf = 0; lySyncChk(); }); }, { passive: true });
 $('lysync').onclick = () => { lyUserTs = 0; lyCenter(true); };
+function lyCleanApply(){
+  const on = store.get('lyclean', '0') === '1';
+  $('npv').classList.toggle('lyclean', on); $('lyclean').setAttribute('aria-pressed', on);
+  setTimeout(() => { lyCenter(false); lySyncChk(); }, 60);
+}
+$('lyclean').onclick = () => { store.set('lyclean', store.get('lyclean', '0') === '1' ? '0' : '1'); lyCleanApply(); };
+lyCleanApply();
 function lyCenter(smooth){
   if (lyIdx < 0 || !lyEls[lyIdx]) return;
   const box = $('npq');
