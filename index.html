@@ -107,6 +107,13 @@ a[data-artist],a[data-aname]{cursor:pointer;color:inherit}
 .dlautor b{font-size:14px}.dlautor span{font-size:12px;margin-top:1px}
 .dlautor .sw{width:42px;height:26px}.dlautor .sw::after{width:20px;height:20px}.dlautor .sw[aria-checked=true]::after{transform:translateX(16px)}
 .dlhb .btn[hidden]{display:none}
+/* isai-serverlogs-v1: in-app server log viewer (app only) */
+.slst{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;color:var(--mute)}
+.slst i{width:9px;height:9px;border-radius:50%;background:#888;flex:none}
+.slst.running i{background:#4cd58a}.slst.starting i,.slst.restarting i{background:#f5b94a}.slst.unresponsive i,.slst.stopped i{background:#ff5d5d}
+.slpre{height:min(46vh,380px);overflow:auto;margin:0 0 12px;padding:10px;border-radius:12px;background:rgba(0,0,0,.45);font:11px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;user-select:text;-webkit-user-select:text}
+.slpre div.e{color:#ff8a8a}.slpre div.a{color:#8ec5ff}
+.slbtns{display:flex;gap:8px;flex-wrap:wrap}
 a[data-artist]:hover,a[data-aname]:hover{text-decoration:underline;color:#fff}
 .glass{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(26px) saturate(1.5);-webkit-backdrop-filter:blur(26px) saturate(1.5);box-shadow:0 10px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
 
@@ -1727,6 +1734,41 @@ function setIncog(on){
 
 /* lyrics-mode helpers */
 /* streaming notice: shown once (must be acknowledged), reopenable from Settings */
+/* ---- in-app server log viewer (only exists inside the Android app) ---- */
+function openServerLogs(){
+  const N = window.IsaiNative; if (!N || !N.serverLogs) return;
+  const sh = openModal(`<h3>Server logs</h3>
+    <div class="slst" id="slSt"><i></i><span>Connecting…</span></div>
+    <div class="slpre" id="slPre"></div>
+    <div class="slbtns"><button class="btn" id="slRe">Restart server</button><button class="btn ghost" id="slCp">Copy</button><button class="btn ghost" id="slX">Close</button></div>`);
+  const pre = sh.querySelector('#slPre'), st = sh.querySelector('#slSt');
+  const NAMES = { running: 'Running', starting: 'Starting…', restarting: 'Restarting…', unresponsive: 'Not responding, will restart automatically', stopped: 'Stopped' };
+  const all = []; let after = 0, timer = 0;
+  const cls = l => /error|traceback|exception|crash|not answering|not running/i.test(l) ? 'e' : (l.includes('[app]') ? 'a' : '');
+  const poll = () => {
+    if (!pre.isConnected || $('modal').hidden) { clearInterval(timer); return; }
+    let d; try { d = JSON.parse(N.serverLogs(after)); } catch (e) { return; }
+    if (d.seq < after) { all.length = 0; pre.innerHTML = ''; }   // app restarted: log started over
+    after = d.seq;
+    st.className = 'slst ' + d.state;
+    st.querySelector('span').textContent = (NAMES[d.state] || d.state) + (d.restarts ? ' · restarted ' + d.restarts + '×' : '');
+    if (!d.lines.length) return;
+    const stick = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
+    d.lines.forEach(l => { all.push(l); const x = document.createElement('div'); const c = cls(l); if (c) x.className = c; x.textContent = l; pre.appendChild(x); });
+    while (pre.childElementCount > 1500) pre.firstChild.remove();
+    if (stick) pre.scrollTop = pre.scrollHeight;
+  };
+  poll(); pre.scrollTop = pre.scrollHeight;
+  timer = setInterval(poll, 1500);
+  sh.querySelector('#slX').onclick = closeModal;
+  sh.querySelector('#slRe').onclick = () => { try { N.restartServer(); toast('Restarting server…'); } catch (e) { toast('Could not restart', true); } };
+  sh.querySelector('#slCp').onclick = () => {
+    const t = all.join('\n');
+    const ok = () => toast('Logs copied');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, () => toast('Copy failed', true));
+    else { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); ok(); } catch (e) { toast('Copy failed', true); } a.remove(); }
+  };
+}
 function showNotice(){ const n = $('notice'); if (n) { n.classList.add('on'); setTimeout(() => $('ntOk').focus(), 60); } }
 function maybeShowNotice(){
   if (store.get('slowAck', '') === '1' || base() !== PUBLIC_API) return;   // only for the shared main server
@@ -2670,6 +2712,9 @@ function renderSettings(){
       <label class="srow"><div><b>API base URL</b><span>Where your Thirai server is running</span></div><input id="sBase" value="${esc(base())}" spellcheck="false" autocapitalize="off"></label>
       <label class="srow"><div><b>API key</b><span>Only needed if the server has API_KEY set</span></div><input id="sKey" type="password" value="${esc(store.get('key', ''))}" placeholder="Optional" autocomplete="off"></label>
     </section>
+    ${window.IsaiNative && IsaiNative.serverLogs ? `<section class="sgrp glass"><h3>Backend (this device)</h3>
+      <div class="srow"><div><b>Server logs</b><span>See what the on-device server is doing. It restarts itself if it stops working</span></div><button class="btn ghost" id="sLogs">View</button></div>
+    </section>` : ''}
     <section class="sgrp glass"><h3>Downloads</h3>
       <div class="srow"><div><b>Format</b><span>Used for new downloads</span></div><button class="spick" id="sFmt"><span>${store.get('fmt', 'mp3').toUpperCase()}</span>${ic('chev', 14)}</button></div>
       <div class="srow"><div><b>Stored offline</b><span>${dls.length} song${dls.length === 1 ? '' : 's'}${dsz ? ' · ' + fmtSize(dsz) : ''}</span></div><button class="btn ghost" data-view="downloads">Manage</button></div>
@@ -2681,6 +2726,7 @@ function renderSettings(){
       <div class="srow"><div><b>Clear all data</b><span>Delete your playlists, liked songs, saved items and listening history</span></div><button class="btn ghost danger" id="sWipe">Clear data</button></div>
     </section></div>`;
   $('sNotice').onclick = showNotice;
+  if ($('sLogs')) $('sLogs').onclick = openServerLogs;
   $('sOff').onclick = () => setOffMode(!MODE.off);
   $('sInc').onclick = () => setIncog(!MODE.inc);
   $('sOut').onclick = () => window.__signOut();
