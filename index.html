@@ -365,11 +365,7 @@ h3.sec{margin:10px 12px 8px;font-size:22px;font-weight:800}
   #npv.lyclean .npr{justify-self:center;width:min(820px,100%)}
 }
 @media(max-width:720px){
-  #lyclean{top:calc(var(--sat) + 38px);right:68px}
-  #npv:not(.lyfull) #lyclean{display:none!important}
-  #npv.lyclean.lyshow .npcard{opacity:0;pointer-events:none;transition:opacity .3s var(--ease)}
-  #npv.lyclean.lyshow .npr{bottom:calc(var(--sab) + 24px)}
-  #npv.lyclean.lyshow #npq.lyr{padding-bottom:50%}
+  #lyclean{display:none!important}   /* no clean/fullscreen toggle on phones; the saved clean-view flag is ignored here */
 }
 .grab{display:none}
 .tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.14)}
@@ -1571,13 +1567,19 @@ body.incog .incpill{display:inline-flex}
 
 <div id="instpage" role="dialog" aria-modal="true" aria-label="Install Isai"><div class="ibox">
   <button class="ix" id="instX" aria-label="Close">✕</button>
-  <div class="ihead"><img src="/apple-touch-icon.png" alt=""><h2>Install Isai</h2><p>Add the app to your phone</p></div>
+  <div class="ihead"><img src="/apple-touch-icon.png" alt=""><h2>Install Isai</h2><p>Get the app for your device</p></div>
   <div class="icard" id="instAndroid">
     <h3>Android <span class="tag" id="instAndTag" hidden>Your device</span></h3>
     <p>Background playback with media controls and notifications.</p>
     <a class="btn" id="instApk" href="https://github.com/nithinana/isai-app/releases/download/v1.04_publicbeta/Isai-debug.apk" download>Download APK</a>
     <button class="btn ghost" id="instPwa" hidden>Or install as web app</button>
     <div class="isub">Open the file and tap Install. If Android blocks it, allow “Install unknown apps” for your browser.</div>
+  </div>
+  <div class="icard" id="instWin">
+    <h3>Windows <span class="tag" id="instWinTag" hidden>Your device</span> <span class="tag">Beta</span></h3>
+    <p>Desktop app for Windows with your music, downloads and lyrics.</p>
+    <a class="btn" id="instWinBtn" href="https://github.com/nithinana/isai-app/releases/download/isai_windowsv1.0-beta/isai-windows.zip" download>Download for Windows</a>
+    <div class="isub">Extract the zip, then run the app inside. If Windows SmartScreen warns you, choose “More info” then “Run anyway”.</div>
   </div>
   <div class="icard" id="instIos">
     <h3>iPhone &amp; iPad <span class="tag" id="instIosTag" hidden>Your device</span></h3>
@@ -2187,10 +2189,11 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) queu
 /* ---- deep links: ?p=<share slug> opens a shared playlist once signed in ---- */
 function openDeepLink(){
   try {
-    const q = new URLSearchParams(location.search), slug = (q.get('p') || '').trim(), user = (q.get('u') || '').trim();
-    if (!slug && !user) return;
-    q.delete('p'); q.delete('u'); const qs = q.toString();
+    const q = new URLSearchParams(location.search), slug = (q.get('p') || '').trim(), user = (q.get('u') || '').trim(), art = (q.get('a') || '').trim(), artN = (q.get('n') || '').trim();
+    if (!slug && !user && !art) return;
+    q.delete('p'); q.delete('u'); q.delete('a'); q.delete('n'); const qs = q.toString();
     history.replaceState(history.state, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    if (art && /^[\w-]{6,64}$/.test(art)) { openArtist(art, artN); return; }
     if (slug && /^[a-z0-9]{6,32}$/i.test(slug)) show('shared', slug);
     else if (user && /^[a-zA-Z0-9_]{3,20}$/.test(user)) show(acctName && user.toLowerCase() === acctName.toLowerCase() ? 'profile' : 'user', acctName && user.toLowerCase() === acctName.toLowerCase() ? undefined : user);
   } catch {}
@@ -2553,7 +2556,7 @@ function renderArtist(d){
       <div class="ahrow"><div class="ava">${d.thumbnail ? imgTag(av, 600) : ''}</div>
         <div class="aht"><span class="eb">Artist</span><h1>${esc(d.name || '')}</h1><p>${esc(d.subtitle || '')}</p>
           <div class="aar">${songs.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button><button class="rb" id="lShuf" title="Shuffle">${ic('shuffle')}</button>` : ''}
-            <button class="rb sm ${isSaved(pageEnt) ? 'on' : ''}" id="aSave" title="Save to library">${ic('bookmark', 18)}</button><button class="rb sm" id="aDl" title="Download popular songs">${ic('dl', 18)}</button></div></div></div></div>
+            <button class="rb sm ${isSaved(pageEnt) ? 'on' : ''}" id="aSave" title="Save to library">${ic('bookmark', 18)}</button><button class="rb sm" id="aShare" title="Share artist">${ic('share', 18)}</button><button class="rb sm" id="aDl" title="Download popular songs">${ic('dl', 18)}</button></div></div></div></div>
     <div class="abody">
       <div class="acols"><div>${songs.length ? `<h3 class="sec">Popular</h3><div id="pop"></div><button class="linkb" id="popMore">See more</button>` : ''}</div>${about}</div>
     </div>${disc.all.length ? discHtml() : ''}`;
@@ -2566,6 +2569,7 @@ function renderArtist(d){
   paintPop(false);
   if ($('popMore')) $('popMore').onclick = () => paintPop(true);
   if ($('abtMore')) $('abtMore').onclick = () => { const a = $('abt'); const c = a.classList.toggle('clamp'); $('abtMore').textContent = c ? 'Show more' : 'Show less'; };
+  $('aShare').onclick = () => shareArtist(d.id, d.name);
   $('aDl').onclick = () => downloadArtist(d.id, d.name || 'Artist', songs, d.thumbnail);
   $('aSave').onclick = () => $('aSave').classList.toggle('on', toggleSave(pageEnt));
   if (songs[0]) tintFrom(songs[0]);
@@ -3229,6 +3233,14 @@ async function shareSong(t){
   if (navigator.share) { try { await navigator.share(data); } catch {} return; }
   try { await navigator.clipboard.writeText(data.url); toast('Link copied'); } catch { toast(data.url); }
 }
+/* artist links: an app deep link (?a=<channelId>&n=<name>) that opens the artist page for whoever has Isai */
+const artistLink = (id, name) => location.origin + location.pathname + '?a=' + encodeURIComponent(id) + (name ? '&n=' + encodeURIComponent(name) : '');
+async function shareArtist(id, name){
+  if (!id) return toast('No artist info to share', true);
+  const data = { title: name || 'Artist', text: `${name || 'Artist'} on Isai`, url: artistLink(id, name) };
+  if (navigator.share) { try { await navigator.share(data); } catch {} return; }
+  try { await navigator.clipboard.writeText(data.url); toast('Artist link copied'); } catch { toast(data.url); }
+}
 function pickArtist(t){
   const as = artistsOf(t);
   if (as.length < 2) return as[0] ? openArtist(as[0].id, as[0].name) : toast('No artist info for this track', true);
@@ -3244,7 +3256,8 @@ function openSongMenu(t, o = {}){
     ['goq', 'list', 'Go to queue'],
     (t.album_id || t.album) ? ['album', 'album', 'Go to album'] : null,
     artistsOf(t).length ? ['artist', 'user', 'Go to artist'] : null,
-    ['share', 'share', 'Share'],
+    ['share', 'share', 'Share song'],
+    artistsOf(t).length ? ['shareartist', 'share', 'Share artist'] : null,
     ['dl', 'dl', 'Download']
   ].filter(Boolean);
   const sh = openModal(`<div class="smh"><img src="${esc(cov(t, 120))}" alt=""><div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(t.artist || '')}</span></div></div>`
@@ -3260,6 +3273,7 @@ function openSongMenu(t, o = {}){
     else if (k === 'album') openAlbumOf(t);
     else if (k === 'artist') pickArtist(t);
     else if (k === 'share') shareSong(t);
+    else if (k === 'shareartist') { const as = artistsOf(t); if (as.length < 2) shareArtist(as[0].id, as[0].name); else { const sh2 = openModal(`<h3>Share artist</h3>${as.map((a, i) => `<button class="plr act" data-i="${i}"><span class="plc">${ic('user', 20)}</span><span class="qm"><b>${esc(a.name)}</b></span></button>`).join('')}`); sh2.onclick = ev => { const rr = ev.target.closest('[data-i]'); if (!rr) return; closeModal(); const a = as[+rr.dataset.i]; shareArtist(a.id, a.name); }; } }
     else if (k === 'dl') download(t, null);
   };
 }
@@ -3402,6 +3416,8 @@ $('npmore').onclick = () => {
     ${row('dl', dls.some(d => d.id === t.id) ? 'Downloaded' : 'Download', ic('dl', 20))}
     ${(t.album_id || t.album) ? row('album', 'Go to album', ic('note', 20)) : ''}
     ${artistsOf(t)[0] ? row('artist', 'Go to artist', ic('chev', 20)) : ''}
+    ${row('share', 'Share song', ic('share', 20))}
+    ${artistsOf(t)[0] ? row('shareartist', 'Share artist', ic('share', 20)) : ''}
     ${lyState === 'found' ? row('lyr', 'Lyrics', ic('note', 20)) : ''}
     ${lyState === 'found' ? row('tl', lyTl() ? 'Hide pronunciation' : 'Show pronunciation', ic('note', 20)) : ''}`);
   sheet.onclick = e => {
@@ -3412,6 +3428,8 @@ $('npmore').onclick = () => {
     else if (k === 'dl') download(t);
     else if (k === 'album') openAlbumOf(t);
     else if (k === 'artist') { const x = artistsOf(t)[0]; if (x) openArtist(x.id, x.name); }
+    else if (k === 'share') shareSong(t);
+    else if (k === 'shareartist') { const x = artistsOf(t)[0]; if (x) shareArtist(x.id, x.name); }
     else if (k === 'lyr') { setTab('lyrics'); $('npr').classList.add('up'); }
     else if (k === 'tl') lyToggleTl();
   };
@@ -3601,6 +3619,28 @@ function dlProgress(id){
     el.textContent = a.total ? `${fmtSize(a.loaded)} of ${fmtSize(a.total)}` : a.loaded ? fmtSize(a.loaded) : 'Preparing…';
   });
 }
+/* download request: the playback path works because it sends the key in the URL (no custom headers, so no CORS preflight).
+   Do the same here, then fall back to the header style and finally to the plain stream so a flaky /download route never blocks saving */
+async function dlFetch(t, f){
+  if (!window.__unlocked) throw new Error('Sign in required');
+  if (!isOnline()) throw new Error("You're offline");
+  const k = store.get('key', ''), q = k ? '&key=' + encodeURIComponent(k) : '', id = encodeURIComponent(t.id), b = base();
+  const tries = [
+    { u: `${b}/download/${id}?fmt=${f}${q}`, o: {}, ms: 180000 },
+    { u: `${b}/download/${id}?fmt=${f}${q}`, o: { headers: hd() }, ms: 180000 },
+    { u: audioUrl(t.id), o: {}, ms: 120000, stream: true }
+  ];
+  let last = null;
+  for (const x of tries) {
+    try {
+      const r = await fetchT(x.u, x.o, x.ms, false);
+      if (r.ok) { r.__stream = !!x.stream; return r; }
+      let m = r.statusText; try { m = (await r.json()).detail || m; } catch {}
+      last = new Error(typeof m === 'string' && m ? m : 'Download failed (' + r.status + ')');
+    } catch (e) { last = e; if (!isOnline()) throw new Error("You're offline"); }
+  }
+  throw new Error(last && last.name !== 'AbortError' && last.name !== 'TypeError' ? last.message : 'Could not download this song right now. Please try again in a moment.');
+}
 async function download(t, btn, quiet, job){
   if (dlActive[t.id]) { if (!quiet) toast('Already downloading'); return false; }
   const f = store.get('fmt', 'mp3'), a = dlActive[t.id] = { t: slim(t), loaded: 0, total: 0, fmt: f, job: job || null };
@@ -3609,7 +3649,7 @@ async function download(t, btn, quiet, job){
   dlTick();
   let ok = false;
   try {
-    const r = await api(`/download/${t.id}?fmt=${f}`);
+    const r = await dlFetch(t, f);
     const cd = r.headers.get('content-disposition') || '';
     const name = (cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i) || [])[1];
     a.total = +r.headers.get('content-length') || 0;
@@ -3619,7 +3659,8 @@ async function download(t, btn, quiet, job){
       for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); a.loaded += value.length; dlProgress(t.id); }
       blob = new Blob(parts, { type: r.headers.get('content-type') || 'application/octet-stream' });
     } else blob = await r.blob();
-    const fname = name ? decodeURIComponent(name) : `${t.title}.${f}`;
+    const ct = r.headers.get('content-type') || '', sx = /mp4|m4a|aac/.test(ct) ? 'm4a' : /webm/.test(ct) ? 'webm' : /ogg|opus/.test(ct) ? 'opus' : /mpeg|mp3/.test(ct) ? 'mp3' : f;
+    const fname = name ? decodeURIComponent(name) : `${t.title}.${r.__stream ? sx : f}`.replace(/[\\/:*?"<>|]+/g, '_');
     const meta = { ...slim(t), fmt: f, size: blob.size, ts: Date.now(), file: fname };
     try {
       await idb.put(meta, blob);
@@ -5928,6 +5969,7 @@ const pwaBtn = $('pwaInstall');
 const isInstalled = () => !!window.IsaiNative || window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || window.navigator.standalone === true || store.get('installed', '') === '1';
 const isIOS = () => (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
 const isAndroid = () => /Android/i.test(navigator.userAgent);
+const isWindows = () => /Windows NT/i.test(navigator.userAgent) && !isAndroid();
 const instBox = $('instpage');
 
 function updateInstallBtn() {
@@ -5938,13 +5980,15 @@ function updateInstallBtn() {
 }
 function openInstall() {
   if (isInstalled()) return;
-  const ios = isIOS(), and = isAndroid();
-  $('instAndTag').hidden = !and; $('instIosTag').hidden = !ios;
+  const ios = isIOS(), and = isAndroid(), win = isWindows();
+  $('instAndTag').hidden = !and; $('instIosTag').hidden = !ios; $('instWinTag').hidden = !win;
   $('instPwa').hidden = !deferredPrompt;
   /* the visitor's own platform goes first */
-  const box = instBox.querySelector('.ibox');
-  box.insertBefore(ios ? $('instIos') : $('instAndroid'), ios ? $('instAndroid') : $('instIos'));
-  $('instAndroid').classList.toggle('me', and); $('instIos').classList.toggle('me', ios);
+  const box = instBox.querySelector('.ibox'), head = box.querySelector('.ihead');
+  const first = win ? $('instWin') : ios ? $('instIos') : $('instAndroid');
+  head.after(first);
+  [$('instAndroid'), $('instWin'), $('instIos')].filter(x => x !== first).forEach(x => box.appendChild(x));
+  $('instAndroid').classList.toggle('me', and); $('instIos').classList.toggle('me', ios); $('instWin').classList.toggle('me', win);
   instBox.classList.add('on');
 }
 function closeInstall() { if (instBox) instBox.classList.remove('on'); }
