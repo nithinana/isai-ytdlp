@@ -1495,6 +1495,122 @@ body.incog .incpill{display:inline-flex}
 
 /* ---- app: no Google sign-in ---- */
 .isai-app #lkG,.isai-app #lkRegG,.isai-app #lkGErr,.isai-app #lkRegGErr,.isai-app #lock .or{display:none!important}
+
+/* ======================================================================
+   DESKTOP ONLY (>=721px): Apple-Music-style full-screen player
+   + Spotify-style "now playing" sidebar. Phones are untouched.
+   ====================================================================== */
+#npbgA,#npbgB,#npbgShade,#sb{display:none}
+@media(min-width:721px){
+  /* ---------- full-screen player ---------- */
+  #npv{left:0;top:0;right:0;bottom:0;z-index:25;background:#0b0b0d}
+  #npv.open{grid-template-columns:minmax(300px,.85fr) minmax(0,1.15fr);gap:clamp(40px,5vw,96px);padding:56px clamp(40px,5vw,96px) 118px}
+  #npbgA,#npbgB,#npbgShade{display:block;position:absolute;inset:0;pointer-events:none;z-index:0}
+  #npbgA,#npbgB{background-size:cover;background-position:center;opacity:0;transform:scale(1.5);
+    filter:blur(64px) saturate(1.7) brightness(.72);transition:opacity 1.1s var(--ease)}
+  #npbgA.on,#npbgB.on{opacity:1}
+  #npbgShade{background:radial-gradient(120% 90% at 20% 10%,rgba(0,0,0,0) 0%,rgba(0,0,0,.28) 100%),linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.38))}
+  #npv .npl,#npv .npr,#npv .nptop,#npv #lyclean{position:relative;z-index:2}
+  #npv .nptop{position:absolute}
+  #npv #lyclean{position:absolute}
+
+  /* left: cover, thin scrubber, centred title + artist */
+  #npv{--cw:clamp(240px,min(30vw,calc(100vh - 380px),460px),460px)}
+  #npv .npl{gap:22px;justify-content:center}
+  #npv #npcover{width:var(--cw);border-radius:10px;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+  #npv .npcard{display:flex;flex-direction:column;width:var(--cw);padding:0;border:0;border-radius:0;background:none;
+    box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+  #npv .npseek{order:1;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;margin:0 0 14px}
+  #npv .npseek div{display:contents}
+  #npv .npseek span{margin:0;font-size:12px;font-weight:600;color:rgba(255,255,255,.72)}
+  #npv #mcur{order:-1}#npv #mdur{order:2}
+  #npv #mseek{order:1}
+  #npv .npinfo{order:2;justify-content:center;text-align:center}
+  #npv .npti{flex:none;max-width:100%}
+  #npv .npinfo b{font-size:clamp(20px,1.6vw,26px);font-weight:800}
+  #npv .npinfo span{font-size:15px;color:rgba(255,255,255,.7)}
+  #npv .npbtns,#npv .npctl{display:none}   /* controls live in the bottom player bar */
+
+  /* right: big, crisp lyrics straight on the blurred art */
+  #npv .npr{background:transparent;border-color:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;padding:0 0 6px}
+  #npv .tabs{border-bottom:0;gap:8px;justify-content:flex-start;padding:0 0 10px}
+  #npv .tabs button{flex:none;padding:7px 16px;margin:0;border:0;border-radius:999px;font-size:12px;letter-spacing:.08em;color:rgba(255,255,255,.7);background:rgba(255,255,255,.08)}
+  #npv .tabs button:hover{background:rgba(255,255,255,.16)}
+  #npv .tabs button.on{background:rgba(255,255,255,.95);color:#111}
+  #npv .npr.lyrmode .npf{display:none}
+  #npv .lyhd{opacity:0;transition:opacity .3s var(--ease)}
+  #npv .npr:hover .lyhd{opacity:1}
+  #npv .qlist.lyr{padding:6px 0 42% 0}
+  #npv .ly{font-size:clamp(30px,2.55vw,48px);font-weight:800;line-height:1.22;letter-spacing:-.012em;padding:10px 6px;
+    color:rgba(255,255,255,.95);opacity:.42;filter:none;transform:scale(1);transform-origin:left center}
+  #npv .ly.past{opacity:.42;filter:none;transform:scale(1)}
+  #npv .ly:hover{opacity:.7;filter:none;transform:scale(1)}
+  #npv .ly.on{opacity:1;color:#fff;text-shadow:0 0 28px rgba(255,255,255,.55),0 0 2px rgba(255,255,255,.4)}
+  #npv .ly.bgv{font-size:clamp(22px,1.8vw,32px)}
+  #npv .ly.plain,#npv .ly.plain:hover{font-size:clamp(20px,1.6vw,26px);font-weight:700;opacity:.85;text-shadow:none}
+  #npv.lyclean.open{grid-template-columns:minmax(0,1fr)}
+
+  /* ---------- sidebar (slides in while a song is playing) ---------- */
+  :root{--sbw:344px}
+  #sb{display:flex;flex-direction:column;position:fixed;top:calc(var(--topH) + 4px);right:14px;bottom:106px;width:var(--sbw);z-index:21;
+    border-radius:20px;overflow:hidden;background:rgba(18,18,24,.62);border:1px solid rgba(255,255,255,.1);
+    backdrop-filter:blur(30px) saturate(1.4);-webkit-backdrop-filter:blur(30px) saturate(1.4);box-shadow:0 14px 44px rgba(0,0,0,.4);
+    transform:translateX(calc(100% + 28px));opacity:0;visibility:hidden;pointer-events:none;
+    transition:transform .65s var(--ease),opacity .45s var(--ease),visibility 0s linear .65s}
+  html.sbopen #sb{transform:none;opacity:1;visibility:visible;pointer-events:auto;transition:transform .65s var(--ease),opacity .45s var(--ease),visibility 0s}
+  html.sbopen.npopen #sb{transform:translateX(calc(100% + 28px));opacity:0;visibility:hidden;pointer-events:none;transition:transform .5s var(--ease),opacity .3s var(--ease),visibility 0s linear .5s}
+  /* page content + player bar glide left to make room */
+  main{transition:margin-right .65s var(--ease)}
+  #player{transition:transform .6s var(--ease),opacity .45s var(--ease),right .65s var(--ease)}
+  html.sbopen:not(.npopen) main{margin-right:calc(var(--sbw) + 28px)}
+  html.sbopen:not(.npopen) #player{right:calc(var(--sbw) + 28px)}
+
+  #sb .sbscroll{flex:1;min-height:0;overflow-y:auto;padding:14px 14px 16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+  #sb .sbhd{display:flex;align-items:center;justify-content:space-between;margin:0 2px 12px;font-size:14px;font-weight:700}
+  #sb .sbhd button{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--mute)}
+  #sb .sbhd button:hover{color:#fff;background:rgba(255,255,255,.1)}
+  #sbArt{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.45);background:var(--panel);cursor:pointer;transition:opacity .35s var(--ease),transform .5s var(--ease)}
+  #sbArt.sw{opacity:0;transform:scale(.97)}
+  #sb .sbti{margin:16px 2px 4px;font-size:22px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}
+  #sb .sbar{margin:0 2px;color:var(--mute);font-size:14px}
+  #sb .sbar a:hover{color:#fff;text-decoration:underline}
+  #sb .sbc{margin-top:16px;border-radius:16px;padding:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07)}
+  #sb .sbc h4{margin:0 0 10px;font-size:14px;font-weight:800}
+  #sb .sbc[hidden]{display:none}
+  #sbLy{cursor:pointer}
+  #sbLy .sbl{font-size:17px;font-weight:800;line-height:1.3;opacity:.45;margin:3px 0;transition:opacity .4s var(--ease)}
+  #sbLy .sbl.on{opacity:1}
+  #sbLy .sbmore{margin-top:10px;font-size:12px;font-weight:700;color:var(--mute)}
+  #sbAbImg{width:calc(100% + 28px);margin:-14px -14px 12px;height:170px;object-fit:cover;display:block;border-radius:16px 16px 0 0}
+  #sbAbImg[hidden]{display:none}
+  #sbAb .nm{font-weight:800;font-size:15px}
+  #sbAb .vw{margin-top:2px;color:var(--mute);font-size:13px}
+  #sbAb p{margin:8px 0 0;font-size:13px;line-height:1.5;color:rgba(255,255,255,.78);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+  #sbAb button.fl{margin-top:10px;padding:6px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.35);font-weight:700;font-size:13px}
+  #sbAb button.fl:hover{border-color:#fff;transform:scale(1.03)}
+  #sbCr .cr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0}
+  #sbCr .cr b{display:block;font-size:14px}
+  #sbCr .cr span{display:block;font-size:12px;color:var(--mute)}
+  #sbCr .cr button{flex:none;padding:5px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.35);font-weight:700;font-size:12px}
+  #sbCr .cr button:hover{border-color:#fff}
+  #sbQ .sbqh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  #sbQ .sbqh h4{margin:0}
+  #sbQ .sbqh button{font-size:12px;font-weight:700;color:var(--mute)}
+  #sbQ .sbqh button:hover{color:#fff}
+  #sbQ .sbqr{display:flex;align-items:center;gap:10px;padding:6px;margin:0 -6px;border-radius:10px;cursor:pointer}
+  #sbQ .sbqr:hover{background:rgba(255,255,255,.08)}
+  #sbQ .sbqr img{width:44px;height:44px;border-radius:7px;object-fit:cover;flex:none}
+  #sbQ .sbqr b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #sbQ .sbqr span{display:block;font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* content swap animation when the song changes */
+  #sb .sbscroll.swap>*:not(.sbhd){animation:sbswap .5s var(--ease) both}
+  #sb .sbscroll.swap>*:nth-child(3){animation-delay:.03s}
+  #sb .sbscroll.swap>*:nth-child(n+4){animation-delay:.07s}
+  @keyframes sbswap{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+}
+/* sidebar needs room: below 900px wide it stays hidden even on small desktop windows */
+@media(max-width:899px){#sb{display:none!important}html.sbopen:not(.npopen) main{margin-right:0}html.sbopen:not(.npopen) #player{right:16px}}
+@media(prefers-reduced-motion:reduce){#sb,main,#player{transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -1672,6 +1788,19 @@ body.incog .incpill{display:inline-flex}
   <div id="lyhead"><button id="lymore" aria-label="More"></button></div>
   <button id="lyclean" type="button" title="Clean view" aria-label="Clean view" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
 </section>
+
+<aside id="sb" aria-label="Now playing">
+  <div class="sbscroll" id="sbScroll">
+    <div class="sbhd"><span id="sbFrom">Now playing</span><button id="sbX" aria-label="Hide sidebar" title="Hide"></button></div>
+    <img id="sbArt" alt="">
+    <div class="sbti" id="sbTi"></div>
+    <div class="sbar" id="sbAr"></div>
+    <div class="sbc" id="sbLy" hidden><h4>Lyrics preview</h4><div id="sbLyBody"></div><div class="sbmore">Show full lyrics</div></div>
+    <div class="sbc" id="sbAb" hidden><img id="sbAbImg" alt="" hidden><h4>About the artist</h4><div class="nm" id="sbAbNm"></div><div class="vw" id="sbAbVw"></div><p id="sbAbP"></p></div>
+    <div class="sbc" id="sbCr" hidden><h4>Credits</h4><div id="sbCrBody"></div></div>
+    <div class="sbc" id="sbQ" hidden><div class="sbqh"><h4>Next in queue</h4><button id="sbQopen">Open queue</button></div><div id="sbQBody"></div></div>
+  </div>
+</aside>
 <div id="bulk" class="glass" hidden><div><b id="bulkT"></b><div class="dlbar"><i id="bulkI"></i></div></div><button class="pill" id="bulkX">Cancel</button></div>
 <div id="modal" hidden><div class="msheet glass"></div></div>
 <video id="audio" playsinline webkit-playsinline preload="auto" style="display:none" aria-hidden="true"></video>
@@ -6218,6 +6347,121 @@ updateInstallBtn();
       }
     })
     .catch(() => startApp()); // account server unreachable: keep an existing session in (same as index)
+})();
+</script>
+
+<script>
+/* ===== Desktop full-screen backdrop + now-playing sidebar (additive) ===== */
+(function(){
+  const desk = () => matchMedia('(min-width:721px)').matches;
+  const npv = $('npv');
+
+  /* ---- blurred cover backdrop for the full-screen player ---- */
+  const bgA = document.createElement('div'), bgB = document.createElement('div'), shade = document.createElement('div');
+  bgA.id = 'npbgA'; bgB.id = 'npbgB'; shade.id = 'npbgShade';
+  npv.prepend(shade); npv.prepend(bgB); npv.prepend(bgA);
+  let bgOn = 0, bgUrl = '';
+  function setBackdrop(t){
+    if (!t) return;
+    let u = ''; try { u = cov(t, 320); } catch {}
+    if (!u || u === bgUrl) return; bgUrl = u;
+    const nxt = bgOn ? bgA : bgB, cur = bgOn ? bgB : bgA;
+    const im = new Image(); im.onload = () => { nxt.style.backgroundImage = 'url("' + u.replace(/"/g, '%22') + '")'; nxt.classList.add('on'); cur.classList.remove('on'); bgOn = bgOn ? 0 : 1; };
+    im.src = u;
+  }
+
+  /* ---- sidebar ---- */
+  const sb = $('sb'), root = document.documentElement;
+  $('sbX').innerHTML = ic('x', 16);
+  let hidden = false, sbId = null, tok = 0, lyTimer = 0;
+  const artCache = {};
+
+  function sbSync(){
+    const on = desk() && !hidden && !!current && $('player').classList.contains('on');
+    root.classList.toggle('sbopen', on);
+  }
+  async function getArtist(a){
+    const k = a.id || ('n:' + a.name);
+    if (artCache[k] !== undefined) return artCache[k];
+    let d = null;
+    try { if (a.id) d = await (await api('/artist/' + encodeURIComponent(a.id))).json(); } catch {}
+    if ((!d || !d.thumbnail) && a.name) { try { const r = await firstResult('artists', a.name); if (r) d = Object.assign({}, d || {}, { id: r.id || (d && d.id), name: r.title, thumbnail: r.thumbnail }); } catch {} }
+    return artCache[k] = d;
+  }
+  function paintTrack(t){
+    const my = ++tok, box = $('sbScroll');
+    box.classList.remove('swap'); void box.offsetWidth; box.classList.add('swap');
+    const art = $('sbArt'); art.classList.add('sw');
+    setTimeout(() => { if (my !== tok) return; try { art.src = cov(t, 640); } catch {} art.classList.remove('sw'); }, 160);
+    $('sbTi').textContent = t.title || '';
+    $('sbAr').innerHTML = artistLinks(t);
+    $('sbFrom').textContent = (typeof queueName === 'string' && queueName) ? 'Playing from ' + queueName : 'Now playing';
+    $('sbLy').hidden = true; $('sbAb').hidden = true; $('sbCr').hidden = true;
+    const ars = artistsOf(t);
+    /* credits */
+    if (ars.length) {
+      $('sbCrBody').innerHTML = ars.slice(0, 4).map((a, i) => '<div class="cr"><div><b>' + esc(a.name) + '</b><span>' + (i === 0 ? 'Main artist' : 'Artist') + '</span></div></div>').join('');
+      $('sbCr').hidden = false;
+    }
+    /* about the artist */
+    if (ars[0]) getArtist(ars[0]).then(d => {
+      if (my !== tok || !d) return;
+      const th = d.thumbnail, im = $('sbAbImg');
+      if (th) { im.src = cov({ thumbnail: th, kind: 'artist', id: d.id || ars[0].id || '' }, 640); im.hidden = false; } else im.hidden = true;
+      $('sbAbNm').textContent = d.name || d.title || ars[0].name;
+      $('sbAbVw').textContent = d.views || '';
+      $('sbAbP').textContent = d.description || ''; $('sbAbP').style.display = d.description ? '' : 'none';
+      $('sbAb').hidden = false;
+    });
+    sbQueue(); sbLyrics(my);
+  }
+  function sbQueue(){
+    const nx = (typeof queue !== 'undefined' && qi >= 0) ? queue[qi + 1] : null;
+    $('sbQ').hidden = !nx;
+    if (!nx) return;
+    $('sbQBody').innerHTML = '<div class="sbqr" data-i="' + (qi + 1) + '"><img src="' + esc(cov(nx, 160)) + '" alt=""><div style="min-width:0"><b>' + esc(nx.title) + '</b><span>' + esc(nx.artist || '') + '</span></div></div>';
+  }
+  /* lyrics preview: shows the current synced line + the next ones, falls back to the first lines */
+  function sbLyrics(my){
+    clearInterval(lyTimer);
+    const paint = () => {
+      if (my !== tok) return clearInterval(lyTimer);
+      const d = (typeof lyCur !== 'undefined') ? lyCur : null;
+      if (!d || !d.lines || !d.lines.length || (typeof lyFor !== 'undefined' && lyFor && current && lyFor !== current.id && false)) return;
+      const L = d.lines, txt = l => (d.syncType === 'richsync' && l.words ? l.words.map(w => w.w).join('') : (l.text || '')).trim();
+      let i = (d.synced && typeof lyIdx === 'number' && lyIdx >= 0) ? lyIdx : 0;
+      const rows = [];
+      for (let k = i; k < L.length && rows.length < 3; k++) { const s = txt(L[k]); if (s) rows.push({ s, on: k === i }); }
+      if (!rows.length) return;
+      const html = rows.map(r => '<div class="sbl' + (r.on && d.synced ? ' on' : '') + '">' + esc(r.s) + '</div>').join('');
+      if ($('sbLyBody').dataset.h !== html) { $('sbLyBody').innerHTML = html; $('sbLyBody').dataset.h = html; }
+      $('sbLy').hidden = false;
+    };
+    paint(); lyTimer = setInterval(paint, 700);
+  }
+
+  /* ---- track change + player visibility watcher ---- */
+  setInterval(() => {
+    sbSync();
+    if (current && current.id !== sbId) { sbId = current.id; paintTrack(current); setBackdrop(current); }
+    else if (current && npv.classList.contains('open')) setBackdrop(current);
+  }, 350);
+  window.addEventListener('resize', sbSync);
+
+  /* ---- interactions ---- */
+  $('sbX').addEventListener('click', () => { hidden = true; sbSync(); });
+  $('sbArt').addEventListener('click', () => { if (current) openNP(); });
+  $('sbLy').addEventListener('click', () => { if (!current) return; openNP(); setTab('lyrics'); });
+  $('sbQopen').addEventListener('click', () => { if (!current) return; openNP(); setTab('queue'); });
+  $('sbQBody').addEventListener('click', e => { const r = e.target.closest('.sbqr'); if (!r) return; qi = +r.dataset.i; playCurrent(); });
+  $('sbAr').addEventListener('click', e => {
+    const a = e.target.closest('a'); if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    if (a.dataset.artist) openArtist(a.dataset.artist, a.textContent); else if (a.dataset.aname) openArtist('', a.dataset.aname);
+  });
+  /* a new song re-opens the sidebar if it was dismissed */
+  let lastId = null;
+  setInterval(() => { if (current && current.id !== lastId) { lastId = current.id; if (hidden && sbId !== null && false) hidden = false; } }, 1000);
 })();
 </script>
 </body>
