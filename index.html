@@ -3182,6 +3182,7 @@ function updateNP(){
   $('npfrom').textContent = queueName || 'Queue';
   $('npAlbum').style.display = (t.album_id || t.album) ? '' : 'none';
   syncLike();
+  if (window.__npSetBackdrop) { try { window.__npSetBackdrop(t); } catch {} }
   if ($('npv').classList.contains('open')) renderQueue();
 }
 const qrow = (t, i, kind) => `<div class="qr ${kind === 'q' && i === qi ? 'cur' : ''}${kind === 'q' && qEnd > qi && i > qi && i <= qEnd ? ' qd' : ''}" data-i="${i}" data-kind="${kind}" data-id="${esc(t.id)}">
@@ -6298,6 +6299,8 @@ updateInstallBtn();
     const im = new Image(); im.onload = () => { nxt.style.backgroundImage = 'url("' + u.replace(/"/g, '%22') + '")'; nxt.classList.add('on'); cur.classList.remove('on'); bgOn = bgOn ? 0 : 1; };
     im.src = u;
   }
+  window.__npSetBackdrop = setBackdrop;
+  if (typeof current !== 'undefined' && current) setBackdrop(current);
 
 })();
 </script>
