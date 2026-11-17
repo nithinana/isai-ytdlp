@@ -1550,6 +1550,11 @@ body.incog .incpill{display:inline-flex}
   #npv .ly.plain,#npv .ly.plain:hover{font-size:clamp(20px,1.6vw,26px);font-weight:700;opacity:.85;text-shadow:none}
   #npv.lyclean.open{grid-template-columns:minmax(0,1fr)}
 
+  /* keep the open layout while fading out (otherwise the grid collapses = flash) */
+  #npv.closing{grid-template-columns:minmax(300px,.85fr) minmax(0,1.15fr);grid-template-rows:minmax(0,1fr);gap:clamp(40px,5vw,96px);padding:56px clamp(40px,5vw,96px) 118px}
+  #npv.lyclean.closing{grid-template-columns:minmax(0,1fr)}
+  #npv.closing .npl,#npv.closing .npr{animation:none;opacity:1;transform:none}
+
   /* hide the clean-view / fullscreen toggle */
   #lyclean,#npv.lytab #lyclean{display:none!important}
 }
