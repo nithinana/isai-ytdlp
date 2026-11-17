@@ -1421,11 +1421,21 @@ html{scroll-behavior:smooth}
 #instpage .btn.dl{gap:10px;font-weight:700}
 #instpage .btn.dl svg{width:18px;height:18px;flex:none}
 #instpage .ipl:not(.first) .btn.dl{background:rgba(255,255,255,.1);color:var(--fg);border:1px solid var(--line)}
-#instpage ol{margin:14px 4px 6px;padding:0;list-style:none;counter-reset:s;color:var(--fg);font-size:13.5px;line-height:1.45}
-#instpage ol li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;margin:0 0 12px}
-#instpage ol li:last-child{margin-bottom:0}
-#instpage ol li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:#fff;color:#000;font-size:12px;font-weight:800;display:grid;place-items:center}
-#instpage ol b{font-weight:600}
+#instpage .btn.dl{position:relative}
+#instpage #instIosBtn .chev{position:absolute;right:18px;top:50%;width:16px;height:16px;margin-top:-8px;opacity:.55;transition:transform .35s var(--ease)}
+#instpage .ipl.open #instIosBtn .chev{transform:rotate(180deg)}
+#instpage .isteps{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .38s var(--ease),opacity .3s var(--ease)}
+#instpage .ipl.open .isteps{grid-template-rows:1fr;opacity:1}
+#instpage .isteps>div{min-height:0;overflow:hidden}
+#instpage .iwarn{display:flex;gap:11px;align-items:flex-start;margin:8px 0 0;padding:12px 14px;border-radius:14px;background:rgba(255,180,84,.1);border:1px solid rgba(255,180,84,.3);color:#ffc97a;font-size:12.5px;line-height:1.5}
+#instpage .iwarn svg{flex:none;width:17px;height:17px;margin-top:1px}
+#instpage .iwarn p{margin:0;color:rgba(255,226,180,.85)}
+#instpage .iwarn b{color:#ffc97a;font-weight:700}
+#instpage ol{margin:8px 0 0;padding:4px 16px;list-style:none;counter-reset:s;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--mute);font-size:13px;line-height:1.45}
+#instpage ol li{counter-increment:s;display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid rgba(255,255,255,.07)}
+#instpage ol li:first-child{border-top:0}
+#instpage ol li::before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.22);color:var(--fg);font-size:11px;font-weight:700;display:grid;place-items:center}
+#instpage ol b{color:var(--fg);font-weight:600}
 #instpage .shr{display:inline-block;vertical-align:-3px;width:16px;height:16px}
 #instpage .btn.iskip{margin-top:2px;height:40px;background:none;border:0;color:var(--mute);font-weight:600}
 #instpage .btn.iskip:hover{background:none;color:var(--fg)}
@@ -1654,12 +1664,12 @@ body.incog .incpill{display:inline-flex}
   <div class="icards">
     <div class="ipl" id="instAndroid"><a class="btn dl" id="instApk" href="https://github.com/nithinana/isai-app/releases/download/v1.05_publicbeta/Isai-debug.apk" download><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.1185-9.4396"/></svg><span>Install on Android</span></a></div>
     <div class="ipl" id="instWin"><a class="btn dl" id="instWinBtn" href="https://github.com/nithinana/isai-app/releases/download/isai_windowsv1.2-beta/Isai-Setup.msi" download><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 3.6l8.6-1.2v8.3H2zM11.6 2.3L22 .8v9.9H11.6zM2 11.7h8.6v8.3L2 18.8zM11.6 11.7H22v9.9l-10.4-1.5z" transform="translate(0 1)"/></svg><span>Install on Windows</span></a></div>
-    <div class="ipl" id="instIos"><button class="btn dl" id="instIosBtn" type="button" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c-.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.79-.41 6.92 1.16 9.18.77 1.1 1.69 2.35 2.89 2.3 1.16-.05 1.6-.75 3-.75s1.8.75 3.02.73c1.25-.02 2.04-1.12 2.8-2.23.88-1.28 1.24-2.52 1.26-2.58-.03-.01-2.42-.93-2.44-3.68M14.08 5.8c.64-.78 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.1 1.77-.97 2.82 1.03.08 2.07-.52 2.71-1.28"/></svg><span>Install on iPhone &amp; iPad</span></button>
-      <ol id="instIosSteps" hidden>
+    <div class="ipl" id="instIos"><button class="btn dl" id="instIosBtn" type="button" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c-.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.79-.41 6.92 1.16 9.18.77 1.1 1.69 2.35 2.89 2.3 1.16-.05 1.6-.75 3-.75s1.8.75 3.02.73c1.25-.02 2.04-1.12 2.8-2.23.88-1.28 1.24-2.52 1.26-2.58-.03-.01-2.42-.93-2.44-3.68M14.08 5.8c.64-.78 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.1 1.77-.97 2.82 1.03.08 2.07-.52 2.71-1.28"/></svg><span>Install on iPhone &amp; iPad</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="isteps" id="instIosSteps"><div><div class="iwarn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><p><b>Not recommended for regular use.</b> The iPhone version runs on the public API, which is slow, so it can be extremely unreliable.</p></div><ol>
         <li><span>Open <b>isai.thirai.uk</b> in <b>Safari</b></span></li>
         <li><span>Tap <b>Share</b> <svg class="shr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg> then <b>Add to Home Screen</b></span></li>
         <li><span>Tap <b>Add</b>, then open <b>Isai</b> from your Home Screen</span></li>
-      </ol></div>
+      </ol></div></div></div>
     <button class="btn ghost" id="instPwa" hidden>Or install as web app</button>
   </div>
   <button class="btn ghost iskip" id="instSkip" type="button">Continue on website</button>
@@ -6069,7 +6079,7 @@ function openInstall() {
   const first = win ? W : ios ? I : A;
   [first, ...[A, W, I].filter(x => x !== first)].forEach((x, i) => { wrap.appendChild(x); x.classList.toggle('first', i === 0); });
   wrap.appendChild($('instPwa'));
-  $('instIosSteps').hidden = !ios;
+  I.classList.toggle('open', ios);
   $('instIosBtn').setAttribute('aria-expanded', String(ios));
   instBox.classList.add('on');
 }
@@ -6077,7 +6087,7 @@ function closeInstall() { if (instBox) instBox.classList.remove('on'); }
 if (instBox) {
   $('instX').onclick = closeInstall;
   $('instSkip').onclick = closeInstall;
-  $('instIosBtn').onclick = () => { const o = $('instIosSteps'); o.hidden = !o.hidden; $('instIosBtn').setAttribute('aria-expanded', String(!o.hidden)); };
+  $('instIosBtn').onclick = () => { const w = $('instIos'); const on = w.classList.toggle('open'); $('instIosBtn').setAttribute('aria-expanded', String(on)); };
   /* older versions: lists the GitHub releases, with a plain link as the fallback */
   const REL = 'https://github.com/nithinana/isai-app/releases';
   let oldDone = false;
