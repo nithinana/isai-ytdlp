@@ -819,7 +819,7 @@ input[type=range]::-webkit-slider-thumb{transition:opacity .25s var(--ease)}
 .lyhd{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:2px 4px 10px}
 .lyhd[hidden]{display:none}
 .lysrc{color:var(--mute);font-size:12px}
-.lychips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.lychips{display:flex;gap:6px}
 .lychips button{padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px;font-weight:600;color:var(--mute)}
 .lychips button.on{background:#fff;color:#000}
 /* Cinematic lyrics: no box, full-bleed scrolling */
@@ -1483,12 +1483,19 @@ body.incog .incpill{display:inline-flex}
 .lfbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
 .lfbar .btn{padding:8px 16px;font-size:13px}
 .lfst{color:var(--mute);font-size:13px}
-.lffolder{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
-.lffolder b{display:block;font-size:20px;letter-spacing:-.01em}.lffolder span{color:var(--mute);font-size:13px}
-.lfic{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#3a3a4a,#1d1d26);color:#c9c9d6;flex:none}
-.lfnote{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 16px;margin:0 0 14px;border-radius:14px;background:rgba(255,255,255,.07);font-size:14px;line-height:1.4}
-.lfnote span{flex:1 1 220px;color:var(--mute)}
-.lfcard{cursor:pointer}.lfcv{display:grid;place-items:center;aspect-ratio:1;background:linear-gradient(135deg,#3a3a4a,#1d1d26);color:#c9c9d6}.lfcv svg{width:42%;height:42%}
+.lfctl{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.lfctl .dltabs{margin:0;align-items:center}
+.lfl{flex:none;color:var(--mute);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+.lfsub .pill{padding:5px 12px;font-size:12.5px}
+.lfstat{color:var(--mute);font-size:13px;margin:0 0 12px}
+.qk .sc.qkg{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,auto);grid-auto-columns:calc(100% - 40px);gap:2px 14px;overflow-x:auto}
+.qk-r{display:flex;align-items:center;gap:12px;padding:6px 8px;border-radius:10px;cursor:pointer;min-width:0;scroll-snap-align:none;transition:background-color .2s}
+.qk-r:nth-child(4n+1){scroll-snap-align:start}
+.qk-r:hover,.qk-r:active{background:rgba(255,255,255,.08)}
+.qk-r.cur{background:rgba(255,255,255,.12)}
+.qk-r .qm{flex:1;min-width:0}
+.qk-r .qm b,.qk-r .qm span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(min-width:721px){.qk .sc.qkg{grid-auto-columns:minmax(300px,calc((100% - 28px)/3))}}
 .dlmode{display:flex;align-items:center;justify-content:space-between;gap:16px;border-radius:18px;padding:12px 16px;margin:0 0 14px}
 .dlmode b{display:block;font-size:15px;font-weight:600}
 .dlmode span{display:block;color:var(--mute);font-size:13px;margin-top:2px}
@@ -2041,7 +2048,6 @@ function imgErr(el){
   el.onerror = null;
   if (el.dataset.e) return;
   const id = el.dataset.id;
-  if (isLocalId(id)) { el.src = LOCAL_ART; return; }                  // songs on this device have no online cover
   if (!el.src.includes('/cover/')) { el.onerror = () => imgErr(el); el.src = `${base()}/cover/${id}?s=320`; }
   else { el.onerror = () => { el.onerror = null; el.src = PH; }; el.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg'; }
 }
@@ -2458,7 +2464,8 @@ window.addEventListener('popstate', e => {
 
 /* ---------- home ---------- */
 function renderHome(){
-  $('main').innerHTML = `<div style="height:14px"></div><div id="cont"></div><div id="artist-rows"></div><div id="rows"></div>`;
+  $('main').innerHTML = `<div style="height:14px"></div><div id="quick"></div><div id="cont"></div><div id="artist-rows"></div><div id="rows"></div>`;
+  try { fillQuick(); if (!actLoaded) ensureActivity().then(() => { if (view === 'home') fillQuick(); }).catch(() => {}); } catch {}
   fillCont();
   fillArtistRecs();
   if (homeData) return fillHome();
@@ -2497,6 +2504,60 @@ function fillHome(){
   const first = homeData.sections.find(s => s.tracks && s.tracks.length);
   if (first && !current) tint(first.tracks[0]);
   if (homeData.note) toast(homeData.note);
+}
+/* ---- quick picks: the songs you've played most lately, as a small swipeable grid ---- */
+let quickSig = '';
+function quickPicks(){
+  const now = Date.now(), cut = now - 30 * 864e5, mine = new Set(dls.filter(d => isLocalId(d.id)).map(d => d.id));
+  const ok = t => t && t.id && (!isLocalId(t.id) || mine.has(t.id));
+  const sc = new Map();
+  for (const [id, ts] of lplays) {
+    if (ts < cut || !ok(ltracks[id])) continue;
+    const e = sc.get(id) || { n: 0 };
+    e.n += 1 + Math.max(0, 1 - (now - ts) / (7 * 864e5)); sc.set(id, e);   // recent plays count a little more
+  }
+  const out = [...sc.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 20).map(([id]) => ltracks[id]);
+  const have = new Set(out.map(t => t.id));
+  for (const t of recent) { if (out.length >= 12) break; if (ok(t) && !have.has(t.id)) { have.add(t.id); out.push(t); } }
+  return out;
+}
+function fillQuick(){
+  const el = $('quick'); if (!el) return;
+  const picks = quickPicks(), sig = picks.map(t => t.id).join();
+  if (sig === quickSig && el.firstChild) return;
+  quickSig = sig; lists.quick = picks; names.quick = 'Quick picks';
+  if (!picks.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<section class="rw qk"><div class="rh"><div><small>Based on what you play</small><h2>Quick picks</h2></div>
+    <div class="rc"><button class="pillb" data-qk="all">Play all</button><button class="arr" data-a="prev" disabled>${ic('chev', 16)}</button><button class="arr" data-a="next">${ic('chev', 16)}</button></div></div>
+    <div class="sc qkg">${picks.map((t, i) => `<div class="qk-r${current && current.id === t.id ? ' cur' : ''}" data-qk="${i}" data-id="${esc(t.id)}"><div class="qt">${imgTag(t, 160)}</div><div class="qm"><b>${esc(t.title)}</b><span>${expTag(t)}${esc(t.artist || '')}</span></div></div>`).join('')}</div></section>`;
+  wireRows(el); markPlaying();
+}
+let simTok = 0;
+async function playSimilar(t, label, rest){
+  const tok = ++simTok;
+  queue = [t]; queueName = label; qi = 0; queueOwned = false; qEnd = -1;
+  setTab('queue', true); playCurrent();
+  const got = [];
+  if (!isLocalId(t.id)) {
+    const qs = [t.artist || t.title, `${t.title || ''} ${t.artist || ''}`.trim()];
+    await Promise.all(qs.map(async q => {
+      try { if (!relCache[q]) relCache[q] = (await (await api('/search?limit=15&type=songs&q=' + encodeURIComponent(q))).json()).results || []; got.push(relCache[q]); } catch { got.push([]); }
+    }));
+  }
+  if (tok !== simTok || queue[0] !== t) return;                  // you picked something else meanwhile
+  const seen = new Set(queue.map(x => x.id)), titles = new Set([String(t.title || '').toLowerCase()]), tail = [];
+  const add = x => { if (!x || !x.id) return; const k = String(x.title || '').toLowerCase(); if (seen.has(x.id) || titles.has(k)) return; seen.add(x.id); titles.add(k); tail.push(x); };
+  for (let i = 0; i < 15; i++) got.forEach(g => g[i] && add(g[i]));  // mix the two result lists
+  (rest || []).forEach(add);                                      // then the rest of the quick picks
+  queue.push(...tail);
+  try { renderQueue(); schedulePreload(); } catch {}
+}
+function qkClick(v){
+  const list = lists.quick || [];
+  if (v === 'all') return playFrom('quick', 0, false);
+  const t = list[+v]; if (!t) return;
+  if (!isOnline()) return playFrom('quick', +v, false);
+  playSimilar(t, 'Quick picks', list);
 }
 function fillCont(){
   const el = $('cont'); if (!el) return;
@@ -2799,10 +2860,9 @@ function renderSettings(){
   const dsz = dls.reduce((n, d) => n + (d.size || 0), 0);
   $('main').innerHTML = `<div class="bkrow">${backBtn()}</div><div class="pg set"><h1 class="t">Settings</h1>
     ${LF_OK ? `<section class="sgrp glass" id="sLocal"><h3>Local files</h3>
-      ${LF_AUTO ? `<div class="srow"><div><b>Music on this device</b><span>Every song on ${NATIVE_OS === 'windows' ? 'your PC (Music folder)' : 'this phone'} shows up in a Local files folder, played from where it is</span></div><button class="btn ghost" data-lfscan>${lfDevState === 'denied' ? 'Allow access' : 'Rescan'}</button></div>` : ''}
       <div class="srow"><div><b>Add music from this device</b><span>Songs are copied into the app, so they play offline and work with playlists</span></div><button class="btn ghost" data-lf="files">Add files</button></div>
       ${LF_DIR ? '<div class="srow"><div><b>Add a folder</b><span>Import every song inside a folder</span></div><button class="btn ghost" data-lf="dir">Add folder</button></div>' : ''}
-      <div class="srow"><div><b>Your local files</b><span>${lfCount()} song${lfCount() === 1 ? '' : 's'}${LF_AUTO ? ' on this device' : ' added'}</span></div><button class="btn ghost" onclick="window.__openLocal()">Open</button></div>
+      <div class="srow"><div><b>Your local files</b><span>${lfCount()} song${lfCount() === 1 ? '' : 's'} added</span></div><button class="btn ghost" onclick="window.__openLocal()">Open</button></div>
     </section>` : ''}
     <section class="sgrp glass" id="sInstRow" ${isInstalled() ? 'hidden' : ''}><h3>Get the app</h3>
       <div class="srow"><div><b>Install Isai</b><span>Android app (APK) or add to your iPhone Home Screen</span></div><button class="btn ghost" onclick="window.__openInstall()">Install</button></div>
@@ -2901,7 +2961,7 @@ function markPlaying(){
   syncBadges();
   { const off = !isOnline(), have = off ? new Set(dls.map(d => d.id)) : null;
     document.querySelectorAll('.tr.lrow').forEach(r => r.classList.toggle('nodl', off && !have.has(r.dataset.id))); }
-  document.querySelectorAll('.card,.lrow').forEach(c => {
+  document.querySelectorAll('.card,.lrow,.qk-r').forEach(c => {
     const on = !!current && c.dataset.id === current.id;
     c.classList.toggle(c.classList.contains('card') ? 'pl' : 'cur', on);
   });
@@ -2909,9 +2969,9 @@ function markPlaying(){
 function playFrom(key, i, open = true){
   queue = lists[key] || []; queueName = names[key] || ''; qi = i; queueOwned = false; qEnd = -1;
   if (!isOnline()) {   // offline: only downloaded songs can play, so queue just those
-    const have = new Set(dls.map(d => d.id)), has = id => have.has(id) || !!lfDevUrl(id), cur = queue[i];
-    if (!cur || !has(cur.id)) { toast("You're offline · this song isn't downloaded", true); return; }
-    queue = queue.filter(t => has(t.id)); qi = queue.indexOf(cur);
+    const have = new Set(dls.map(d => d.id)), cur = queue[i];
+    if (!cur || !have.has(cur.id)) { toast("You're offline · this song isn't downloaded", true); return; }
+    queue = queue.filter(t => have.has(t.id)); qi = queue.indexOf(cur);
   }
   setTab('queue', true); playCurrent();
   if (open && !isMobile()) openNP();
@@ -2919,7 +2979,7 @@ function playFrom(key, i, open = true){
 // Playback uses hidden <video> elements: the server's /audio/<id> returns an mp4 (album art + AAC),
 // so the browser can start streaming straight away; only the audio is used, the video is never shown.
 const mkMedia = () => { const v = document.createElement('video'); v.playsInline = true; v.preload = 'auto'; v.style.display = 'none'; return v; };
-const audioUrl = id => lfDevUrl(id) || base() + '/audio/' + encodeURIComponent(id) + (store.get('key', '') ? '?key=' + encodeURIComponent(store.get('key', '')) : '');
+const audioUrl = id => base() + '/audio/' + encodeURIComponent(id) + (store.get('key', '') ? '?key=' + encodeURIComponent(store.get('key', '')) : '');
 let a = $('audio'), standby = mkMedia(), pending = false, loading = false;   // loading: a new song is being fetched; the old `a` must not be resumed
 standby.preload = 'auto';
 let resume = { id: null, n: 0 }, lastAuto = 0;   // guards against streams that report 'ended' early
@@ -2971,7 +3031,6 @@ async function preloadNext(){
       if (my !== preTok) return;
       if (bl) url = blobUrl = URL.createObjectURL(bl);
     }
-    if (!url && lfDevUrl(t.id)) url = audioUrl(t.id);                // on this device: always available
     if (!url) {
       if (!isOnline()) return;
       if (navigator.connection && navigator.connection.saveData) return;   // respect Data Saver
@@ -3021,7 +3080,7 @@ async function playCurrent(startAt = 0){
       if (pre) dropPre();
       const blob = dls.some(d => d.id === t.id) ? await idb.blob(t.id).catch(() => null) : null;
       if (my !== token) return;
-      if (!blob && !isOnline() && !lfDevUrl(t.id)) throw new Error("You're offline · this song isn't downloaded");
+      if (!blob && !isOnline()) throw new Error("You're offline · this song isn't downloaded");
       let url;
       if (blob) url = blobUrl = URL.createObjectURL(blob);
       else url = audioUrl(t.id);
@@ -3325,7 +3384,7 @@ function dragOn(el, o){
 /* ---------- user queue: "Add to queue" ---------- */
 function addToQueue(t){
   if (!t || !t.id) return;
-  if (!isOnline() && !dls.some(d => d.id === t.id) && !lfDevUrl(t.id)) return toast("You're offline · this song isn't downloaded", true);
+  if (!isOnline() && !dls.some(d => d.id === t.id)) return toast("You're offline · this song isn't downloaded", true);
   if (!current || qi < 0 || !queue.length) {   // nothing playing yet: just start it
     queue = [t]; queueName = ''; qi = 0; queueOwned = true; qEnd = -1;
     setTab('queue', true); playCurrent(); toast('Nothing was playing · started this song');
@@ -3849,60 +3908,8 @@ function lfDuration(file){
     el.src = u;
   });
 }
-/* every song already on this device (Android: MediaStore; Windows: the Music folder). Nothing is copied: the files are
-   played straight from where they are and listed in the "Local files" folder, next to anything added by hand. */
-const LF_AUTO = (NATIVE_OS === 'android' && !!(window.IsaiNative && typeof IsaiNative.scanAudio === 'function')) || NATIVE_OS === 'windows';
-const lfDevRe = /^local_d(\d+)$/;
-const lfDevUrl = id => { const m = lfDevRe.exec(id || ''); return m ? '/__lf/' + m[1] : ''; };   // answered by the app itself
-let lfDev = [], lfDevState = LF_AUTO ? 'idle' : 'off', lfDevSig = '', lfQuietScan = false, lfPainted = '';                            // idle | scanning | ready | denied | error
-const lfFromRow = r => {
-  const fb = lfFromName(r.f || '');
-  return { id: 'local_d' + r.id, title: r.t || fb.title, artist: r.a || fb.artist || '', album: r.al || '', duration: r.d || 0, fmt: r.x || '', size: r.s || 0,
-    ts: (r.ts || 0) * 1000, file: r.f || '', folder: r.p || '', local: true, dev: true, thumbnail: '/__lfart/' + r.id };
-};
-const lfKey = t => String(t.title || '').toLowerCase().replace(/\s+/g, ' ').trim() + '|' + String(t.artist || '').toLowerCase().trim();
-const lfAll = () => {
-  const mine = dls.filter(d => isLocalId(d.id)), seen = new Set(mine.map(lfKey));
-  return mine.concat(lfDev.filter(t => !seen.has(lfKey(t))));     // a song added by hand wins over the same song found on the device
-};
-const lfCount = () => lfAll().length;
-function lfDevPaint(){ lfPainted = lfDevState; if (view === 'downloads') renderDownloads(); else if (view === 'settings') renderSettings(); syncBadges(); }
-function lfDevSet(rows, quiet){
-  const next = (Array.isArray(rows) ? rows : []).filter(r => r && r.id != null).map(lfFromRow);
-  const sig = next.length + ':' + (next[0] ? next[0].id : '') + ':' + (next.length ? next[next.length - 1].id : '');
-  const same = sig === lfDevSig && lfPainted === 'ready';   // what's on screen already shows this exact list
-  lfDev = next; lfDevSig = sig; lfDevState = 'ready';
-  if (!(quiet && same)) lfDevPaint();
-}
-function lfDevScan(ask, quiet){
-  if (!LF_AUTO || lfDevState === 'scanning') return;
-  const was = lfDevState; lfQuietScan = !!quiet;
-  if (NATIVE_OS === 'windows') {
-    if (!quiet) { lfDevState = 'scanning'; lfDevPaint(); } else lfDevState = 'scanning';
-    fetch('/__app/lf/scan').then(r => r.ok ? r.json() : Promise.reject(new Error('no scan'))).then(rows => lfDevSet(rows, quiet), () => { lfDevState = quiet && was === 'ready' ? 'ready' : 'error'; if (!quiet) lfDevPaint(); });
-    return;
-  }
-  try {
-    if (!ask && IsaiNative.audioAccess && IsaiNative.audioAccess() !== 'granted') { lfDevState = 'denied'; if (!quiet) lfDevPaint(); return; }
-    lfDevState = 'scanning'; if (!quiet) lfDevPaint();
-    IsaiNative.scanAudio(!!ask);
-  } catch { lfDevState = 'error'; lfDevPaint(); }
-}
-window.__lfDevice = st => {                                        // called by the Android app
-  if (st === 'ready') { try { lfDevSet(JSON.parse(IsaiNative.audioScanJson() || '[]'), lfQuietScan); } catch { lfDevState = 'error'; lfDevPaint(); } }
-  else { lfDevState = st === 'denied' ? 'denied' : 'error'; lfDevPaint(); }
-};
-const LF_FOLDER = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><path d="M12 11.5v4.2a1.6 1.6 0 1 1-1-1.5v-2.7z"/></svg>';
-const lfPlural = n => `${n} song${n === 1 ? '' : 's'}`;
-const lfCardHtml = () => `<div class="dlsh"><h3 class="sec0">On this device</h3></div><div class="grid"><div class="card dlcard lfcard" data-dlsort="local" role="button" tabindex="0"><div class="cv lfcv">${LF_FOLDER}</div><b>Local files</b><span>${lfPlural(lfAll().length)}</span></div></div>`;
-const lfFolderHead = items => `<div class="lffolder"><div class="lfic">${LF_FOLDER}</div><div><b>Local files</b><span>${lfPlural(items.length)}${LF_AUTO ? ' on this device' : ''}${lfDevState === 'scanning' ? ' · scanning…' : ''}</span></div></div>${lfBar()}${lfNotice()}`;
-const lfNotice = () => lfDevState === 'denied'
-  ? '<div class="lfnote"><span>Allow access to your music and every song on this device appears in this folder. Nothing is copied or uploaded.</span><button class="btn" data-lfscan>Allow access</button></div>'
-  : lfDevState === 'error' ? '<p class="qmsg">Couldn\'t read the music on this device. <button class="linkb" data-lfscan>Try again</button></p>' : '';
-const lfEmpty = () => lfDevState === 'denied' ? '' : LF_AUTO
-  ? (lfDevState === 'idle' || lfDevState === 'scanning' ? '<p class="qmsg">Looking for music on this device…</p>' : '<p class="qmsg">No songs found on this device yet.</p>')
-  : '<p class="qmsg">No local files yet. Add songs from this device and they will play here, offline, alongside your downloads.</p>';
-const lfBar = () => `<div class="lfbar">${LF_AUTO ? '<button class="btn" data-lfscan>↻ Rescan</button>' : ''}<button class="btn ${LF_AUTO ? 'ghost' : ''}" data-lf="files">${ic('plus', 16)}<span>Add files</span></button>${LF_DIR ? '<button class="btn ghost" data-lf="dir"><span>Add folder</span></button>' : ''}<span class="lfst" id="lfst"></span></div>`;
+const lfCount = () => dls.filter(d => isLocalId(d.id)).length;
+const lfBar = () => `<div class="lfbar"><button class="btn" data-lf="files">${ic('plus', 16)}<span>Add files</span></button>${LF_DIR ? '<button class="btn ghost" data-lf="dir"><span>Add folder</span></button>' : ''}<span class="lfst" id="lfst"></span></div>`;
 const lfStatus = txt => { const el = $('lfst'); if (el) el.textContent = txt || ''; };
 let lfBusy = false;
 async function addLocalFiles(list){
@@ -3951,12 +3958,6 @@ document.addEventListener('click', e => {
   if (b.dataset.lf === 'dir' && LF_DIR) (lfDirIn || (lfDirIn = lfMkInput(true))).click(); else (lfIn || (lfIn = lfMkInput(false))).click();
 });
 window.__openLocal = () => { store.set('dlsort', 'local'); dlQ = ''; show('downloads'); };
-document.addEventListener('click', e => { if (LF_AUTO && e.target.closest('[data-lfscan]')) lfDevScan(true, false); });
-document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.lfcard')) { e.preventDefault(); store.set('dlsort', 'local'); dlQ = ''; renderDownloads(); } });
-if (LF_AUTO) {                                                       // list the device's music at start, and again whenever the app comes back
-  setTimeout(() => lfDevScan(false, true), 1500);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && lfDevState !== 'denied') lfDevScan(false, true); });
-}
 
 /* ---------- download ---------- */
 const fmtSize = b => !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
@@ -4054,7 +4055,7 @@ function saveDlPlaylists(){ try { localStorage.setItem('dlplaylists', JSON.strin
 function sortDls(mode){
   if (mode === 'local' && !LF_OK) mode = 'recent';
   const l = dls.slice();
-  if (mode === 'local') return lfAll().sort((a, b) => lc(a.artist, b.artist) || lc(a.album, b.album) || lc(a.title, b.title));
+  if (mode === 'local') return l.filter(t => isLocalId(t.id)).sort((a, b) => lc(a.artist, b.artist) || lc(a.album, b.album) || lc(a.title, b.title));
   if (mode === 'track') l.sort((a, b) => lc(a.title, b.title));
   else if (mode === 'album') l.sort((a, b) => lc(a.album || '\uffff', b.album || '\uffff') || lc(a.title, b.title));
   else if (mode === 'artist') l.sort((a, b) => lc(mainArtist(a) || '\uffff', mainArtist(b) || '\uffff') || lc(a.album, b.album) || lc(a.title, b.title));
@@ -4066,7 +4067,7 @@ const dlrow = (t, i) => `<div class="qr lrow dlrow ${current && current.id === t
   <div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
   <div class="qm"><b>${esc(t.title)}</b><span>${artistLinks(t)}${t.album ? ' · ' + esc(t.album) : ''}</span>
     <span class="dlm">${isLocalId(t.id) ? 'LOCAL · ' : ''}${esc((t.fmt || '').toUpperCase())}${t.size ? ' · ' + fmtSize(t.size) : ''} · ${fmtDate(t.ts)}</span></div>
-  ${t.dev ? '' : `<span class="qa"><button data-a="save" title="Save file to device">${ic('dl', 18)}</button><button data-a="rmdl" title="${isLocalId(t.id) ? 'Remove from the app' : 'Delete download'}">${ic('x', 18)}</button></span>`}
+  <span class="qa"><button data-a="save" title="Save file to device">${ic('dl', 18)}</button><button data-a="rmdl" title="${isLocalId(t.id) ? 'Remove from the app' : 'Delete download'}">${ic('x', 18)}</button></span>
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 
 const dlGroups = {};
@@ -4089,10 +4090,47 @@ function openDlGroup(id){
 
 /* the list part of the Downloads page, kept separate so it can be refreshed in place */
 let dlRowsLast = '', dlSoftT = 0;
+const LFS = { title: 'Title', artist: 'Artist', album: 'Album', recent: 'Recently added' }, LFV = { songs: 'Songs', artists: 'Artists', albums: 'Albums' };
+const lfrow = (t, i) => {
+  const sub = [t.artist ? artistLinks(t) : '', t.album ? esc(t.album) : ''].filter(Boolean).join(' · ') || esc((t.fmt || 'audio').toUpperCase() + ' file');
+  return `<div class="qr lrow dlrow ${current && current.id === t.id ? 'cur' : ''}" data-i="${i}" data-id="${esc(t.id)}">
+  <div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
+  <div class="qm"><b>${esc(t.title)}</b><span>${sub}</span></div>
+  <span class="qa"><button data-a="rmdl" title="Remove from the app">${ic('x', 18)}</button></span>
+  <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
+};
+function lfPage(all){
+  if (!all.length) return lfBar() + '<p class="qmsg">No local files yet. Add songs from this device and they will play here, offline, alongside your downloads.</p>';
+  const fmts = [...new Set(all.map(t => (t.fmt || '').toLowerCase()).filter(Boolean))].sort();
+  let vw = store.get('lfview', 'songs'), so = store.get('lfsort', 'title'), ff = store.get('lffmt', 'all');
+  if (!LFV[vw]) vw = 'songs'; if (!LFS[so]) so = 'title'; if (ff !== 'all' && !fmts.includes(ff)) ff = 'all';
+  const items = ff === 'all' ? all.slice() : all.filter(t => (t.fmt || '').toLowerCase() === ff);
+  const n = items.length, art = new Set(items.map(t => mainArtist(t) || 'Unknown artist')).size, sz = items.reduce((a, t) => a + (t.size || 0), 0);
+  const chip = (k, v, label, on) => `<button class="pill${on ? ' on' : ''}" data-${k}="${esc(v)}">${esc(label)}</button>`;
+  const ctl = `<div class="lfctl"><div class="dltabs">${Object.entries(LFV).map(([k, v]) => chip('lfv', k, v, k === vw)).join('')}</div>`
+    + (vw === 'songs' ? `<div class="dltabs lfsub"><span class="lfl">Sort</span>${Object.entries(LFS).map(([k, v]) => chip('lfs', k, v, k === so)).join('')}</div>` : '')
+    + (fmts.length > 1 ? `<div class="dltabs lfsub"><span class="lfl">Type</span>${chip('lff', 'all', 'All', ff === 'all')}${fmts.map(f => chip('lff', f, f.toUpperCase(), f === ff)).join('')}</div>` : '') + '</div>';
+  const stat = `<p class="lfstat">${n} song${n === 1 ? '' : 's'} · ${art} artist${art === 1 ? '' : 's'}${sz ? ' · ' + fmtSize(sz) : ''}</p>`;
+  let body = '';
+  lists.dls = items;
+  if (!n) body = '<p class="qmsg">No songs of this type.</p>';
+  else if (vw === 'songs') {
+    const A = t => mainArtist(t) || '\uffff';
+    if (so === 'title') items.sort((a, b) => lc(a.title, b.title));
+    else if (so === 'artist') items.sort((a, b) => lc(A(a), A(b)) || lc(a.album, b.album) || lc(a.title, b.title));
+    else if (so === 'album') items.sort((a, b) => lc(a.album || '\uffff', b.album || '\uffff') || lc(a.title, b.title));
+    else items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    body = items.map(lfrow).join('');
+  } else {
+    const m = new Map(), isA = vw === 'artists', cnt = a => `${a.length} song${a.length === 1 ? '' : 's'}`;
+    items.forEach(t => { const k = (isA ? mainArtist(t) : t.album) || (isA ? 'Unknown artist' : 'Unknown album'); if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+    body = `<div class="grid">${[...m.entries()].map(([k, tracks], i) => { const gid = (isA ? 'lf_ar' : 'lf_al') + i; dlGroups[gid] = { title: k, sub: isA ? cnt(tracks) : (mainArtist(tracks[0]) ? mainArtist(tracks[0]) + ' · ' : '') + cnt(tracks), tracks, art: isA }; return dlGroupCard(gid, dlGroups[gid]); }).join('')}</div>`;
+  }
+  return lfBar() + stat + ctl + body;
+}
 function dlRowsHtml(items, mode, q){
   let rows = '';
-  if (mode === 'local' && LF_OK && !q && dlsReady) return lfFolderHead(items) + (items.length ? items.map(dlrow).join('') : lfEmpty());
-  const lfc = (mode === 'home' && !q && LF_OK && dlsReady && lfAll().length) ? lfCardHtml() : '';
+  if (mode === 'local' && LF_OK && !q && dlsReady) return lfPage(items);
   if (!dlsReady) rows = '<p class="qmsg">Loading…</p>';
   else if (!items.length && q) rows = `<p class="qmsg">No downloads match “${esc(dlQ)}”.</p>`;
   else if (!items.length && !isOnline()) rows = '<div class="offmsg"><b>You\'re offline</b>You have no downloaded songs yet. Reconnect and tap the download icon on any song to keep it for offline listening.</div>';
@@ -4167,7 +4205,7 @@ function dlRowsHtml(items, mode, q){
       rows += dlrow(t, i);
     });
   } else rows = items.map(dlrow).join('');
-  return lfc + rows;
+  return rows;
 }
 function softRefreshDls(){
   clearTimeout(dlSoftT);
@@ -4531,6 +4569,9 @@ document.addEventListener('click', e => {
     if (j) { if (j.active) { j.stop = true; toast('Stopping after the current songs…'); } else { dlJobs.splice(ji, 1); toast('Removed from queue'); } dlTick(); paintDlPanel(); }
     return;
   }
+  const qkb = e.target.closest('[data-qk]'); if (qkb) return qkClick(qkb.dataset.qk);
+  const lfc = e.target.closest('[data-lfv],[data-lfs],[data-lff]');
+  if (lfc) { const d = lfc.dataset; if (d.lfv) store.set('lfview', d.lfv); if (d.lfs) store.set('lfsort', d.lfs); if (d.lff) store.set('lffmt', d.lff); return renderDownloads(); }
   const dg = e.target.closest('[data-dlg]'); if (dg) return openDlGroup(dg.dataset.dlg);
   const md = e.target.closest('[data-mood]'); if (md) return show('mood', md.dataset.mood);
   const nav = e.target.closest('[data-view]'); if (nav) return show(nav.dataset.view);
@@ -4589,6 +4630,10 @@ const plCover = (p, s = 340) => p.thumb ? cov({ id: p.radio || p.id, kind: 'arti
 /* ---------- Liked songs as a pinned playlist + playlist sorting ---------- */
 const LIKED_ID = '__liked';
 const LIKED_COVER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#d946a8"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><path fill="#fff" transform="translate(26 27) scale(2)" d="M12 21l-1.5-1.3C5.4 15.1 2 12 2 8.5 2 5.4 4.4 3 7.5 3c1.7 0 3.4.8 4.5 2.1C13.1 3.8 14.8 3 16.5 3 19.6 3 22 5.4 22 8.5c0 3.5-3.4 6.6-8.5 11.2z"/></svg>');
+const LOCAL_ID = '__local';
+const LOCAL_COVER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14b8a6"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><circle cx="41" cy="67" r="10" fill="#fff"/><rect x="50" y="28" width="6" height="39" fill="#fff"/><path d="M56 28l17 8v10l-17-8z" fill="#fff"/></svg>');
+const localPl = () => { const tracks = sortDls('local'); return { id: LOCAL_ID, name: 'Local files', tracks, virtual: true, local: true, thumb: LOCAL_COVER, addedMap: Object.fromEntries(tracks.map(t => [t.id, t.ts || 0])) }; };
+const localCard = () => { const n = lfCount(); return { kind: 'uplaylist', id: LOCAL_ID, title: 'Local files', artist: `On this device · ${n} song${n === 1 ? '' : 's'}`, thumbnail: LOCAL_COVER }; };
 const likedPl = () => ({ id: LIKED_ID, name: 'Liked songs', tracks: liked, virtual: true, thumb: LIKED_COVER });
 const PLSORTS = { custom: 'Custom order', title: 'Title', artist: 'Artist', album: 'Album', recent: 'Recently added' };
 const plSortGet = id => { try { return (JSON.parse(store.get('plsort', '{}')) || {})[id] || 'custom'; } catch { return 'custom'; } };
@@ -4612,7 +4657,7 @@ function plSorted(pl, mode){
   else if (mode === 'artist') out.sort(by(art));
   else if (mode === 'album') out.sort(by(t => t.album || ''));
   else if (mode === 'recent') {
-    const m = plAdded[pl.id] || {}, pos = i => pl.virtual ? n - i : i;   // Liked is stored newest-first, playlists are appended
+    const m = pl.addedMap || plAdded[pl.id] || {}, pos = i => pl.virtual ? n - i : i;   // Liked is stored newest-first, playlists are appended
     out.sort((x, y) => ((m[y.id] || 0) - (m[x.id] || 0)) || (pos(idx.get(y)) - pos(idx.get(x))));
   }
   return out;
@@ -4625,7 +4670,7 @@ function openPlSort(id){
 }
 const likedCard = () => ({ kind: 'uplaylist', id: LIKED_ID, title: 'Liked songs', artist: `Pinned · ${liked.length} song${liked.length === 1 ? '' : 's'}`, thumbnail: LIKED_COVER });
 const followedCards = () => followed.map(f => ({ kind: 'sharedpl', id: f.id, title: f.name, artist: f.owner ? `by @${f.owner}` : 'Shared playlist', thumbnail: f.thumb || PH }));
-const plCards = () => [likedCard()].concat(playlists.map(p => ({ kind: 'uplaylist', id: p.id, title: p.name, artist: `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}${p.visibility && p.visibility !== 'private' ? ' · ' + VIS[p.visibility][0] : ''}`, thumbnail: plCover(p) }))).concat(followedCards());
+const plCards = () => [likedCard()].concat(LF_OK && lfCount() ? [localCard()] : []).concat(playlists.map(p => ({ kind: 'uplaylist', id: p.id, title: p.name, artist: `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}${p.visibility && p.visibility !== 'private' ? ' · ' + VIS[p.visibility][0] : ''}`, thumbnail: plCover(p) }))).concat(followedCards());
 
 /* ---------- username + playlist sharing ---------- */
 const VIS = {
@@ -5605,7 +5650,7 @@ function bindReorder(pl){
   box.onpointerup = end; box.onpointercancel = end;
 }
 function renderUserPl(id){
-  const pl = id === LIKED_ID ? likedPl() : playlists.find(p => p.id === id);
+  const pl = id === LIKED_ID ? likedPl() : id === LOCAL_ID ? localPl() : playlists.find(p => p.id === id);
   if (!pl) { toast('Playlist not found', true); return show('liked'); }
   const mode = plReorder === id ? 'custom' : plSortGet(id), key = 'upl_' + id, tracks = plSorted(pl, mode);
   const dlOpt = pl.virtual ? undefined : { id: pl.id, label: pl.name };
@@ -5617,24 +5662,24 @@ function renderUserPl(id){
   $('main').innerHTML = `<div class="bkrow">${backBtn()}</div>
     <div class="alb"><aside class="alb-l">${cover}
       <h1>${esc(pl.name)}</h1>
-      <p class="plby">${pl.virtual ? '' : visPill(pl.visibility || 'private')}${acctName ? ` by <a data-uname="${esc(acctName)}">@${esc(acctName)}</a>` : ''}</p><p>${meta}</p>
+      <p class="plby">${pl.virtual ? '' : visPill(pl.visibility || 'private')}${pl.local ? 'On this device' : acctName ? ` by <a data-uname="${esc(acctName)}">@${esc(acctName)}</a>` : ''}</p><p>${meta}</p>
       <div class="aact">
         ${pl.virtual ? '' : `<button class="rb sm" id="uShare" title="Share">${ic('share', 18)}</button>`}
-        <button class="rb sm" id="uDl" title="Download all">${ic('dl', 18)}</button>
+        ${pl.local ? '' : `<button class="rb sm" id="uDl" title="Download all">${ic('dl', 18)}</button>`}
         ${tracks.length > 1 ? `<button class="rb sm" id="lShuf" title="Shuffle">${ic('shuffle', 18)}</button>` : ''}
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
-        ${pl.virtual && !tracks.length ? '' : `<button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
+        ${pl.local || (pl.virtual && !tracks.length) ? '' : `<button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
           ${tracks.length ? '<button data-m="dlall">Download all</button>' : ''}${pl.virtual ? '' : `${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button><button data-m="cover">Change cover</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>`}
         </div>`}
       </div>
       </aside>
-      <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `${tracks.length > 1 ? plSortBar(id, mode) : ''}<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, !pl.virtual)).join('') : `<p class="qmsg">${pl.virtual ? 'Nothing here yet. Tap the heart on any song to add it to Liked songs.' : 'This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.'}</p>`}</div>`}</div></div>`;
+      <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `${tracks.length > 1 ? plSortBar(id, mode) : ''}<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, !pl.virtual)).join('') : `<p class="qmsg">${pl.local ? 'No local files yet. Add songs from Downloads → Local files.' : pl.virtual ? 'Nothing here yet. Tap the heart on any song to add it to Liked songs.' : 'This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.'}</p>`}</div>`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
   backfillExplicit(tracks);
   if ($('uShare')) $('uShare').onclick = () => openShare(pl);
   if ($('plSort')) $('plSort').onclick = () => openPlSort(id);
-  $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, dlOpt) : toast('Nothing to download yet');
+  if ($('uDl')) $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, dlOpt) : toast('Nothing to download yet');
   if ($('aMenu')) $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
   if ($('amenu')) $('amenu').onclick = async e => {
     const m = e.target.closest('[data-m]'); if (!m) return; $('amenu').hidden = true;
@@ -6051,92 +6096,12 @@ function lyToggleTl(){
   toast(on ? 'Pronunciation on' : 'Pronunciation off');
 }
 
-/* ---------- more lyric sources ----------
-   Auto asks every source at once and keeps the best-synced result. Where each one is asked:
-   - the public API: Unison, lrc.red (by ISRC) and LRCLIB
-   - the on-device backend (Android / Windows app): all of those plus SimpMusic, NetEase, Kugou and lyrics.ovh,
-     and it looks up an ISRC itself so lrc.red works without typing one in
-   - straight from this page: LRCLIB, SimpMusic and lyrics.ovh, as a last resort (works where the site allows it)
-   Every source is optional: one that is down or blocked is skipped and never breaks the others. */
-const LY_ALL = ['lrcred', 'unison', 'lrclib', 'simpmusic', 'netease', 'kugou', 'ovh'];
-const LY_BACKEND_ONLY = new Set(['simpmusic', 'netease', 'kugou', 'ovh']);   // the public API may not know these yet
-const lyNote = n => ({ found: false, source: null, syncType: null, synced: false, lines: [], note: n || null });
-const lyRank = d => !lyOk(d) ? 0 : ({ richsync: 3, linesync: 2 }[d.syncType] || 1);
-const lyNorm = x => String(x || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-const lyClean = x => String(x || '').replace(/\s*[(\[][^)\]]*(feat\.?|ft\.?|with|official|video|audio|lyrics?|remaster|version|live|from\s|mv|hd|4k)[^)\]]*[)\]]/ig, '').replace(/\s+-\s+(from|feat|ft|official|remaster).*$/i, '').replace(/\s+\|.*$/, '').trim();
-const lyFirstArtist = x => String(x || '').split(/\s*(?:,|&|;|\sx\s|\sfeat\.?\s|\sft\.?\s)\s*/i)[0].trim();
-const lySame = (a, b) => { a = lyNorm(lyClean(a)); b = lyNorm(lyClean(b)); return !!a && !!b && (a === b || a.includes(b) || b.includes(a)); };
-function lyParse(text, source, meta){
-  text = String(text || '').replace(/^\uFEFF/, '').trim(); if (!text) return null;
-  let lines = [], off = 0;
-  if (/^\s*\[\d+:\d+/m.test(text)) {
-    for (let raw of text.split(/\r?\n/)) {
-      raw = raw.trim();
-      let m = /^\[offset:\s*(-?\d+)\]/i.exec(raw); if (m) { off = +m[1] / 1000; continue; }
-      m = /^((?:\[\d+:\d+(?:[.:]\d+)?\])+)(.*)$/.exec(raw); if (!m) continue;
-      const txt = m[2].replace(/<\d+:\d+(?:\.\d+)?>/g, '').trim();
-      for (const st of m[1].matchAll(/\[(\d+):(\d+(?:[.:]\d+)?)\]/g)) lines.push({ t: Math.round(((+st[1]) * 60 + parseFloat(st[2].replace(':', '.')) - off) * 1000) / 1000, e: null, text: txt });
-    }
-    lines.sort((x, y) => x.t - y.t); lines.forEach((l, i) => { l.e = lines[i + 1] ? lines[i + 1].t : null; });
-  }
-  const synced = lines.length > 0;
-  if (!synced) { lines = text.split(/\r?\n/).map(x => ({ t: null, e: null, text: x.trim() })); while (lines.length && !lines[lines.length - 1].text) lines.pop(); }
-  if (!lines.some(l => l.text)) return null;
-  return { found: true, source, syncType: synced ? 'linesync' : 'plain', synced, lines, meta: meta || {} };
-}
-async function lyJson(url, ms = 9000){ try { const r = await fetchT(url, {}, ms, false); return r.ok ? await r.json() : null; } catch { return null; } }
-async function lyDirectLrclib(t){
-  const ti = lyClean(t.title), ar = lyFirstArtist(t.artist), du = Math.round(t.duration || 0);
-  const near = (d, tol) => !du || !d || Math.abs(du - d) <= tol, dd = c => du ? Math.abs(du - (c.duration || 0)) : 0;
-  const use = c => { for (const k of ['syncedLyrics', 'plainLyrics']) if (c && c[k]) { const r = lyParse(c[k], 'lrclib', { id: c.id }); if (r) return r; } return null; };
-  if (ti && ar) {
-    const q = new URLSearchParams({ track_name: ti, artist_name: ar }); if (t.album) q.set('album_name', t.album); if (du) q.set('duration', du);
-    const d = await lyJson('https://lrclib.net/api/get?' + q);
-    if (d && near(d.duration, 8)) { const r = use(d); if (r) return r; }
-  }
-  const sq = ti && ar ? new URLSearchParams({ track_name: ti, artist_name: ar }) : new URLSearchParams({ q: (ti + ' ' + ar).trim() });
-  const list = await lyJson('https://lrclib.net/api/search?' + sq);
-  if (!Array.isArray(list)) return null;
-  const good = list.filter(c => c && (c.syncedLyrics || c.plainLyrics) && lySame(ti, c.trackName) && near(c.duration, 6));
-  good.sort((x, y) => (y.syncedLyrics ? 1 : 0) - (x.syncedLyrics ? 1 : 0) || dd(x) - dd(y));
-  return use(good[0]);
-}
-async function lyDirectSimp(t){
-  if (!/^[\w-]{11}$/.test(t.id || '')) return null;
-  const b = await lyJson('https://api-lyrics.simpmusic.org/v1/' + encodeURIComponent(t.id)); let items = b && b.data;
-  if (items && !Array.isArray(items)) items = [items];
-  for (const d of items || []) for (const k of ['syncedLyrics', 'synced_lyrics', 'plainLyric', 'plainLyrics', 'plain_lyric']) if (d && d[k]) { const r = lyParse(d[k], 'simpmusic', {}); if (r) return r; }
-  return null;
-}
-async function lyDirectOvh(t){
-  const ti = lyClean(t.title), ar = lyFirstArtist(t.artist); if (!ti || !ar) return null;
-  const b = await lyJson(`https://api.lyrics.ovh/v1/${encodeURIComponent(ar)}/${encodeURIComponent(ti)}`);
-  return b && b.lyrics ? lyParse(b.lyrics, 'ovh', {}) : null;
-}
-async function lyDirect(t, src){
-  const order = src === 'auto' ? [lyDirectLrclib, lyDirectSimp, lyDirectOvh] : ({ lrclib: [lyDirectLrclib], simpmusic: [lyDirectSimp], ovh: [lyDirectOvh] })[src] || [];
-  let plain = null;
-  for (const f of order) { const d = await f(t).catch(() => null); if (!lyOk(d)) continue; if (d.synced) return d; plain = plain || d; }
-  return plain;
-}
-async function lyRemote(t, src, qs){
-  if (!isOnline()) throw new Error("You're offline");
-  const path = `/lyrics/${encodeURIComponent(t.id)}?${qs}`, hostLocal = base() !== PUBLIC_API ? base() : '', good = d => lyOk(d) ? d : null;
-  const viaLocal = async () => { if (!hostLocal) return null; try { const r = await fetchT(hostLocal + path, { headers: hd() }, 30000, false); return r.ok ? good(await r.json()) : null; } catch { return null; } };
-  const viaPublic = async () => { if (isLocalId(t.id)) return null; try { return good(await (await apiPublic(path)).json()); } catch { return null; } };   // it only knows YouTube ids
-  let d = null;
-  if (src === 'auto') { const r = await Promise.all([viaPublic(), viaLocal()]); d = lyRank(r[1]) > lyRank(r[0]) ? r[1] : (r[0] || r[1]); }
-  else if (LY_BACKEND_ONLY.has(src)) d = (await viaLocal()) || (await viaPublic());
-  else d = (await viaPublic()) || (await viaLocal());
-  if (!d || (src === 'auto' && !d.synced)) { const x = await lyDirect(t, src); if (lyRank(x) > lyRank(d)) d = x; }
-  return d || lyNote();
-}
 /* ---------- lyrics ---------- */
 const lyCache = {}; let lyCur = null, lyEls = [], lyIdx = -1, lyWn = -1, lyRaf = 0, lyUserTs = 0;
 let isrcs = jget('isrcs', {});
 const lySrc = () => store.get('lsrc', 'auto');
 const SYNC_LABEL = { richsync: 'word-synced', linesync: 'line-synced', plain: 'unsynced' };
-const LY_NAMES = { auto: 'Auto', unison: 'Unison', lrcred: 'lrc.red', lrclib: 'LRCLIB', simpmusic: 'SimpMusic', netease: 'NetEase', kugou: 'Kugou', ovh: 'lyrics.ovh' };
+const LY_NAMES = { auto: 'Auto', unison: 'Unison', lrcred: 'lrc.red', lrclib: 'LRCLIB' };
 const lyAvail = {}, lyProbing = {}, lyInflight = {};   // lyAvail: trackId -> sources that actually have lyrics for it
 let lyState = 'none', lyFor = null, lyTok = 0, lyLoadTok = 0, lyEff = 'auto';   // lyState: 'loading' | 'found' | 'none'
 const lyOk = d => !!(d && d.found && d.lines && d.lines.length);
@@ -6144,7 +6109,7 @@ function lyHeader(d){
   const t = current, av = (t && lyAvail[t.id]) || (d && d.found && d.source ? [d.source] : []);
   const keys = av.length > 1 ? ['auto', ...av] : av;   // only sources that have lyrics (Auto only when there's a choice)
   const chips = keys.map(k => `<button data-lsrc="${k}" class="${(lyEff === k || keys.length === 1) ? 'on' : ''}">${LY_NAMES[k]}</button>`).join('');
-  const info = d && d.found ? `via ${LY_NAMES[d.source] || d.source || 'Unison'} · ${SYNC_LABEL[d.syncType] || ''}` : '';
+  const info = d && d.found ? `via ${({ lrcred: 'lrc.red', lrclib: 'LRCLIB' })[d.source] || 'Unison'} · ${SYNC_LABEL[d.syncType] || ''}` : '';
   $('lyhd').innerHTML = `<span class="lysrc">${esc(info)}</span><span class="lychips">${chips}<button class="tlb ${lyTl() ? 'on' : ''}" data-tl title="Show pronunciation under lyrics">Aa</button></span>`;
 }
 function syncLyTab(){
@@ -6166,7 +6131,7 @@ function lyGet(t, src){
   const qs = new URLSearchParams(Object.entries({ title: t.title, artist: t.artist, isrc, album: t.album || '', duration: Math.round(t.duration || 0) || '', source: src }).filter(([, v]) => v));
   return lyInflight[key] = (async () => {
     try {
-      const d = await lyRemote(t, src, qs);
+      const d = await (await apiPublic(`/lyrics/${t.id}?${qs}`)).json();
       lyCache[key] = d;
       if (d.found && d.lines && d.lines.length && src === 'auto' && dls.some(x => x.id === t.id) && !(extras[t.id] && extras[t.id].lyrics)) saveExtraLyrics(t, d);
       return d;
@@ -6189,7 +6154,7 @@ async function lyProbe(t){
 async function lyProbeSources(t){
   if (lyAvail[t.id] || lyProbing[t.id]) return;
   lyProbing[t.id] = 1;
-  const srcs = LY_ALL.slice();
+  const srcs = ['lrcred', 'unison', 'lrclib'].filter(x => x !== 'lrcred' || isrcs[t.id]);
   const res = await Promise.all(srcs.map(x => lyGet(t, x).catch(() => null)));
   delete lyProbing[t.id];
   lyAvail[t.id] = srcs.filter((x, i) => lyOk(res[i]));
@@ -6229,7 +6194,7 @@ function paintLyrics(d, t){
     lyCur = null;
     box.innerHTML = `<p class="qmsg">${esc(d.note || 'No lyrics found for this song yet.')}</p>
       <div class="lyf"><input id="lyIsrc" class="minp" placeholder="ISRC, e.g. GBUM71029604" value="${esc(isrcs[t.id] || '')}" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn" id="lyGo">Try lrc.red</button></div>
-      <p class="mhint">Isai checks LRCLIB, lrc.red, Unison, SimpMusic, NetEase, Kugou and lyrics.ovh. lrc.red works from an ISRC (the 12-character recording code); if you know this song's, enter it above.</p>`;
+      <p class="mhint">lrc.red finds lyrics by ISRC (the 12-character recording code). Unison is checked automatically by video.</p>`;
     const go = () => {
       const v = $('lyIsrc').value.replace(/[\s-]/g, '').toUpperCase();
       if (!/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(v)) return toast('That doesn\'t look like an ISRC', true);
