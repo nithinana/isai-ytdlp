@@ -3774,7 +3774,7 @@ async function saveWithExtras(t){
    Songs picked from the device are copied into the same on-device store as downloads, so they play offline, queue, like and
    go into playlists like any other song. Title / artist / album / cover are read from the file's own tags (ID3, FLAC, MP4). */
 const NATIVE_OS = (() => { try { return String((window.IsaiNative && IsaiNative.platform && IsaiNative.platform()) || '').toLowerCase(); } catch { return ''; } })();
-const LF_OK = NATIVE_OS === 'android' || NATIVE_OS === 'windows';   // older app builds have no platform(): the option stays hidden there
+const LF_OK = !!window.IsaiNative || NATIVE_OS === 'android' || NATIVE_OS === 'windows';   // older app builds have no platform(): the option stays hidden there
 const LF_DIR = NATIVE_OS === 'windows';                              // Android's file chooser can't pick folders
 const LF_EXT = /\.(mp3|m4a|m4b|mp4|aac|flac|ogg|oga|opus|wav|weba|webm|aiff?|wma)$/i;
 const LF_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.wav,.weba,.aiff';
@@ -3955,9 +3955,20 @@ const lfMkInput = dir => {
 let lfIn = null, lfDirIn = null;
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-lf]'); if (!b || !LF_OK) return;
-  if (b.dataset.lf === 'dir' && LF_DIR) (lfDirIn || (lfDirIn = lfMkInput(true))).click(); else (lfIn || (lfIn = lfMkInput(false))).click();
+  const dir = b.dataset.lf === 'dir' && LF_DIR;
+  lfAllow().then(ok => { if (ok) (dir ? (lfDirIn || (lfDirIn = lfMkInput(true))) : (lfIn || (lfIn = lfMkInput(false)))).click(); });
 });
-window.__openLocal = () => { store.set('dlsort', 'local'); dlQ = ''; show('downloads'); };
+/* first use: ask for file access before the device's file chooser opens */
+async function lfAllow(){
+  if (store.get('lfperm', '') === '1') return true;
+  const ok = await askConfirm({ title: 'Allow file access?', msg: 'Isai needs access to the audio files on this device so it can play them here. You choose which songs to add, and the originals stay where they are.', ok: 'Allow' });
+  if (ok) store.set('lfperm', '1');
+  return !!ok;
+}
+window.__openLocal = async () => {
+  store.set('dlsort', 'local'); dlQ = ''; show('downloads');
+  if (!lfCount() && await lfAllow()) (lfIn || (lfIn = lfMkInput(false))).click();
+};
 
 /* ---------- download ---------- */
 const fmtSize = b => !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
