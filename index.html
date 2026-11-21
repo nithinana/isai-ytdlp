@@ -1697,6 +1697,11 @@ body.incog .incpill{display:inline-flex}
 .rvb:active{transform:scale(.92)}
 /* keep the bottom nav above full-page layers on phones (the full-screen player stays above it) */
 @media(max-width:720px){#nav{z-index:31}}
+/* search bar back arrow (phones) */
+.sbk{display:none;flex:none;width:30px;height:30px;margin-left:-8px;border-radius:50%;place-items:center;color:var(--fg)}
+@media(max-width:720px){.sbon .sbk{display:grid}.sbon .sico{display:none}.sbk:active{background:rgba(255,255,255,.12)}}
+/* the "Add to this playlist" page stops above the bottom nav on phones */
+@media(max-width:720px){.plbrw{inset:0 0 calc(58px + var(--sab)) 0;padding-bottom:90px}}
 </style>
 </head>
 <body>
@@ -2888,7 +2893,7 @@ function renderArtist(d){
 const SEARCH_TABS = ['songs', 'albums', 'artists', 'playlists'];
 const qval = () => ((isMobile() && $('sq')) ? $('sq').value : $('hq').value).trim();
 function renderSearch(){
-  $('main').innerHTML = `<div class="pg"><label class="msb"><span data-ic="search"></span><input id="sq" placeholder="Search songs, albums, artists, playlists" autocomplete="off" enterkeyhint="search" value="${esc($('hq').value || lastSearch.q)}"><button type="button" class="sclr" id="sclr" title="Clear search" aria-label="Clear search" hidden>${ic('x', 18)}</button></label>
+  $('main').innerHTML = `<div class="pg"><label class="msb"><button type="button" class="sbk" id="sback" aria-label="Back" title="Back" data-ic="back"></button><span class="sico" data-ic="search"></span><input id="sq" placeholder="Search songs, albums, artists, playlists" autocomplete="off" enterkeyhint="search" value="${esc($('hq').value || lastSearch.q)}"><button type="button" class="sclr" id="sclr" title="Clear search" aria-label="Clear search" hidden>${ic('x', 18)}</button></label>
     <div id="shist" class="shist" hidden></div>
     <div class="chips">${SEARCH_TABS.map(t => `<button class="chip ${t === searchType ? 'on' : ''}" data-type="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
     <div id="st"></div><div id="res"></div></div><div id="recs"></div>`;
@@ -2897,6 +2902,15 @@ function renderSearch(){
   sq.onkeydown = e => { if (e.key === 'Enter') { sq.blur(); submitSearch(); } };
   const sclr = $('sclr'), syncClr = () => { if (sclr) sclr.hidden = !(sq.value || lastSearch.q || lastSearch.items.length); };
   sq.oninput = () => { $('hq').value = sq.value; syncClr(); liveSearch(); };
+  const sback = $('sback');
+  const syncBack = () => { const on = isMobile(); $('main').classList.toggle('sbon', on); };
+  syncBack();
+  sback.onmousedown = e => e.preventDefault();             // keep focus so the tap isn't lost to the blur
+  sback.onclick = () => {
+    const active = document.activeElement === sq || sq.value || lastSearch.q || lastSearch.items.length;
+    if (active) { clearSearch(); sq.blur(); paintHist(); return; }   // back out to the browse screen
+    show('home');                                                     // already on the browse screen: leave search
+  };
   sq.onfocus = paintHist; sq.onblur = () => setTimeout(paintHist, 250);
   if (sclr) sclr.onclick = () => { clearSearch(); sq.focus(); };
   syncClr();
@@ -4842,7 +4856,9 @@ document.addEventListener('click', e => {
   const nav = e.target.closest('[data-view]');
   if (nav) {
     if (nav.dataset.view === 'search' && view === 'search' && isMobile()) {   // already here: keep what's being searched
-      const q = $('sq'); if (q && !q.value && !lastSearch.items.length) q.focus(); else scrollTo({ top: 0, behavior: 'smooth' });
+      const q = $('sq');
+      if (q && document.activeElement === q && !q.value && !lastSearch.items.length) { q.blur(); paintHist(); return; }   // close the recent list, back to browse
+      if (q && !q.value && !lastSearch.items.length) q.focus(); else scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     return show(nav.dataset.view);
