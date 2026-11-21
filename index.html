@@ -2235,7 +2235,11 @@ const PL_CORE = ['id', 'name', 'tracks', 'visibility', 'slug'];
 const plExtra = p => { const m = {}; for (const k in p) if (!PL_CORE.includes(k)) m[k] = p[k]; return m; };
 const plName = p => String(p.name || 'Playlist').slice(0, 80);
 const plShape = p => ({ name: plName(p), vis: p.visibility || 'private', meta: JSON.stringify(plExtra(p)), ids: p.tracks.map(t => t.id) });
-const fromServerPl = p => Object.assign({}, p.meta || {}, { id: p.id, name: p.name, tracks: p.tracks || [], visibility: p.visibility || 'private', slug: p.slug });
+const fromServerPl = p => { const o = Object.assign({}, p.meta || {}, { id: p.id, name: p.name, tracks: p.tracks || [], visibility: p.visibility || 'private', slug: p.slug });
+  /* source links now live in their own server columns; use them when the playlist's meta doesn't have them */
+  if (p.spotify_url && !o.spotifyUrl) o.spotifyUrl = p.spotify_url;
+  if (p.ytm_url && !o.srcId) o.srcId = p.ytm_url;
+  return o; };
 let plSnap = {}, plT = 0;                                     // plSnap: what the server is known to have, per playlist
 function snapPl(){ plSnap = {}; for (const p of playlists) plSnap[p.id] = plShape(p); }
 function pushPlaylists(){
