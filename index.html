@@ -2988,6 +2988,10 @@ function playFrom(key, i, open = true){
 // so the browser can start streaming straight away; only the audio is used, the video is never shown.
 const mkMedia = () => { const v = document.createElement('video'); v.playsInline = true; v.preload = 'auto'; v.style.display = 'none'; return v; };
 const audioUrl = id => lfDevUrl(id) || base() + '/audio/' + encodeURIComponent(id) + (store.get('key', '') ? '?key=' + encodeURIComponent(store.get('key', '')) : '');
+/* PUBLIC API ONLY: its /audio route doesn't work but /download does, so playback uses /download?fmt=best
+   (no re-encoding) first and /audio only as a backup. Any other server (on-device / custom) is untouched: /audio only. */
+const dlStreamUrl = id => { const k = store.get('key', ''); return base() + '/download/' + encodeURIComponent(id) + '?fmt=best' + (k ? '&key=' + encodeURIComponent(k) : ''); };
+const streamUrls = id => (lfDevUrl(id) || base() !== PUBLIC_API) ? [audioUrl(id)] : [dlStreamUrl(id), audioUrl(id)];
 let a = $('audio'), standby = mkMedia(), pending = false, loading = false;   // loading: a new song is being fetched; the old `a` must not be resumed
 standby.preload = 'auto';
 let resume = { id: null, n: 0 }, lastAuto = 0;   // guards against streams that report 'ended' early
@@ -3048,8 +3052,13 @@ async function preloadNext(){
     if (my !== preTok) { if (blobUrl) URL.revokeObjectURL(blobUrl); return; }
     const e = mkMedia(); wire(e);
     e.volume = a.volume; e._tid = t.id; e._blob = blobUrl;
-    e.addEventListener('error', () => { e._err = true; });
-    e.src = url; e.load();
+    const alts = (url === audioUrl(t.id)) ? streamUrls(t.id) : [url];
+    e.src = alts[0]; let ai = 0;
+    e.addEventListener('error', () => {
+      if (!e._blob && ++ai < alts.length) { e.src = alts[ai]; e.load(); }
+      else e._err = true;
+    });
+    e.load();
     pre = e;
   } catch {}
 }
@@ -3082,7 +3091,7 @@ async function playCurrent(startAt = 0){
   markPlaying(); updateNP(); tint(t); msMeta(t);
   lyProbe(t);
   try {
-    let n, blobUrl = null;
+    let n, blobUrl = null, alts = [];
     if (pre && pre._tid === t.id && !pre._err && !pre.error) {       // the song was preloaded: reuse it
       n = pre; pre = null; blobUrl = n._blob || null; n.volume = a.volume;
     } else {
@@ -3094,12 +3103,22 @@ async function playCurrent(startAt = 0){
       if (blob) url = blobUrl = URL.createObjectURL(blob);
       else url = audioUrl(t.id);
       n = standby;
-      n.volume = a.volume; n.src = url;
+      alts = blob ? [url] : streamUrls(t.id);
+      n.volume = a.volume; n.src = alts[0];
     }
     await new Promise((res, rej) => {
-      const ok = () => { off(); res(); }, bad = () => { off(); rej(new Error('Could not load this track')); };
+      let ai = 0, stall = 0;
+      const ok = () => { clearTimeout(stall); off(); res(); };
+      const next = () => {                                            // /audio failed or stalled: try /download
+        if (alts.length > ++ai) {
+          n.src = alts[ai]; n.load(); arm(); return true;
+        }
+        return false;
+      };
+      const bad = () => { clearTimeout(stall); if (next()) return; off(); rej(new Error('Could not load this track')); };
+      const arm = () => { clearTimeout(stall); if (alts.length > ai + 1) stall = setTimeout(() => { if (n.readyState < 3) next(); }, 12000); };
       const off = () => { n.removeEventListener('canplay', ok); n.removeEventListener('error', bad); };
-      n.addEventListener('canplay', ok); n.addEventListener('error', bad);
+      n.addEventListener('canplay', ok); n.addEventListener('error', bad); arm();
       const to = setTimeout(() => { off(); rej(new Error('Slow connection · tap play to try again')); }, 60000);
       const clr = () => clearTimeout(to); n.addEventListener('canplay', clr, { once: true }); n.addEventListener('error', clr, { once: true });
       if (n.readyState >= 3) ok();
