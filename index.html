@@ -14,6 +14,11 @@
 .iacompat{display:flex;align-items:center;gap:8px;margin:14px 0 2px;font-size:12px;color:var(--mute)}.iacompat .iaic{display:inline-flex}.iacompat .iaic+.iaic{margin-left:-2px}.iacompat .iaic+.iaic+span{margin-left:2px}
 .gnote{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 16px 0;padding:10px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--mute)}
 .guest .bkrow,.guest #backBtn{display:none!important}
+#lkX{display:none;position:absolute;top:calc(var(--sat) + 10px);right:14px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;align-items:center;justify-content:center;cursor:pointer;z-index:2}
+#lkX:hover{background:rgba(255,255,255,.18)}
+.guest #lkX{display:flex}
+.alib{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;width:100%}
+.alib .btn{width:100%;height:46px;padding:0 20px;justify-content:center;gap:8px;white-space:nowrap}
 </style>
 <script>
 /* Isai app: native bridge (media notification + background downloads). No-op in a normal browser. */
@@ -1626,6 +1631,7 @@ body.incog .incpill{display:inline-flex}
 <div id="bg"></div>
 <div id="lock" role="dialog" aria-modal="true" aria-label="Sign in">
   <img class="lg" src="https://thirai.uk/static/thiraiwhite.png" alt="Thirai">
+  <button type="button" id="lkX" aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <div class="lk">
 
     <!-- Sign in -->
@@ -1949,6 +1955,7 @@ hydrate(document);
 function fillRange(el){ el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min) * 100) + '%'); }
 
 /* ---------- API + covers ---------- */
+const BOOT_Q = location.search;
 const PUBLIC_API = 'https://isaiapi.thirai.uk';
 const MIN_API = 0;   /* raise when the frontend needs endpoints an older on-device backend lacks */
 const localApi = (() => {
@@ -2318,16 +2325,48 @@ function refreshAccountView(){ if (acctReady && ['home', 'liked', 'upl', 'settin
 addEventListener('online', () => { if (!acctReady && window.__unlocked) initAccount().then(refreshAccountView); else queueAutoDl(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) queueAutoDl(); });
 
-/* ---- deep links: ?p=<share slug> opens a shared playlist once signed in ---- */
+/* ---- the address bar follows the page; opening such a link goes straight to it (needs a sign-in) ---- */
+const PAGE_OF = { search: 'search', liked: 'library', downloads: 'downloads', settings: 'settings', activity: 'activity', profile: 'profile' };
+const PAGE_VIEW = { search: 'search', library: 'liked', downloads: 'downloads', settings: 'settings', activity: 'activity', profile: 'profile', home: 'home' };
+function pageUrl(){
+  const q = new URLSearchParams(), a = viewArg;
+  if (view === 'shared' && a) q.set('p', a);
+  else if (view === 'user' && a) q.set('u', a);
+  else if (view === 'entity' && a && ['artist', 'album', 'playlist'].includes(a.kind) && a.id) { q.set(a.kind, a.id); if (a.title) q.set('n', a.title); }
+  else if (view === 'mood' && a) q.set('mood', a);
+  else if (view === 'upl' && a) q.set('mine', a);
+  else if (view === 'search') { q.set('page', 'search'); const v = (typeof qval === 'function' ? qval() : ''); if (v) q.set('q', v); }
+  else if (PAGE_OF[view]) q.set('page', PAGE_OF[view]);
+  if (current && !window.__guest && $('npv') && $('npv').classList.contains('open')) q.set('t', current.id);   // Now Playing is the track page
+  const qs = q.toString();
+  return location.pathname + (qs ? '?' + qs : '') + location.hash;
+}
+function urlSync(){
+  try { const u = pageUrl(); if (u !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', u); } catch {}
+}
 function openDeepLink(){
   try {
-    const q = new URLSearchParams(location.search), slug = (q.get('p') || '').trim(), user = (q.get('u') || '').trim(), art = (q.get('a') || '').trim(), artN = (q.get('n') || '').trim();
-    if (!slug && !user && !art) return;
-    q.delete('p'); q.delete('u'); q.delete('a'); q.delete('n'); const qs = q.toString();
-    history.replaceState(history.state, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
-    if (art && /^[\w-]{6,64}$/.test(art)) { openArtist(art, artN); return; }
+    const q = new URLSearchParams(BOOT_Q), g = k => (q.get(k) || '').trim();
+    const slug = g('p'), user = g('u'), art = g('artist') || g('a'), alb = g('album'), pl = g('playlist'), mood = g('mood'), mine = g('mine'), page = g('page'), t = g('t'), n = g('n');
+    const ID = /^[\w-]{6,64}$/;
     if (slug && /^[a-z0-9]{6,32}$/i.test(slug)) show('shared', slug);
-    else if (user && /^[a-zA-Z0-9_]{3,20}$/.test(user)) show(acctName && user.toLowerCase() === acctName.toLowerCase() ? 'profile' : 'user', acctName && user.toLowerCase() === acctName.toLowerCase() ? undefined : user);
+    else if (user && /^[a-zA-Z0-9_]{3,20}$/.test(user)) { const me = acctName && user.toLowerCase() === acctName.toLowerCase(); show(me ? 'profile' : 'user', me ? undefined : user); }
+    else if (art && ID.test(art)) openArtist(art, n);
+    else if (alb && ID.test(alb)) show('entity', { kind: 'album', id: alb, title: n || 'Album' });
+    else if (pl && ID.test(pl)) show('entity', { kind: 'playlist', id: pl, title: n || 'Playlist' });
+    else if (mood) show('mood', mood);
+    else if (mine) show('upl', mine);
+    else if (PAGE_VIEW[page] && page !== 'home') {
+      show(PAGE_VIEW[page]);
+      if (page === 'search' && g('q')) { $('hq').value = g('q'); if ($('sq')) $('sq').value = g('q'); submitSearch(); }
+    }
+    if (t && ID.test(t) && !/[^\w-]/.test(t)) {
+      api('/track/' + encodeURIComponent(t)).then(r => r.json()).then(d => {
+        if (!d || !d.id) return;
+        store.set('lastTrack', JSON.stringify({ t: slim(d), pos: 0 }));
+        current = null; restoreLast(); openNP();
+      }).catch(() => {});
+    }
   } catch {}
 }
 let dls = []; const dlActive = {}; let offUrl = null;
@@ -2451,6 +2490,7 @@ function show(v, arg, back){
      list: () => renderList(arg), entity: () => renderEntity(arg), charts: renderHome, mood: () => renderMood(arg), upl: () => renderUserPl(arg), shared: () => renderShared(arg), user: () => renderProfile(arg), profile: () => renderProfile(null) })[v]();
   markPlaying();
   histSync();
+  urlSync();
 }
 /* lift the page's Back button out of #main so it sits fixed in the top bar, level with the logo */
 new MutationObserver(() => {
@@ -2479,11 +2519,13 @@ function histSync(){
   } catch {}
 }
 window.addEventListener('popstate', e => {
-  if (hSkip) { hSkip = false; return; }
+  if (window.__guest) return;
+  if (hSkip) { hSkip = false; urlSync(); return; }
   const d = e.state && typeof e.state.d === 'number' ? e.state.d : null;
   if (d === null || d >= hHave) return;
   hPop = true;
   try { if (stack.length) goBack(); else if (view !== 'home') show('home'); } finally { hPop = false; }
+  urlSync();
 });
 
 /* ---------- home ---------- */
@@ -2825,6 +2867,7 @@ function resetSearch(){
   $('hq').value = ''; sbx.classList.remove('open');
 }
 function submitSearch(){
+  setTimeout(urlSync, 0);
   if (!qval()) return;
   if (view !== 'search') { searchKeep = true; try { show('search'); } finally { searchKeep = false; } }
   runSearch();
@@ -2992,6 +3035,7 @@ function markPlaying(){
   });
 }
 function playFrom(key, i, open = true){
+  if (window.__guest) { window.__showLock && window.__showLock(); return; }
   queue = lists[key] || []; queueName = names[key] || ''; qi = i; queueOwned = false; qEnd = -1;
   if (!isOnline()) {   // offline: only downloaded songs can play, so queue just those
     const have = new Set(dls.map(d => d.id)), has = id => have.has(id) || !!lfDevUrl(id), cur = queue[i];
@@ -3312,8 +3356,8 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- now playing view ---------- */
-function openNP(){ if (!current) return; $('npv').classList.add('open'); document.documentElement.classList.add('npopen'); $('exp').innerHTML = ic('down'); updateNP(); }
-function closeNP(){ const v = $('npv'); if (v.classList.contains('open') && !matchMedia('(prefers-reduced-motion:reduce)').matches) { v.classList.add('closing'); setTimeout(() => v.classList.remove('closing'), 230); } v.classList.remove('open'); document.documentElement.classList.remove('npopen'); $('npr').classList.remove('up'); $('exp').innerHTML = ic('up'); }
+function openNP(){ if (!current) return; setTimeout(urlSync, 0); $('npv').classList.add('open'); document.documentElement.classList.add('npopen'); $('exp').innerHTML = ic('down'); updateNP(); }
+function closeNP(){ setTimeout(urlSync, 0); const v = $('npv'); if (v.classList.contains('open') && !matchMedia('(prefers-reduced-motion:reduce)').matches) { v.classList.add('closing'); setTimeout(() => v.classList.remove('closing'), 230); } v.classList.remove('open'); document.documentElement.classList.remove('npopen'); $('npr').classList.remove('up'); $('exp').innerHTML = ic('up'); }
 const toggleNP = () => $('npv').classList.contains('open') ? closeNP() : openNP();
 const TAB_ORDER = ['queue', 'related', 'lyrics'];
 function setTab(tab, silent){
@@ -3333,6 +3377,7 @@ function syncLike(){
 }
 function updateNP(){
   const t = current; if (!t) return;
+  urlSync();
   setImgProg($('npcover'), t, 160, 600);
   $('mtitle').textContent = t.title || ''; $('martist').innerHTML = artistLinks(t);
   $('npfrom').textContent = queueName || 'Queue';
@@ -3365,6 +3410,7 @@ async function loadRelated(){
   } catch (e) { box.innerHTML = `<p class="qmsg err">${esc(e.message)}</p>`; }
 }
 function toggleLike(t){
+  if (window.__guest) { window.__showLock && window.__showLock(); return; }
   const was = isLiked(t.id);
   liked = was ? liked.filter(l => l.id !== t.id) : [slim(t), ...liked];
   if (!was) plStamp(LIKED_ID, [t.id]);
@@ -3463,6 +3509,7 @@ function pickArtist(t){
   sh.onclick = e => { const r = e.target.closest('[data-i]'); if (!r) return; const a = as[+r.dataset.i]; closeModal(); openArtist(a.id, a.name); };
 }
 function openSongMenu(t, o = {}){
+  if (window.__guest) { window.__showLock && window.__showLock(); return; }
   const items = [
     ['queue', 'queue', 'Add to queue'],
     ['like', 'heart', isLiked(t.id) ? 'Remove from Liked songs' : 'Like'],
@@ -4105,6 +4152,7 @@ async function dlFetch(t, f){
   throw new Error(last && last.name !== 'AbortError' && last.name !== 'TypeError' ? last.message : 'Could not download this song right now. Please try again in a moment.');
 }
 async function download(t, btn, quiet, job){
+  if (window.__guest) { window.__showLock && window.__showLock(); return; }
   if (isLocalId(t.id)) { if (!quiet) toast('Local files live on the device they were added on'); return false; }
   if (dlActive[t.id]) { if (!quiet) toast('Already downloading'); return false; }
   const f = store.get('fmt', 'mp3'), a = dlActive[t.id] = { t: slim(t), loaded: 0, total: 0, fmt: f, job: job || null };
@@ -5481,6 +5529,7 @@ function promptName({ title, value = '', cta, onOk }){
   $('mOk').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
 }
 function openAddModal(tracks, opt = {}){
+  if (window.__guest) { window.__showLock && window.__showLock(); return; }
   const ts = (tracks || []).filter(t => t && t.id);
   if (!ts.length) return;
   const rows = playlists.map(p => `<button class="plr" data-pl="${esc(p.id)}"><span class="plc"><img src="${esc(plCover(p, 100))}" alt=""></span><span class="qm"><b>${esc(p.name)}</b><span>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</span></span></button>`).join('');
@@ -6731,7 +6780,7 @@ window.__openInstall = openInstall;
 updateInstallBtn();
 /* website launch: the very first screen is the install popup (skipped inside the installed app) */
 /* a public playlist link (?p=…) can be opened without signing in: view it and play it */
-const GUEST_SLUG = (() => { try { if (localStorage.getItem('thirai_access_token')) return ''; const q = (new URLSearchParams(location.search).get('p') || '').trim(); return /^[a-z0-9]{6,32}$/i.test(q) ? q : ''; } catch { return ''; } })();
+const GUEST_SLUG = (() => { try { if (localStorage.getItem('thirai_access_token')) return ''; const q = (new URLSearchParams(BOOT_Q).get('p') || '').trim(); return /^[a-z0-9]{6,32}$/i.test(q) ? q : ''; } catch { return ''; } })();
 const GUEST_VIEWS = ['shared', 'user', 'entity', 'list'];
 if (!isInstalled() && !GUEST_SLUG) openInstall();
 
@@ -6770,8 +6819,16 @@ if (!isInstalled() && !GUEST_SLUG) openInstall();
   function startGuest(slug){
     window.__unlocked = true; window.__guest = true; started = true;
     document.documentElement.classList.add('guest');
+    /* guests can only look: playing, liking, downloading, adding and the song menu all just open sign-in */
+    const LOCKED = '.lrow, .qr, .card, #lPlay, #lShuf, #shDl, #shSave, #shDup, #aMenu, #player, #npv';
+    const stop = e => { if (!window.__guest || !e.target.closest) return; const el = e.target.closest(LOCKED); if (!el) return; e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); if (e.type === 'click') showLock(); };
+    ['click', 'pointerdown', 'dblclick', 'contextmenu'].forEach(t => document.addEventListener(t, stop, true));
+    document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('.lrow, .card, .lfcard')) { e.preventDefault(); e.stopPropagation(); showLock(); } }, true);
     show('shared', slug);
+    stack = [];                                              // nothing to go back to
   }
+  function closeGuestLock(){ if (!window.__guest) return; window.__unlocked = true; hideLock(); }
+  $('lkX').onclick = () => closeGuestLock();
   function hideLock(){
     lock.classList.remove('in');
     setTimeout(() => { lock.classList.remove('on'); document.body.style.overflow = ''; }, 300);
@@ -6888,7 +6945,7 @@ if (!isInstalled() && !GUEST_SLUG) openInstall();
     const a = e.target.closest('[data-go]'); if (!a) return;
     e.preventDefault(); go(a.dataset.go);
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && lock.classList.contains('on') && $('v-signin').hidden) go('signin'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && lock.classList.contains('on')) { if ($('v-signin').hidden) go('signin'); else closeGuestLock(); } });
 
   /* Purchase: Stripe checkout via the account server */
   lock.querySelectorAll('.plan').forEach(btn => btn.addEventListener('click', () => {
