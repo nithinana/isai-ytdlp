@@ -1327,6 +1327,13 @@ html{scroll-behavior:smooth}
 .slink{display:flex;gap:8px;margin-top:12px}.slink .minp{flex:1;min-width:0;height:42px;font-size:13px}
 .shacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .merr{color:#ff7a90!important;min-height:1em}
+/* playlist header on phones: Play gets its own row, the icon buttons sit evenly spaced underneath (they were cramped on one row) */
+@media(max-width:720px){
+  .aact:has(#uShare){flex-wrap:wrap;justify-content:center;gap:14px 14px;margin:16px 0 6px}
+  .aact:has(#uShare)::before{content:"";flex:0 0 100%;height:0;order:0}
+  .aact:has(#uShare) .rb.big{order:-1;justify-content:center;min-width:150px}
+  .aact:has(#uShare) .rb.sm{width:42px;height:42px;flex:none}
+}
 </style>
 <script>if(!window.IsaiNative){var g=document.createElement('script');g.src='https://accounts.google.com/gsi/client';g.async=true;document.head.appendChild(g);}</script>
 
