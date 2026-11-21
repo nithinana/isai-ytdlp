@@ -1669,20 +1669,6 @@ body.incog .incpill{display:inline-flex}
 #uSync{position:relative}
 #uSync.busy svg{animation:spin 1s linear infinite}
 #uSync .sdot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:#ff4d8d;border:2px solid #18181d}
-#syncChip{position:fixed;left:50%;bottom:calc(168px + var(--sab,0px));transform:translate(-50%,8px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:16px;background:rgba(30,30,36,.95);border:1px solid var(--line);backdrop-filter:blur(16px);z-index:61;max-width:92vw;font-size:13px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s}
-#syncChip.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-#syncChip .btn{padding:7px 14px;font-size:13px;flex:none}
-#syncChip .syx{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;opacity:.6;flex:none}
-.syl{display:flex;flex-direction:column;gap:2px;margin:10px 0}
-.syr{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;text-align:left;width:100%}
-.syr:hover,.syr.on{background:rgba(255,255,255,.08)}
-.syr img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none;background:rgba(255,255,255,.08)}
-.syr .qm{flex:1;min-width:0;display:flex;flex-direction:column}
-.syr .qm b,.syr .qm small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.syr .qm small{opacity:.6}
-.syk{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.3);display:grid;place-items:center}
-.syr.on .syk{background:#fff;color:#000;border-color:#fff}
-.syb{position:sticky;bottom:-20px;padding:10px 0}
 
 /* add to playlist */
 .adh{position:sticky;top:-20px;z-index:2;margin:-20px -20px 6px;padding:20px 20px 10px;background:rgba(26,26,32,.97)}
@@ -1696,6 +1682,21 @@ body.incog .incpill{display:inline-flex}
 .adl .qm span{color:var(--mute);font-size:12px;font-weight:400}
 .plr.have{opacity:.55}
 .adn{text-align:center;padding:18px 0}
+#uSync .sdot{background:#ff3b30}
+.rvh{margin:0 0 12px;padding:4px 2px;opacity:1}
+.rvh span{display:flex;flex-direction:column;min-width:0}.rvh b{font-size:16px}.rvh small{color:var(--mute);font-size:12px;margin-top:2px}
+.rvall{display:flex;gap:10px;margin:0 0 12px}.rvall .btn{flex:1;justify-content:center}
+.rvr{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px}
+.rvr:hover{background:rgba(255,255,255,.06)}
+.rvr img{width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none;background:rgba(255,255,255,.08)}
+.rvr .qm{flex:1;min-width:0;display:flex;flex-direction:column}
+.rvr .qm b,.rvr .qm small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rvr .qm small{color:var(--mute);font-size:12px}
+.rvb{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1);border:1px solid var(--line);color:var(--fg)}
+.rvb.add{background:#fff;color:#000;border-color:#fff}
+.rvb:active{transform:scale(.92)}
+/* keep the bottom nav above full-page layers on phones (the full-screen player stays above it) */
+@media(max-width:720px){#nav{z-index:31}}
 </style>
 </head>
 <body>
@@ -3687,7 +3688,8 @@ function openSongMenu(t, o = {}){
     const ok = e.type === 'pointerup' && (G.armed || (fast && dx > 40));
     G.row.classList.remove('armed');
     if (ok) {
-      const t = (lists[listKey] || [])[G.row.dataset.i];
+      const rk = G.row.closest('#plrec') ? 'plrec' : G.row.closest('.plbrw') ? 'plbrw' : G.row.dataset.pk || listKey;
+      const t = (lists[rk] || [])[G.row.dataset.pk ? G.row.dataset.pi : G.row.dataset.i];
       if (t) { addToQueue(t); try { navigator.vibrate && navigator.vibrate(12); } catch {} }
     }
     finish(G.row, ok);
@@ -5337,7 +5339,7 @@ function openPfull(title, body){
       return loadPfStats();
     }
     const pr = e.target.closest('[data-pk]');
-    if (pr && !e.target.closest('a')) { listKey = pr.dataset.pk; return playFrom(pr.dataset.pk, +pr.dataset.pi, false); }
+    if (pr && !e.target.closest('a')) return playFrom(pr.dataset.pk, +pr.dataset.pi, false);
     if (e.target.closest('.card,[data-artist],[data-aname]')) setTimeout(closePfull, 0);
   });
   return o;
@@ -5557,7 +5559,7 @@ async function openFeatured(){
 document.addEventListener('click', async e => {
   if (!e.target.closest('.prof')) return;
   const pr = e.target.closest('[data-pk]');
-  if (pr) { if (e.target.closest('a')) return; listKey = pr.dataset.pk; return playFrom(pr.dataset.pk, +pr.dataset.pi, false); }
+  if (pr) { if (e.target.closest('a')) return; return playFrom(pr.dataset.pk, +pr.dataset.pi, false); }
   if (e.target.closest('#pMoreStats')) return openMoreStats();
   if (e.target.closest('#pPlAll')) return openAllPlaylists();
   const pm = e.target.closest('[data-pmore]'); if (pm) return togglePMore(pm);
@@ -5908,17 +5910,17 @@ const savePend = () => store.set('isai_sync_pending', JSON.stringify(syncPend));
 const SKIP_MAX = 300;                                    // how many discarded YouTube Music songs a playlist remembers
 const syncSkipAdd = (pl, ids) => { pl.syncSkip = [...new Set([...(pl.syncSkip || []), ...ids])].slice(-SKIP_MAX); };
 const pendOf = pl => syncPend[pl.id] || [];
-const plRefresh = pl => { if (view === 'upl' && viewArg === pl.id) renderUserPl(pl.id); };
+const plRefresh = pl => { if (view === 'upl' && viewArg === pl.id) { const y = scrollY; renderUserPl(pl.id); scrollTo(0, y); } };
 
 function syncPl(pl){
   if (!pl.srcId && !spSrcUrl(pl)) return toast('This playlist has no source to sync from', true);
   if (syncJobs[pl.id]) return toast('Already syncing this playlist…');
-  if (pendOf(pl).length) return openSyncReview(pl);      // songs are already waiting for you
+  if (pendOf(pl).length) { plReview = pl.id; return plRefresh(pl); }   // songs are waiting: open the review panel
   runSync(pl);
 }
-async function runSync(pl){
+async function runSync(pl, quiet){
   syncJobs[pl.id] = true; plRefresh(pl);
-  toast(`Syncing "${pl.name}" in the background…`);
+  if (!quiet) toast(`Syncing "${pl.name}" in the background…`);
   let items = [], missed = 0, partial = false, err = null;
   try {
     const r = pl.srcId ? await ytmFind(pl) : await spFind(pl);
@@ -5932,7 +5934,8 @@ async function runSync(pl){
     syncPend[cur.id] = [...pendOf(cur), ...items.filter(x => !have.has(x.key))]; savePend();
   }
   savePl(); plRefresh(cur);
-  if (items.length) syncChip(cur);
+  if (quiet) return;                                    // opened-page syncs stay silent: the red dot shows what was found
+  if (items.length) toast(`${items.length} new song${items.length === 1 ? '' : 's'} to review`);
   else if (err) toast(`Sync failed: ${err.message}`, true);
   else toast(`"${cur.name}" is up to date${missed ? ` (${missed} song${missed === 1 ? '' : 's'} not found on YouTube Music yet)` : ''}${partial ? '. Spotify only shares the first part of long playlists' : ''}`);
 }
@@ -5976,57 +5979,31 @@ async function spFind(pl){
   return { items, missed, partial: !!d.maybe_partial };
 }
 
-/* "N new songs found" chip + review sheet */
-function syncChip(pl){
-  let c = $('syncChip');
-  if (!pl) { for (const id in syncPend) { const p = playlists.find(x => x.id === id); if (!p) { delete syncPend[id]; continue; } if (!pl && syncPend[id].length) pl = p; } savePend(); }
-  if (!pl || !pendOf(pl).length) { if (c) c.classList.remove('on'); return; }
-  if (!c) { c = document.createElement('div'); c.id = 'syncChip'; document.body.appendChild(c); }
-  const n = pendOf(pl).length;
-  c.innerHTML = `<span><b>${n} new song${n === 1 ? '' : 's'}</b> found in ${esc(pl.name)}</span><button class="btn" data-rv>Review</button><button class="syx" data-x aria-label="Dismiss">${ic('x', 16)}</button>`;
-  c.onclick = e => { if (e.target.closest('[data-rv]')) { c.classList.remove('on'); openSyncReview(pl); } else if (e.target.closest('[data-x]')) c.classList.remove('on'); };
-  requestAnimationFrame(() => c.classList.add('on'));
+/* in-page review: the playlist page swaps its song list for the new songs, each with add / discard */
+let plReview = null;
+function reviewHtml(pl){
+  const list = pendOf(pl), n = list.length;
+  return `<div id="rvRoot"><div class="robar rvh"><span><b>${n} new song${n === 1 ? '' : 's'} to review</b><small>Found on ${esc(plSyncSrc(pl))}</small></span><button class="btn ghost" id="rvDone">Done</button></div>
+    <div class="rvall"><button class="btn ghost" data-rv="dall">Discard all</button><button class="btn" data-rv="aall">Add all</button></div>
+    <div class="tl rvl">${list.map((x, i) => `<div class="rvr"><img loading="lazy" src="${esc(cov(x.track, 96))}" alt="" onerror="this.style.visibility='hidden'">
+      <span class="qm"><b>${esc(x.track.title)}</b><small>${esc(((x.track.artists && x.track.artists.length ? x.track.artists : [x.track.artist]) || []).filter(Boolean).join(', '))}</small></span>
+      <button class="rvb" data-rv="d" data-i="${i}" title="Discard">${ic('x', 18)}</button><button class="rvb add" data-rv="a" data-i="${i}" title="Add to playlist">${ic('plus', 18)}</button></div>`).join('')}</div></div>`;
 }
-function openSyncReview(pl){
-  const sel = new Set();
-  const draw = () => {
-    const list = pendOf(pl);
-    if (!list.length) { closeModal(); syncChip(); return; }
-    const sheet = openModal(`<h3>New songs in ${esc(pl.name)}</h3>
-      <p class="mhint">Found on ${esc(plSyncSrc(pl))}. Tap songs to pick some, or add / discard them all.</p>
-      <div class="syl">${list.map((x, i) => `<button class="syr${sel.has(i) ? ' on' : ''}" data-i="${i}">
-        <img loading="lazy" src="${esc(cov(x.track, 96))}" alt="" onerror="this.style.visibility='hidden'">
-        <span class="qm"><b>${esc(x.track.title)}</b><small>${esc((x.track.artists || [x.track.artist] || []).filter(Boolean).join(', '))}</small></span>
-        <i class="syk">${sel.has(i) ? ic('check', 16) : ''}</i></button>`).join('')}</div>
-      <div class="mbtns syb">
-        ${sel.size ? `<button class="btn ghost" data-act="dsel">Discard ${sel.size}</button><button class="btn" data-act="asel">Add ${sel.size}</button>`
-                   : `<button class="btn ghost" data-act="dall">Discard all</button><button class="btn" data-act="aall">Add all (${list.length})</button>`}
-      </div><div class="mbtns"><button class="btn ghost" data-mc>Decide later</button></div>`);
-    const top = sheet.scrollTop;
-    sheet.onclick = e => {
-      const r = e.target.closest('[data-i]'), a = e.target.closest('[data-act]');
-      if (r) { const i = +r.dataset.i; sel.has(i) ? sel.delete(i) : sel.add(i); draw(); sheet.scrollTop = top; }
-      else if (a) {
-        const k = a.dataset.act, all = k === 'aall' || k === 'dall';
-        resolveSync(pl, all ? list.map((_, i) => i) : [...sel], k[0] === 'a'); sel.clear(); draw();
-      }
-    };
-    sheet.scrollTop = top;
+function bindReview(pl){
+  const r = $('rvRoot'); if (!r) return;
+  $('rvDone').onclick = () => { plReview = null; plRefresh(pl); };
+  r.onclick = e => {
+    const b = e.target.closest('[data-rv]'); if (!b) return;
+    const k = b.dataset.rv, all = k === 'aall' || k === 'dall';
+    resolveSync(pl, all ? pendOf(pl).map((_, i) => i) : [+b.dataset.i], k[0] === 'a');
   };
-  draw();
 }
-function resolveSync(pl, idxs, add){
-  const list = pendOf(pl), pick = new Set(idxs), chosen = list.filter((_, i) => pick.has(i));
-  if (!chosen.length) return;
-  if (add) addTracks(pl, chosen.map(x => x.track));
-  const sp = chosen.filter(x => x.sp).map(x => x.key);
-  if (sp.length) pl.spKeys = [...new Set([...(pl.spKeys || []), ...sp])];           // never offer these Spotify songs again
-  if (!add) syncSkipAdd(pl, chosen.filter(x => !x.sp).map(x => x.key));             // …or these YouTube Music ones
-  syncPend[pl.id] = list.filter((_, i) => !pick.has(i)); if (!syncPend[pl.id].length) delete syncPend[pl.id];
-  savePend(); savePl(); plRefresh(pl);
-  toast(`${add ? 'Added' : 'Discarded'} ${chosen.length} song${chosen.length === 1 ? '' : 's'}`);
+/* opening a playlist page quietly checks its source (at most every few minutes per playlist) */
+const syncOpened = {};
+function autoSyncOnOpen(pl){
+  if (!pl || pl.virtual || !plSyncSrc(pl) || syncJobs[pl.id] || Date.now() - (syncOpened[pl.id] || 0) < 5 * 60e3) return;
+  syncOpened[pl.id] = Date.now(); runSync(pl, true);
 }
-setTimeout(() => syncChip(), 4000);                      // remind about songs left waiting from last time
 function removeFromPl(t){
   const pl = playlists.find(p => p.id === viewArg); if (!pl) return;
   pl.tracks = pl.tracks.filter(x => x.id !== t.id); savePl();
@@ -6161,7 +6138,7 @@ async function paintPlRecs(pl, refresh){
     }
     if (e.target.closest('#plrRef')) return paintPlRecs(pl, true);
     if (e.target.closest('#plrBrw')) return openPlBrowse(pl);
-    const r = e.target.closest('.prr'); if (r) { listKey = 'plrec'; playFrom('plrec', +r.dataset.i, false); }
+    const r = e.target.closest('.prr'); if (r) playFrom('plrec', +r.dataset.i, false);
   };
   if (refresh) S.shown = [];
   plRecTake(pl, S);
@@ -6240,7 +6217,7 @@ function openPlBrowse(pl){
       if (addTracks(pl, [t])) toast(`Added "${t.title}" to "${pl.name}"`);
       ab.textContent = 'Added'; ab.disabled = true; ab.classList.add('done', 'pop'); return;
     }
-    const r = e.target.closest('.prr'); if (r) { listKey = 'plbrw'; playFrom('plbrw', +r.dataset.i, false); }
+    const r = e.target.closest('.prr'); if (r) playFrom('plbrw', +r.dataset.i, false);
   };
   showRecs();
   if (!isMobile()) input.focus();
@@ -6262,7 +6239,7 @@ function renderUserPl(id){
       <div class="aact">
         ${pl.virtual ? '' : `<button class="rb sm" id="uShare" title="Share">${ic('share', 18)}</button>`}
         ${pl.local ? '' : `<button class="rb sm" id="uDl" title="Download all">${ic('dl', 18)}</button>`}
-        ${!pl.virtual && plSyncSrc(pl) ? `<button class="rb sm${syncJobs[pl.id] ? ' busy' : ''}" id="uSync" title="${syncJobs[pl.id] ? 'Syncing…' : syncPend[pl.id] && syncPend[pl.id].length ? 'Review new songs' : 'Sync from ' + plSyncSrc(pl)}">${ic('repeat', 18)}${syncPend[pl.id] && syncPend[pl.id].length ? '<i class="sdot"></i>' : ''}</button>` : ''}
+        ${!pl.virtual && plSyncSrc(pl) ? `<button class="rb sm${syncJobs[pl.id] ? ' busy' : ''}" id="uSync" title="${syncJobs[pl.id] ? 'Syncing…' : syncPend[pl.id] && syncPend[pl.id].length ? (plReview === pl.id ? 'Back to songs' : 'Review new songs') : 'Sync from ' + plSyncSrc(pl)}">${ic('repeat', 18)}${syncPend[pl.id] && syncPend[pl.id].length ? '<i class="sdot"></i>' : ''}</button>` : ''}
         ${tracks.length > 1 ? `<button class="rb sm" id="lShuf" title="Shuffle">${ic('shuffle', 18)}</button>` : ''}
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         ${pl.local || (pl.virtual && !tracks.length) ? '' : `<button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
@@ -6271,12 +6248,14 @@ function renderUserPl(id){
         </div>`}
       </div>
       </aside>
-      <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `${tracks.length > 1 ? plSortBar(id, mode) : ''}<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, !pl.virtual)).join('') : `<p class="qmsg">${pl.local ? (LF_AUTO && lfDevState === 'denied' ? 'Allow access to your music to fill this playlist.</p><p class="qmsg"><button class="btn" data-lfscan>Allow access</button>' : LF_AUTO && lfDevState !== 'ready' ? 'Looking for music on this device…' : 'No local files yet. Add songs from Downloads → Local files.') : pl.virtual ? 'Nothing here yet. Tap the heart on any song to add it to Liked songs.' : 'This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.'}</p>`}</div>${pl.virtual || pl.local ? '' : '<div id="plrec"></div>'}`}</div></div>`;
+      <div class="alb-r">${plReview === id && pendOf(pl).length ? reviewHtml(pl) : plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `${tracks.length > 1 ? plSortBar(id, mode) : ''}<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, !pl.virtual)).join('') : `<p class="qmsg">${pl.local ? (LF_AUTO && lfDevState === 'denied' ? 'Allow access to your music to fill this playlist.</p><p class="qmsg"><button class="btn" data-lfscan>Allow access</button>' : LF_AUTO && lfDevState !== 'ready' ? 'Looking for music on this device…' : 'No local files yet. Add songs from Downloads → Local files.') : pl.virtual ? 'Nothing here yet. Tap the heart on any song to add it to Liked songs.' : 'This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.'}</p>`}</div>${pl.virtual || pl.local ? '' : '<div id="plrec"></div>'}`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
   backfillExplicit(tracks);
   if ($('plrec')) paintPlRecs(pl);
   if ($('uShare')) $('uShare').onclick = () => openShare(pl);
-  if ($('uSync')) $('uSync').onclick = () => syncPl(pl);
+  if ($('uSync')) $('uSync').onclick = () => { if (plReview === id) { plReview = null; plRefresh(pl); } else syncPl(pl); };
+  if (plReview === id && pendOf(pl).length) bindReview(pl); else if (plReview === id) plReview = null;
+  if (id !== LIKED_ID && id !== LOCAL_ID) autoSyncOnOpen(pl);
   if ($('plSort')) $('plSort').onclick = () => openPlSort(id);
   if ($('uDl')) $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, dlOpt) : toast('Nothing to download yet');
   if ($('aMenu')) $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
