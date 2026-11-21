@@ -19,6 +19,23 @@
 .guest #lkX{display:flex}
 .alib{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;width:100%}
 .alib .btn{width:100%;height:46px;padding:0 20px;justify-content:center;gap:8px;white-space:nowrap}
+.shist[hidden]{display:none}
+#main.shon .chips,#main.shon #res,#main.shon #st,#main.shon #recs{display:none!important}
+.shr{cursor:pointer}
+.plrh{align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:34px}
+.plrb{display:flex;gap:8px}
+.plrb .btn{padding:8px 16px;font-size:13px}
+.pradd{flex:none;height:34px;padding:0 18px;border-radius:999px;background:#fff;color:#000;font-weight:700;font-size:13px;border:0;cursor:pointer}
+.pradd.done{background:rgba(255,255,255,.12);color:var(--mute);cursor:default}
+.prr{cursor:pointer}
+.plbrw{position:fixed;inset:0;z-index:28;background:var(--bg);overflow:auto;padding:calc(var(--sat) + 14px) 20px 130px}
+.pbin{max-width:760px;margin:0 auto}
+.pbh{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.pbh h2{margin:0;font-size:22px;font-weight:800}
+.pbx{width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.pbx:hover{background:rgba(255,255,255,.18)}
+.pbsb{display:flex;align-items:center;gap:10px;height:46px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:var(--mute)}
+.pbsb input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--fg);font-size:16px}
 </style>
 <script>
 /* Isai app: native bridge (media notification + background downloads). No-op in a normal browser. */
@@ -2474,6 +2491,7 @@ const backBtn = (cls = '') => `<button id="backBtn" class="bk ${cls}" data-ic="b
 
 const NET_ONLY = ['home', 'search', 'charts', 'mood', 'entity', 'shared', 'user', 'profile'];
 function show(v, arg, back){
+  if (document.getElementById('plbrw')) closePlBrowse(true);
   if (window.__guest && !GUEST_VIEWS.includes(v)) { if (window.__showLock) window.__showLock(); return; }   // library, search, downloads… need an account
   if (!isOnline() && NET_ONLY.includes(v)) { v = 'downloads'; arg = undefined; toast("You're offline · showing your downloads"); }
   closeNP();
@@ -2483,7 +2501,7 @@ function show(v, arg, back){
   view = v; viewArg = arg;
   const hl = detail ? (stack[0] ? stack[0].v : (v === 'settings' ? 'profile' : 'home')) : v;
   document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === hl));
-  $('main').classList.remove('flush');
+  $('main').classList.remove('flush', 'shon');
   scrollTo(0, 0);
   { const m = $('main'); m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter'); }
   ({ home: renderHome, search: renderSearch, liked: renderLiked, downloads: renderDownloads, activity: renderActivity, settings: renderSettings,
@@ -2816,13 +2834,15 @@ const SEARCH_TABS = ['songs', 'albums', 'artists', 'playlists'];
 const qval = () => ((isMobile() && $('sq')) ? $('sq').value : $('hq').value).trim();
 function renderSearch(){
   $('main').innerHTML = `<div class="pg"><label class="msb"><span data-ic="search"></span><input id="sq" placeholder="Search songs, albums, artists, playlists" autocomplete="off" enterkeyhint="search" value="${esc($('hq').value || lastSearch.q)}"><button type="button" class="sclr" id="sclr" title="Clear search" aria-label="Clear search" hidden>${ic('x', 18)}</button></label>
+    <div id="shist" class="shist" hidden></div>
     <div class="chips">${SEARCH_TABS.map(t => `<button class="chip ${t === searchType ? 'on' : ''}" data-type="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
     <div id="st"></div><div id="res"></div></div><div id="recs"></div>`;
   hydrate($('main'));
   const sq = $('sq');
   sq.onkeydown = e => { if (e.key === 'Enter') { sq.blur(); submitSearch(); } };
   const sclr = $('sclr'), syncClr = () => { if (sclr) sclr.hidden = !(sq.value || lastSearch.q || lastSearch.items.length); };
-  sq.oninput = () => { $('hq').value = sq.value; syncClr(); };
+  sq.oninput = () => { $('hq').value = sq.value; syncClr(); liveSearch(); };
+  sq.onfocus = paintHist; sq.onblur = () => setTimeout(paintHist, 250);
   if (sclr) sclr.onclick = () => { clearSearch(); sq.focus(); };
   syncClr();
   document.querySelectorAll('.chip[data-type]').forEach(c => c.onclick = () => {
@@ -2831,12 +2851,48 @@ function renderSearch(){
   });
   paintResults();
   paintRecs();
+  paintHist();
   if (!isMobile()) { openBox(); if (!lastSearch.q && !$('hq').value) $('hq').focus(); }
+}
+/* mobile search: tap the bar to see what you opened from search last; results follow what you type */
+let srchTok = 0, liveT = 0;
+const sTaps = () => jget('stap', []);
+function recordSearchTap(t){
+  if (MODE.inc || !t || !t.id) return;
+  store.set('stap', JSON.stringify([{ ...t }, ...sTaps().filter(x => x.id !== t.id)].slice(0, 12)));
+}
+const tapSub = t => t.kind ? ({ artist: 'Artist', album: 'Album', playlist: 'Playlist' }[t.kind] || 'Result') + (t.kind === 'artist' ? '' : (t.artist ? ' · ' + t.artist : '')) : 'Song · ' + (t.artist || '');
+function paintHist(){
+  const box = $('shist'), sq = $('sq'); if (!box || !sq) { $('main').classList.remove('shon'); return; }
+  const items = sTaps(), on = isMobile() && document.activeElement === sq && !sq.value.trim() && items.length > 0;
+  $('main').classList.toggle('shon', on); box.hidden = !on;
+  if (!on) return;
+  box.innerHTML = `<div class="dlsh"><h3 class="sec0" style="margin-top:6px">Recent</h3><button class="linkb" id="shClr">Clear</button></div>` +
+    items.map((t, i) => `<div class="qr shr" data-hi="${i}"><div class="qt">${imgTag(t, 160)}</div><div class="qm"><b>${esc(t.title || t.name || '')}</b><span>${esc(tapSub(t))}</span></div></div>`).join('');
+  box.onclick = e => {
+    if (e.target.closest('#shClr')) { store.set('stap', '[]'); sq.blur(); paintHist(); return; }
+    const r = e.target.closest('[data-hi]'); if (!r) return;
+    const t = sTaps()[+r.dataset.hi]; if (!t) return;
+    sq.blur(); recordSearchTap(t);
+    if (t.kind) show('entity', t); else { lists.shist = [t]; names.shist = 'Recent searches'; playFrom('shist', 0, false); }
+  };
+}
+function liveSearch(){
+  clearTimeout(liveT); paintHist();
+  if (!isMobile()) return;
+  const v = qval();
+  if (!v) {
+    srchTok++; lastSearch = { q: '', type: lastSearch.type, items: [] };
+    const st = $('st'); if (st) { st.className = ''; st.textContent = ''; }
+    paintResults(); paintRecs(); return;
+  }
+  if (v.length < 2 || /^(https?:|spotify:)|open\.spotify|youtu|[?&](v|list)=|browse\/|channel\//i.test(v)) return;   // links wait for Enter
+  liveT = setTimeout(() => runSearch(true).then(() => urlSync()), 280);
 }
 function paintRecs(){
   const box = $('recs'); if (!box) return;
   if (lastSearch.items.length) { box.innerHTML = ''; return; }
-  const rs = jget('rsearch', []);
+  const rs = isMobile() ? [] : jget('rsearch', []);
   const recent = rs.length ? `<div class="pg" style="padding-bottom:0"><div class="dlsh" style="margin-top:0"><h3 class="sec0" style="margin-top:6px">Recent searches</h3><button class="linkb" id="rsClear">Clear</button></div><div class="chips" style="flex-wrap:wrap;overflow:visible">${rs.map(q => `<button class="chip" data-rs="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>` : '';
   box.innerHTML = recent + `<div class="pg"><h3 class="sec0" style="margin-top:6px">Browse by mood</h3><div class="moods">${MOOD_DEF.map(([n, a, b]) => `<button class="mood" data-mood="${esc(n)}" style="--a:${a};--b:${b}"><i></i>${esc(n)}</button>`).join('')}</div></div>`;
   const rc = $('rsClear'); if (rc) rc.onclick = () => { store.set('rsearch', '[]'); paintRecs(); };
@@ -2872,10 +2928,10 @@ function submitSearch(){
   if (view !== 'search') { searchKeep = true; try { show('search'); } finally { searchKeep = false; } }
   runSearch();
 }
-async function runSearch(){
+async function runSearch(live){
   const input = qval(); if (!input) return;
-  const st = () => $('st');
-  if (st()) { st().className = ''; st().textContent = 'Searching…'; }
+  const tk = ++srchTok, st = () => $('st');
+  if (st() && !(live && lastSearch.items.length)) { st().className = ''; st().textContent = 'Searching…'; }
   try {
     let m;
     if (/open\.spotify\.com\/(?:intl-[\w-]+\/)?(?:playlist|album|track)\//.test(input) || /^spotify:(?:playlist|album|track):/.test(input)) { if (st()) st().textContent = ''; return openSpotifyImport(input); }
@@ -2883,16 +2939,17 @@ async function runSearch(){
     if ((m = input.match(/browse\/(MPREb_[\w-]+)/))) return show('entity', { kind: 'album', id: m[1], title: 'Album' });
     if ((m = input.match(/channel\/(UC[\w-]+)/))) return show('entity', { kind: 'artist', id: m[1], title: 'Artist' });
     let items, type = searchType;
-    if ((m = input.match(/[?&]v=([\w-]{11})/)) || (/^[\w-]{11}$/.test(input) && !input.includes(' '))) {
+    if (!live && ((m = input.match(/[?&]v=([\w-]{11})/)) || (/^[\w-]{11}$/.test(input) && !input.includes(' ')))) {
       items = [await (await api('/track/' + (m ? m[1] : input))).json()]; type = 'songs'; setChip('songs');
     } else {
       items = (await (await api(`/search?limit=24&type=${type}&q=${encodeURIComponent(input)}`)).json()).results;
     }
+    if (tk !== srchTok) return;                                      // a newer search has started
     lastSearch = { q: input, type, items };
-    if (st()) st().textContent = items.length ? '' : 'No results.';
-    if (items.length) pushRecentSearch(input);
+    if (st()) { st().className = ''; st().textContent = items.length ? '' : 'No results.'; }
+    if (items.length && !live) pushRecentSearch(input);
     paintResults(); paintRecs();
-  } catch (e) { if (st()) { st().className = 'err'; st().textContent = e.message; } }
+  } catch (e) { if (tk === srchTok && st()) { st().className = 'err'; st().textContent = e.message; } }
 }
 const sbx = $('sbx');
 function openBox(focus){ if (isMobile()) return; sbx.classList.add('open'); if (focus) $('hq').focus(); }
@@ -2901,7 +2958,7 @@ $('hq').onkeydown = e => { if (e.key === 'Enter') submitSearch(); if (e.key === 
 $('hq').onblur = () => setTimeout(closeBox, 150);
 $('hq').oninput = () => { const s = $('sq'); if (s) s.value = $('hq').value; };
 $('sbtn').onclick = () => {
-  if (isMobile()) return show('search');
+  if (isMobile()) { if (view !== 'search') show('search'); return; }
   if (!sbx.classList.contains('open')) return openBox(true);
   if ($('hq').value.trim()) submitSearch(); else { $('hq').blur(); sbx.classList.remove('open'); }
 };
@@ -4726,7 +4783,14 @@ document.addEventListener('click', e => {
   if (lfc) { const d = lfc.dataset; if (d.lfv) store.set('lfview', d.lfv); if (d.lfs) store.set('lfsort', d.lfs); if (d.lff) store.set('lffmt', d.lff); return renderDownloads(); }
   const dg = e.target.closest('[data-dlg]'); if (dg) return openDlGroup(dg.dataset.dlg);
   const md = e.target.closest('[data-mood]'); if (md) return show('mood', md.dataset.mood);
-  const nav = e.target.closest('[data-view]'); if (nav) return show(nav.dataset.view);
+  const nav = e.target.closest('[data-view]');
+  if (nav) {
+    if (nav.dataset.view === 'search' && view === 'search' && isMobile()) {   // already here: keep what's being searched
+      const q = $('sq'); if (q && !q.value && !lastSearch.items.length) q.focus(); else scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    return show(nav.dataset.view);
+  }
   const ds = e.target.closest('[data-dlsort]'); if (ds) { store.set('dlsort', ds.dataset.dlsort); dlQ = ''; renderDownloads(); if (ds.dataset.dlsort === 'local' && LF_AUTO && lfDevState === 'denied') lfDevScan(true, false); return; }
   const dc = e.target.closest('[data-disc]'); if (dc) return setDisc(dc);
   const rsb = e.target.closest('[data-rs]'); if (rsb) { $('hq').value = rsb.dataset.rs; if ($('sq')) $('sq').value = rsb.dataset.rs; return submitSearch(); }
@@ -4743,7 +4807,7 @@ document.addEventListener('click', e => {
   const lr = e.target.closest('.lrow');
   if (lr) {
     const t = (lists[listKey] || [])[lr.dataset.i]; if (!t) return;
-    if (!b) return playFrom(listKey, +lr.dataset.i, false);
+    if (!b) { if (listKey === 'search') recordSearchTap(t); return playFrom(listKey, +lr.dataset.i, false); }
     if (b.dataset.a === 'rmdl') { idb.del(t.id).then(() => { dropExtra(t.id); dls = dls.filter(d => d.id !== t.id); renderDownloads(); syncBadges(); }).catch(err => toast(err.message, true)); return; }
     if (b.dataset.a === 'save') { saveWithExtras(t).catch(err => toast(err.message, true)); return; }
     if (b.dataset.a === 'pl') return openAddModal([t]);
@@ -4753,6 +4817,7 @@ document.addEventListener('click', e => {
   }
   const c = e.target.closest('.card'); if (!c) return;
   const t = (lists[c.dataset.k] || [])[c.dataset.i]; if (!t) return;
+  if (String(c.dataset.k).startsWith('search_')) recordSearchTap(t);
   if (t.kind === 'sharedpl') return show('shared', t.id);
   if (t.kind === 'uplaylist') return show('upl', t.id);
   if (t.kind) return show('entity', t);
@@ -4931,6 +4996,7 @@ async function renderShared(slug){
   const fb = tracks.length ? cov({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640) : PH;
   const cover = d.thumb ? `<img class="acover" src="${esc(d.thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(fb)}'">` : tracks.length ? imgTag({ id: tracks[0].id, thumbnail: tracks[0].thumbnail }, 640, 'class="acover"') : `<div class="acover ph">${ic('note', 72)}</div>`;
   const mine = d.is_owner && d.own_pid && playlists.find(p => p.id === d.own_pid);
+  if (mine && !window.__guest) { view = 'upl'; viewArg = mine.id; urlSync(); return renderUserPl(mine.id); }   // your own playlist always opens the full version, wherever you came from
   const fol = followed.find(f => f.id === slug);
   const folItem = () => ({ id: slug, name: d.name, owner: d.owner || '', thumb: d.thumb || (tracks[0] && tracks[0].thumbnail) || '' });
   if (fol && (fol.name !== d.name || (fol.owner || '') !== (d.owner || '') || (fol.thumb || '') !== folItem().thumb)) {   // keep the saved card fresh
@@ -5890,6 +5956,136 @@ function bindReorder(pl){
   const end = () => { if (!drag) return; drag.classList.remove('drag'); drag = null; commit(); };
   box.onpointerup = end; box.onpointercancel = end;
 }
+/* ---------- recommended songs at the end of your own playlists ---------- */
+const plRec = {};                                                  // playlist id -> { pool, shown, seeds, busy }
+const plRecState = pl => plRec[pl.id] || (plRec[pl.id] = { pool: [], shown: [], seeds: new Set(), busy: false });
+const normT = t => String(t.title || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+async function plRecFill(pl, S){                                   // pick a few songs from the playlist and look up similar ones
+  const have = new Set(pl.tracks.map(t => t.id)), titles = new Set(pl.tracks.map(normT));
+  const cand = pl.tracks.filter(t => t && t.id && !isLocalId(t.id));
+  if (!cand.length) return;
+  let fresh = cand.filter(t => !S.seeds.has(t.id));
+  if (!fresh.length) { S.seeds.clear(); fresh = cand; }
+  const seeds = fresh.sort(() => Math.random() - .5).slice(0, 3);
+  seeds.forEach(t => S.seeds.add(t.id));
+  const got = await Promise.all(seeds.map(async t => {
+    const q = `${t.title || ''} ${t.artist || ''}`.trim();
+    try { if (!relCache[q]) relCache[q] = (await (await api('/search?limit=15&type=songs&q=' + encodeURIComponent(q))).json()).results || []; return relCache[q]; }
+    catch { return []; }
+  }));
+  const known = [...S.pool, ...S.shown], seen = new Set(known.map(x => x.id)), tt = new Set(known.map(normT));
+  for (let i = 0; i < 15; i++) got.forEach(g => {
+    const x = g[i]; if (!x || !x.id || have.has(x.id) || seen.has(x.id)) return;
+    const k = normT(x); if (titles.has(k) || tt.has(k)) return;
+    seen.add(x.id); tt.add(k); S.pool.push(x);
+  });
+}
+function plRecTake(pl, S, n = 6){
+  const have = new Set(pl.tracks.map(t => t.id));
+  S.shown = S.shown.filter(t => !have.has(t.id)); S.pool = S.pool.filter(t => !have.has(t.id));
+  while (S.shown.length < n && S.pool.length) S.shown.push(S.pool.shift());
+}
+const recRow = (t, i, added) => `<div class="qr prr" data-i="${i}" data-id="${esc(t.id)}"><div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div><div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist || '')}${t.album ? ' · ' + esc(t.album) : ''}</span></div><button class="pradd${added ? ' done' : ''}" data-add="${i}"${added ? ' disabled' : ''}>${added ? 'Added' : 'Add'}</button></div>`;
+const onPlPage = pl => !!$('plrec') && view === 'upl' && viewArg === pl.id;
+async function paintPlRecs(pl, refresh){
+  const box = $('plrec'); if (!box) return;
+  const S = plRecState(pl);
+  box.innerHTML = `<div class="dlsh plrh"><div><h3 class="sec0" style="margin:0">Recommended songs</h3><p class="mhint" style="margin:4px 0 0">Based on the songs in this playlist</p></div><div class="plrb"><button class="btn ghost" id="plrRef">${ic('repeat', 16)} Refresh</button><button class="btn ghost" id="plrBrw">Browse</button></div></div><div id="plrl"></div>`;
+  const draw = msg => {
+    const l = $('plrl'); if (!l) return;
+    lists.plrec = S.shown; names.plrec = 'Recommended songs';
+    l.innerHTML = S.shown.length ? S.shown.map((t, i) => recRow(t, i)).join('') : `<p class="qmsg">${msg || ''}</p>`;
+    markPlaying();
+  };
+  box.onclick = e => {
+    const ab = e.target.closest('[data-add]');
+    if (ab) {
+      const t = S.shown[+ab.dataset.add]; if (!t) return;
+      if (addTracks(pl, [t])) toast(`Added "${t.title}" to "${pl.name}"`);
+      const y = scrollY; renderUserPl(pl.id); scrollTo(0, y); return;
+    }
+    if (e.target.closest('#plrRef')) return paintPlRecs(pl, true);
+    if (e.target.closest('#plrBrw')) return openPlBrowse(pl);
+    const r = e.target.closest('.prr'); if (r) { listKey = 'plrec'; playFrom('plrec', +r.dataset.i, false); }
+  };
+  if (refresh) S.shown = [];
+  plRecTake(pl, S);
+  if (!pl.tracks.length) return draw('Add a few songs and recommendations will show up here.');
+  if (S.shown.length >= 6) return draw();
+  if (S.busy) return draw('Finding songs…');
+  draw('Finding songs…');
+  S.busy = true;
+  try { await plRecFill(pl, S); } catch {}
+  S.busy = false;
+  if (!onPlPage(pl)) return;
+  plRecTake(pl, S); draw('No recommendations right now. Try Browse.');
+}
+
+/* Browse: a full page to add songs from recommendations or search */
+let pbKey = null;
+function closePlBrowse(quiet){
+  const el = document.getElementById('plbrw'); if (!el) return;
+  el.remove(); document.removeEventListener('keydown', closePlBrowse._k);
+  const id = pbKey; pbKey = null;
+  if (!quiet && id && view === 'upl' && viewArg === id) { const y = scrollY; renderUserPl(id); scrollTo(0, y); }
+}
+function openPlBrowse(pl){
+  closePlBrowse(true); pbKey = pl.id;
+  const S = plRecState(pl), el = document.createElement('div'); el.id = 'plbrw'; el.className = 'plbrw';
+  el.innerHTML = `<div class="pbin"><div class="pbh"><button class="pbx" id="pbX" aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><h2>Add to this playlist</h2></div>
+    <label class="pbsb"><span data-ic="search"></span><input id="pbq" placeholder="Search songs" autocomplete="off" enterkeyhint="search"></label>
+    <h3 class="sec0" id="pbt" style="margin:18px 0 6px">Recommended</h3><div id="pbl"></div></div>`;
+  document.body.appendChild(el); hydrate(el);
+  closePlBrowse._k = e => { if (e.key === 'Escape') closePlBrowse(); };
+  document.addEventListener('keydown', closePlBrowse._k);
+  $('pbX').onclick = () => closePlBrowse();
+  let items = [], tok = 0, T = 0;
+  const inPl = t => pl.tracks.some(x => x.id === t.id);
+  const draw = (msg, title) => {
+    $('pbt').textContent = title; lists.plbrw = items; names.plbrw = 'Add to ' + pl.name;
+    $('pbl').innerHTML = items.length ? items.map((t, i) => recRow(t, i, inPl(t))).join('') : `<p class="qmsg">${msg || ''}</p>`;
+    markPlaying();
+  };
+  const showRecs = async () => {
+    const mine = ++tok;
+    plRecTake(pl, S, 6);
+    items = [...S.shown, ...S.pool].filter(t => !inPl(t)).slice(0, 24);
+    draw(pl.tracks.length ? 'Finding songs…' : 'Search for a song to add.', 'Recommended');
+    if (items.length < 12 && pl.tracks.length && !S.busy) {
+      S.busy = true; try { await plRecFill(pl, S); } catch {} S.busy = false;
+      if (mine !== tok || !$('pbq') || $('pbq').value.trim()) return;
+      items = [...S.shown, ...S.pool].filter(t => !inPl(t)).slice(0, 24);
+      draw('No recommendations right now. Try searching.', 'Recommended');
+    }
+  };
+  const search = async q => {
+    const mine = ++tok;
+    if (!items.length) draw('Searching…', 'Results');
+    try {
+      const r = (await (await api('/search?limit=20&type=songs&q=' + encodeURIComponent(q))).json()).results || [];
+      if (mine !== tok) return;
+      items = r; draw('No results.', 'Results');
+    } catch (e) { if (mine === tok) { items = []; draw(e.message, 'Results'); } }
+  };
+  const input = $('pbq');
+  input.oninput = () => {
+    clearTimeout(T); const q = input.value.trim();
+    if (!q) { items = []; return showRecs(); }
+    T = setTimeout(() => search(q), 300);
+  };
+  input.onkeydown = e => { if (e.key === 'Enter') { clearTimeout(T); const q = input.value.trim(); if (q) { input.blur(); search(q); } } };
+  $('pbl').onclick = e => {
+    const ab = e.target.closest('[data-add]');
+    if (ab) {
+      const t = items[+ab.dataset.add]; if (!t) return;
+      if (addTracks(pl, [t])) toast(`Added "${t.title}" to "${pl.name}"`);
+      ab.textContent = 'Added'; ab.disabled = true; ab.classList.add('done'); return;
+    }
+    const r = e.target.closest('.prr'); if (r) { listKey = 'plbrw'; playFrom('plbrw', +r.dataset.i, false); }
+  };
+  showRecs();
+  if (!isMobile()) input.focus();
+}
 function renderUserPl(id){
   const pl = id === LIKED_ID ? likedPl() : id === LOCAL_ID ? localPl() : playlists.find(p => p.id === id);
   if (!pl) { toast('Playlist not found', true); return show('liked'); }
@@ -5916,9 +6112,10 @@ function renderUserPl(id){
         </div>`}
       </div>
       </aside>
-      <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `${tracks.length > 1 ? plSortBar(id, mode) : ''}<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, !pl.virtual)).join('') : `<p class="qmsg">${pl.local ? (LF_AUTO && lfDevState === 'denied' ? 'Allow access to your music to fill this playlist.</p><p class="qmsg"><button class="btn" data-lfscan>Allow access</button>' : LF_AUTO && lfDevState !== 'ready' ? 'Looking for music on this device…' : 'No local files yet. Add songs from Downloads → Local files.') : pl.virtual ? 'Nothing here yet. Tap the heart on any song to add it to Liked songs.' : 'This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.'}</p>`}</div>`}</div></div>`;
+      <div class="alb-r">${plReorder === id ? `<div class="robar"><span>Drag the handle or use the arrows</span><button class="btn" id="roDone">Done</button></div><div class="tl" id="roList">${roRows(tracks)}</div></div></div>` : `${tracks.length > 1 ? plSortBar(id, mode) : ''}<div class="tl">${tracks.length ? tracks.map((t, i) => trow(t, i, true, !pl.virtual)).join('') : `<p class="qmsg">${pl.local ? (LF_AUTO && lfDevState === 'denied' ? 'Allow access to your music to fill this playlist.</p><p class="qmsg"><button class="btn" data-lfscan>Allow access</button>' : LF_AUTO && lfDevState !== 'ready' ? 'Looking for music on this device…' : 'No local files yet. Add songs from Downloads → Local files.') : pl.virtual ? 'Nothing here yet. Tap the heart on any song to add it to Liked songs.' : 'This playlist is empty. Tap the + button on any song to add it here, or use Find songs to add.'}</p>`}</div>${pl.virtual || pl.local ? '' : '<div id="plrec"></div>'}`}</div></div>`;
   hydrate($('main')); bindPlay(key, tracks.length);
   backfillExplicit(tracks);
+  if ($('plrec')) paintPlRecs(pl);
   if ($('uShare')) $('uShare').onclick = () => openShare(pl);
   if ($('uSync')) $('uSync').onclick = () => syncPl(pl);
   if ($('plSort')) $('plSort').onclick = () => openPlSort(id);
