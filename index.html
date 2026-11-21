@@ -5544,7 +5544,7 @@ function openSpotifyImport(prefill = ''){
     err(''); const b = $('spGo'); b.disabled = true; b.textContent = 'Reading…';
     try {
       const d = await (await apiFB('/spotify/import?url=' + encodeURIComponent(v))).json();
-      if (spAlive(run)) spMatchAndSave(run, d.title, d.tracks, { partial: d.maybe_partial, spotifyId: d.id, thumb: d.thumbnail });
+      if (spAlive(run)) spMatchAndSave(run, d.title, d.tracks, { partial: d.maybe_partial, spotifyId: d.id, spotifyUrl: v, thumb: d.thumbnail });
     } catch (e) { err(e.message); if (spAlive(run)) { b.disabled = false; b.textContent = 'Import'; } }
   };
   $('spGo').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
@@ -5565,10 +5565,11 @@ function openSpotifyImport(prefill = ''){
   };
 }
 
+const spKey = t => ((t.title || '') + '|' + ((t.artists || [])[0] || '')).toLowerCase();
 async function spMatchAndSave(run, name, tracks, extra){
   const seen = new Set();
   tracks = tracks.filter(t => { const k = (t.title + '|' + (t.artists[0] || '')).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-  const total = tracks.length, matched = [], missed = [], shaky = [];
+  const total = tracks.length, matched = [], missed = [], shaky = [], mKeys = [];
   let stopped = null, errored = 0;
   const paint = n => spSet(run, `<h3>Matching on YouTube Music…</h3><p class="mhint">${esc(name)}</p>${spBar(n, total)}<p class="mhint">${n} of ${total} songs checked</p><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
   paint(0);
@@ -5582,7 +5583,7 @@ async function spMatchAndSave(run, name, tracks, extra){
       }
       res.forEach((r, j) => {
         const t = batch[j];
-        if (r.match) { matched.push(r.match); if (r.score < 0.75) shaky.push({ from: t, to: r.match }); }
+        if (r.match) { matched.push(r.match); mKeys.push(spKey(t)); if (r.score < 0.75) shaky.push({ from: t, to: r.match }); }
         else { missed.push(t); if (r.error) errored++; }
       });
       paint(Math.min(i + 20, total));
@@ -5590,7 +5591,7 @@ async function spMatchAndSave(run, name, tracks, extra){
   } catch (e) { stopped = e.message; }
   if (!spAlive(run)) return;
   if (!matched.length) return spSet(run, `<h3>${stopped ? 'Import failed' : 'No songs matched'}</h3><p class="${stopped ? 'err' : 'mhint'}">${esc(stopped || "None of those songs could be found on YouTube Music.")}</p><div class="mbtns">${spClose}</div>`);
-  const pl = createPlaylist(name, matched, { spotifyId: extra.spotifyId || '', ...(/^https:\/\/[\w.-]*(scdn\.co|spotifycdn\.com)\//.test(extra.thumb || '') ? { thumb: extra.thumb } : {}) });
+  const pl = createPlaylist(name, matched, { spotifyId: extra.spotifyId || '', spotifyUrl: extra.spotifyUrl || '', spKeys: mKeys, ...(/^https:\/\/[\w.-]*(scdn\.co|spotifycdn\.com)\//.test(extra.thumb || '') ? { thumb: extra.thumb } : {}) });
   spDone(run, pl, { total, missed, shaky, partial: extra.partial, stopped, errored });
 }
 
@@ -5655,7 +5656,11 @@ async function ytmUpload(pl){
   }
 }
 
-async function syncPl(pl){
+/* a playlist can be re-synced if it was imported from a YouTube Music link or a Spotify link */
+const spSrcUrl = pl => pl.spotifyUrl || (pl.spotifyId ? 'https://open.spotify.com/playlist/' + pl.spotifyId : '');
+const plSyncSrc = pl => pl.srcId ? 'YouTube Music' : spSrcUrl(pl) ? 'Spotify' : '';
+function syncPl(pl){ return pl.srcId ? syncYtm(pl) : spSrcUrl(pl) ? syncSpotify(pl) : toast('This playlist has no source to sync from', true); }
+async function syncYtm(pl){
   toast('Syncing from YouTube Music…');
   try {
     const d = await (await api('/import?url=' + encodeURIComponent(pl.srcId))).json();
@@ -5663,6 +5668,43 @@ async function syncPl(pl){
     toast(n ? `Added ${n} new song${n === 1 ? '' : 's'}` : 'Already up to date');
     if (view === 'upl' && viewArg === pl.id) renderUserPl(pl.id);
   } catch (e) { toast(e.message, true); }
+}
+/* Spotify: re-read the source, match only songs not seen before, and add them to this playlist */
+async function syncSpotify(pl){
+  const run = ++spRun, url = spSrcUrl(pl);
+  const paint = (h, n, total, msg) => spSet(run, `<h3>${h}</h3><p class="mhint">${esc(pl.name)}</p>${spBar(n, total)}<p class="mhint">${msg}</p><div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
+  spShell(run, '');
+  paint('Syncing from Spotify…', 0, 0, 'Reading the playlist…');
+  const matched = [], mKeys = [];
+  let missed = 0, errored = 0, stopped = null, partial = false, fresh = [];
+  try {
+    const d = await (await apiFB('/spotify/import?url=' + encodeURIComponent(url))).json();
+    partial = !!d.maybe_partial;
+    const seen = new Set(), known = new Set(pl.spKeys || []);
+    const src = (d.tracks || []).filter(t => { const k = spKey(t); if (seen.has(k)) return false; seen.add(k); return true; });
+    fresh = src.filter(t => !known.has(spKey(t)));
+    for (let i = 0; i < fresh.length; i += 20) {
+      if (!spAlive(run)) return;
+      paint('Syncing from Spotify…', i, fresh.length, `${i} of ${fresh.length} new songs checked`);
+      const batch = fresh.slice(i, i + 20); let res;
+      for (let tries = 0; ; tries++) {
+        try { res = (await (await apiFB('/spotify/match', { tracks: batch.map(t => ({ title: t.title, artists: t.artists, duration: t.duration })) })).json()).results; break; }
+        catch (e) { if (tries >= 2 || [400, 401, 403, 501].includes(e.status)) throw e; await sleep(1500 * (tries + 1)); }
+      }
+      res.forEach((r, j) => { if (r.match) { matched.push(r.match); mKeys.push(spKey(batch[j])); } else { missed++; if (r.error) errored++; } });
+    }
+  } catch (e) { stopped = e.message; }
+  if (!spAlive(run)) return;
+  const n = addTracks(pl, matched);
+  if (!pl.spotifyUrl) pl.spotifyUrl = url;
+  if (mKeys.length || !pl.spKeys) pl.spKeys = [...new Set([...(pl.spKeys || []), ...mKeys])];
+  savePl();
+  if (view === 'upl' && viewArg === pl.id) renderUserPl(pl.id);
+  spSet(run, `<h3>${stopped && !n ? 'Sync failed' : n ? `Added ${n} new song${n === 1 ? '' : 's'}` : 'Already up to date'}</h3>
+    <p class="${stopped ? 'err' : 'mhint'}">${stopped ? esc(stopped) + ' ' : ''}${!stopped && !fresh.length ? 'No new songs on Spotify since the last sync.' : ''}
+      ${missed ? `${missed} new song${missed === 1 ? '' : 's'} couldn't be found on YouTube Music; they'll be tried again next sync.` : ''}
+      ${partial ? ' Spotify only shares the first part of long playlists publicly, so newer songs past that point may not show up.' : ''}</p>
+    <div class="mbtns">${spClose}</div>`);
 }
 function removeFromPl(t){
   const pl = playlists.find(p => p.id === viewArg); if (!pl) return;
@@ -5753,11 +5795,12 @@ function renderUserPl(id){
       <div class="aact">
         ${pl.virtual ? '' : `<button class="rb sm" id="uShare" title="Share">${ic('share', 18)}</button>`}
         ${pl.local ? '' : `<button class="rb sm" id="uDl" title="Download all">${ic('dl', 18)}</button>`}
+        ${!pl.virtual && plSyncSrc(pl) ? `<button class="rb sm" id="uSync" title="Sync from ${plSyncSrc(pl)}">${ic('repeat', 18)}</button>` : ''}
         ${tracks.length > 1 ? `<button class="rb sm" id="lShuf" title="Shuffle">${ic('shuffle', 18)}</button>` : ''}
         ${tracks.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button>` : ''}
         ${pl.local || (pl.virtual && !tracks.length) ? '' : `<button class="rb sm" id="aMenu" title="More">${ic('dots', 18)}</button>
         <div class="menu glass" id="amenu" hidden>
-          ${tracks.length ? '<button data-m="dlall">Download all</button>' : ''}${pl.virtual ? '' : `${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button><button data-m="cover">Change cover</button>${pl.srcId ? '<button data-m="sync">Sync from YouTube Music</button>' : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>`}
+          ${tracks.length ? '<button data-m="dlall">Download all</button>' : ''}${pl.virtual ? '' : `${tracks.length > 1 ? '<button data-m="reorder">Reorder songs</button>' : ''}<button data-m="share">Share…</button><button data-m="rename">Rename</button><button data-m="cover">Change cover</button>${plSyncSrc(pl) ? `<button data-m="sync">Sync from ${plSyncSrc(pl)}</button>` : ''}<button data-m="find">Find songs to add</button><button data-m="del">Delete playlist</button>`}
         </div>`}
       </div>
       </aside>
@@ -5765,6 +5808,7 @@ function renderUserPl(id){
   hydrate($('main')); bindPlay(key, tracks.length);
   backfillExplicit(tracks);
   if ($('uShare')) $('uShare').onclick = () => openShare(pl);
+  if ($('uSync')) $('uSync').onclick = () => syncPl(pl);
   if ($('plSort')) $('plSort').onclick = () => openPlSort(id);
   if ($('uDl')) $('uDl').onclick = () => tracks.length ? downloadAll(tracks, pl.name, dlOpt) : toast('Nothing to download yet');
   if ($('aMenu')) $('aMenu').onclick = e => { e.stopPropagation(); toggleAMenu(); };
