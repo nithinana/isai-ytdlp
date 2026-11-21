@@ -36,6 +36,28 @@
 .pbx:hover{background:rgba(255,255,255,.18)}
 .pbsb{display:flex;align-items:center;gap:10px;height:46px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:var(--mute)}
 .pbsb input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--fg);font-size:16px}
+@keyframes prIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes prPop{0%{transform:scale(.88)}60%{transform:scale(1.07)}100%{transform:scale(1)}}
+@keyframes prSpin{to{transform:rotate(360deg)}}
+@keyframes pbUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes pbOut{to{opacity:0;transform:translateY(18px)}}
+@keyframes pbSwap{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes shIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.prr.pin{animation:prIn .42s var(--ease) backwards;animation-delay:var(--d,0ms)}
+.prr{transition:background-color .25s var(--ease),opacity .24s var(--ease),transform .24s var(--ease),max-height .26s var(--ease),padding .26s var(--ease)}
+.prr.leaving{opacity:0;transform:translateX(22px);max-height:0!important;padding-top:0;padding-bottom:0;overflow:hidden;pointer-events:none}
+#plrl{transition:opacity .17s ease,transform .17s ease}
+#plrl.out{opacity:0;transform:translateY(6px)}
+#plrRef svg{transition:transform .2s}
+#plrRef.spinning svg{animation:prSpin .65s var(--ease)}
+.pradd{transition:transform .15s var(--ease),background-color .25s ease,color .25s ease}
+.pradd:active:not(:disabled){transform:scale(.93)}
+.pradd.pop{animation:prPop .32s var(--ease)}
+.plbrw{animation:pbUp .34s var(--ease)}
+.plbrw.closing{animation:pbOut .24s var(--ease) forwards;pointer-events:none}
+#pbt.swap{animation:pbSwap .28s var(--ease)}
+.shist:not([hidden]){animation:shIn .24s var(--ease)}
+@media(prefers-reduced-motion:reduce){.prr.pin,.plbrw,.plbrw.closing,#pbt.swap,.shist:not([hidden]),.pradd.pop,#plrRef.spinning svg{animation:none!important}.plbrw.closing{opacity:0}#plrl,.prr{transition:none}}
 </style>
 <script>
 /* Isai app: native bridge (media notification + background downloads). No-op in a normal browser. */
@@ -5958,7 +5980,7 @@ function bindReorder(pl){
 }
 /* ---------- recommended songs at the end of your own playlists ---------- */
 const plRec = {};                                                  // playlist id -> { pool, shown, seeds, busy }
-const plRecState = pl => plRec[pl.id] || (plRec[pl.id] = { pool: [], shown: [], seeds: new Set(), busy: false });
+const plRecState = pl => plRec[pl.id] || (plRec[pl.id] = { pool: [], shown: [], seeds: new Set(), seen: new Set(), busy: false });
 const normT = t => String(t.title || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 async function plRecFill(pl, S){                                   // pick a few songs from the playlist and look up similar ones
   const have = new Set(pl.tracks.map(t => t.id)), titles = new Set(pl.tracks.map(normT));
@@ -5985,24 +6007,36 @@ function plRecTake(pl, S, n = 6){
   S.shown = S.shown.filter(t => !have.has(t.id)); S.pool = S.pool.filter(t => !have.has(t.id));
   while (S.shown.length < n && S.pool.length) S.shown.push(S.pool.shift());
 }
-const recRow = (t, i, added) => `<div class="qr prr" data-i="${i}" data-id="${esc(t.id)}"><div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div><div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist || '')}${t.album ? ' · ' + esc(t.album) : ''}</span></div><button class="pradd${added ? ' done' : ''}" data-add="${i}"${added ? ' disabled' : ''}>${added ? 'Added' : 'Add'}</button></div>`;
+const recRow = (t, i, added, anim, k = 0) => `<div class="qr prr${anim ? ' pin' : ''}" style="--d:${Math.min(k, 8) * 45}ms" data-i="${i}" data-id="${esc(t.id)}"><div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div><div class="qm"><b>${esc(t.title)}</b><span>${esc(t.artist || '')}${t.album ? ' · ' + esc(t.album) : ''}</span></div><button class="pradd${added ? ' done' : ''}" data-add="${i}"${added ? ' disabled' : ''}>${added ? 'Added' : 'Add'}</button></div>`;
 const onPlPage = pl => !!$('plrec') && view === 'upl' && viewArg === pl.id;
 async function paintPlRecs(pl, refresh){
   const box = $('plrec'); if (!box) return;
-  const S = plRecState(pl);
-  box.innerHTML = `<div class="dlsh plrh"><div><h3 class="sec0" style="margin:0">Recommended songs</h3><p class="mhint" style="margin:4px 0 0">Based on the songs in this playlist</p></div><div class="plrb"><button class="btn ghost" id="plrRef">${ic('repeat', 16)} Refresh</button><button class="btn ghost" id="plrBrw">Browse</button></div></div><div id="plrl"></div>`;
+  const S = plRecState(pl), had = $('plrl');
+  const head = `<div class="dlsh plrh"><div><h3 class="sec0" style="margin:0">Recommended songs</h3><p class="mhint" style="margin:4px 0 0">Based on the songs in this playlist</p></div><div class="plrb"><button class="btn ghost" id="plrRef">${ic('repeat', 16)} Refresh</button><button class="btn ghost" id="plrBrw">Browse</button></div></div><div id="plrl"></div>`;
+  if (refresh && had) {
+    const rb = $('plrRef'); if (rb) { rb.classList.remove('spinning'); void rb.offsetWidth; rb.classList.add('spinning'); }
+    had.classList.add('out'); await new Promise(r => setTimeout(r, 170));
+    if (!$('plrec')) return;
+    S.seen.clear();
+  } else box.innerHTML = head;
   const draw = msg => {
     const l = $('plrl'); if (!l) return;
     lists.plrec = S.shown; names.plrec = 'Recommended songs';
-    l.innerHTML = S.shown.length ? S.shown.map((t, i) => recRow(t, i)).join('') : `<p class="qmsg">${msg || ''}</p>`;
+    let k = 0;
+    l.classList.remove('out');
+    l.innerHTML = S.shown.length ? S.shown.map((t, i) => { const a = !S.seen.has(t.id); return recRow(t, i, false, a, a ? k++ : 0); }).join('') : `<p class="qmsg">${msg || ''}</p>`;
+    S.shown.forEach(t => S.seen.add(t.id));
     markPlaying();
   };
   box.onclick = e => {
     const ab = e.target.closest('[data-add]');
     if (ab) {
-      const t = S.shown[+ab.dataset.add]; if (!t) return;
+      const t = S.shown[+ab.dataset.add]; if (!t || ab.disabled) return;
+      ab.disabled = true; ab.textContent = 'Added'; ab.classList.add('done', 'pop');
       if (addTracks(pl, [t])) toast(`Added "${t.title}" to "${pl.name}"`);
-      const y = scrollY; renderUserPl(pl.id); scrollTo(0, y); return;
+      const row = ab.closest('.prr'); if (row) { row.style.maxHeight = row.offsetHeight + 'px'; void row.offsetWidth; row.classList.add('leaving'); }
+      setTimeout(() => { if (!onPlPage(pl)) return; const y = scrollY; renderUserPl(pl.id); scrollTo(0, y); }, 260);
+      return;
     }
     if (e.target.closest('#plrRef')) return paintPlRecs(pl, true);
     if (e.target.closest('#plrBrw')) return openPlBrowse(pl);
@@ -6024,9 +6058,10 @@ async function paintPlRecs(pl, refresh){
 /* Browse: a full page to add songs from recommendations or search */
 let pbKey = null;
 function closePlBrowse(quiet){
-  const el = document.getElementById('plbrw'); if (!el) return;
-  el.remove(); document.removeEventListener('keydown', closePlBrowse._k);
+  const el = document.getElementById('plbrw'); if (!el || el.classList.contains('closing')) return;
+  document.removeEventListener('keydown', closePlBrowse._k);
   const id = pbKey; pbKey = null;
+  if (quiet) el.remove(); else { el.classList.add('closing'); setTimeout(() => el.remove(), 240); }
   if (!quiet && id && view === 'upl' && viewArg === id) { const y = scrollY; renderUserPl(id); scrollTo(0, y); }
 }
 function openPlBrowse(pl){
@@ -6040,14 +6075,17 @@ function openPlBrowse(pl){
   document.addEventListener('keydown', closePlBrowse._k);
   $('pbX').onclick = () => closePlBrowse();
   let items = [], tok = 0, T = 0;
-  const inPl = t => pl.tracks.some(x => x.id === t.id);
+  const seen = new Set(), inPl = t => pl.tracks.some(x => x.id === t.id);
   const draw = (msg, title) => {
-    $('pbt').textContent = title; lists.plbrw = items; names.plbrw = 'Add to ' + pl.name;
-    $('pbl').innerHTML = items.length ? items.map((t, i) => recRow(t, i, inPl(t))).join('') : `<p class="qmsg">${msg || ''}</p>`;
+    const tt = $('pbt'); if (tt.textContent !== title) { tt.textContent = title; tt.classList.remove('swap'); void tt.offsetWidth; tt.classList.add('swap'); }
+    lists.plbrw = items; names.plbrw = 'Add to ' + pl.name;
+    let k = 0;
+    $('pbl').innerHTML = items.length ? items.map((t, i) => { const a = !seen.has(t.id); return recRow(t, i, inPl(t), a, a ? k++ : 0); }).join('') : `<p class="qmsg">${msg || ''}</p>`;
+    items.forEach(t => seen.add(t.id));
     markPlaying();
   };
   const showRecs = async () => {
-    const mine = ++tok;
+    const mine = ++tok; seen.clear();
     plRecTake(pl, S, 6);
     items = [...S.shown, ...S.pool].filter(t => !inPl(t)).slice(0, 24);
     draw(pl.tracks.length ? 'Finding songs…' : 'Search for a song to add.', 'Recommended');
@@ -6079,7 +6117,7 @@ function openPlBrowse(pl){
     if (ab) {
       const t = items[+ab.dataset.add]; if (!t) return;
       if (addTracks(pl, [t])) toast(`Added "${t.title}" to "${pl.name}"`);
-      ab.textContent = 'Added'; ab.disabled = true; ab.classList.add('done'); return;
+      ab.textContent = 'Added'; ab.disabled = true; ab.classList.add('done', 'pop'); return;
     }
     const r = e.target.closest('.prr'); if (r) { listKey = 'plbrw'; playFrom('plbrw', +r.dataset.i, false); }
   };
