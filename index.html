@@ -1702,6 +1702,9 @@ body.incog .incpill{display:inline-flex}
 @media(max-width:720px){.sbon .sbk{display:grid}.sbon .sico{display:none}.sbk:active{background:rgba(255,255,255,.12)}}
 /* the "Add to this playlist" page stops above the bottom nav on phones */
 @media(max-width:720px){.plbrw{inset:0 0 calc(58px + var(--sab)) 0;padding-bottom:90px}}
+/* artist page on phones: Play gets its own row above the other buttons */
+.aarbr{display:none}
+@media(max-width:720px){.aht .aar{flex-wrap:wrap;row-gap:14px}.aht .aar .aarbr{display:block;flex:0 0 100%;height:0}.aht .aar #lPlay{min-width:180px;justify-content:center}}
 </style>
 </head>
 <body>
@@ -2869,7 +2872,7 @@ function renderArtist(d){
   main.innerHTML = `<div class="ah">${backBtn()}
       <div class="ahrow"><div class="ava">${d.thumbnail ? imgTag(av, 600) : ''}</div>
         <div class="aht"><span class="eb">Artist</span><h1>${esc(d.name || '')}</h1><p>${esc(d.subtitle || '')}</p>
-          <div class="aar">${songs.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button><button class="rb" id="lShuf" title="Shuffle">${ic('shuffle')}</button>` : ''}
+          <div class="aar">${songs.length ? `<button class="rb big" id="lPlay" title="Play">${ic('play', 28)}<span class="lbl">Play</span></button><i class="aarbr"></i><button class="rb" id="lShuf" title="Shuffle">${ic('shuffle')}</button>` : ''}
             <button class="rb sm ${isSaved(pageEnt) ? 'on' : ''}" id="aSave" title="Save to library">${ic('bookmark', 18)}</button><button class="rb sm" id="aShare" title="Share artist">${ic('share', 18)}</button><button class="rb sm" id="aDl" title="Download popular songs">${ic('dl', 18)}</button></div></div></div></div>
     <div class="abody">
       <div class="acols"><div>${songs.length ? `<h3 class="sec">Popular</h3><div id="pop"></div><button class="linkb" id="popMore">See more</button>` : ''}</div>${about}</div>
@@ -4345,7 +4348,7 @@ const dlrow = (t, i) => `<div class="qr lrow dlrow ${current && current.id === t
   <div class="qt">${imgTag(t, 160)}<span class="qp">${ic('play', 18)}</span></div>
   <div class="qm"><b>${esc(t.title)}</b><span>${artistLinks(t)}${t.album ? ' · ' + esc(t.album) : ''}</span>
     <span class="dlm">${isLocalId(t.id) ? 'LOCAL · ' : ''}${esc((t.fmt || '').toUpperCase())}${t.size ? ' · ' + fmtSize(t.size) : ''} · ${fmtDate(t.ts)}</span></div>
-  ${t.dev ? '' : `<span class="qa"><button data-a="save" title="Save file to device">${ic('dl', 18)}</button><button data-a="rmdl" title="${isLocalId(t.id) ? 'Remove from the app' : 'Delete download'}">${ic('x', 18)}</button></span>`}
+  ${t.dev ? '' : `<span class="qa">${isLocalId(t.id) ? '' : `<button data-a="save" title="Save file to device">${ic('dl', 18)}</button>`}<button data-a="rmdl" title="${isLocalId(t.id) ? 'Remove from the app' : 'Delete download'}">${ic('x', 18)}</button></span>`}
   <em>${t.duration ? fmt(t.duration) : ''}</em></div>`;
 
 const dlGroups = {};
