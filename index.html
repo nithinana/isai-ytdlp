@@ -1683,6 +1683,19 @@ body.incog .incpill{display:inline-flex}
 .syk{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.3);display:grid;place-items:center}
 .syr.on .syk{background:#fff;color:#000;border-color:#fff}
 .syb{position:sticky;bottom:-20px;padding:10px 0}
+
+/* add to playlist */
+.adh{position:sticky;top:-20px;z-index:2;margin:-20px -20px 6px;padding:20px 20px 10px;background:rgba(26,26,32,.97)}
+.adh h3{margin:0 0 2px}.adh .mhint{margin:0 0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adh .minp{height:40px;font-size:14px}
+.plr.new{border:1px dashed rgba(255,255,255,.22);margin-bottom:8px}
+.plr.new .plc{background:rgba(255,255,255,.1)}
+.adl{display:flex;flex-direction:column;gap:2px}
+.adl .qm{flex:1;min-width:0;display:flex;flex-direction:column}
+.adl .qm b,.adl .qm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adl .qm span{color:var(--mute);font-size:12px;font-weight:400}
+.plr.have{opacity:.55}
+.adn{text-align:center;padding:18px 0}
 </style>
 </head>
 <body>
@@ -5639,12 +5652,20 @@ function openAddModal(tracks, opt = {}){
   if (window.__guest) { window.__showLock && window.__showLock(); return; }
   const ts = (tracks || []).filter(t => t && t.id);
   if (!ts.length) return;
-  const rows = playlists.map(p => `<button class="plr" data-pl="${esc(p.id)}"><span class="plc"><img src="${esc(plCover(p, 100))}" alt=""></span><span class="qm"><b>${esc(p.name)}</b><span>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</span></span></button>`).join('');
-  const sheet = openModal(`<h3>${ts.length > 1 ? `Add ${ts.length} songs to…` : (opt.liked ? 'Saved to Liked songs · add to a playlist' : 'Add to playlist')}</h3><button class="plr new" id="mNew"><span class="plc">${ic('plus', 22)}</span><span class="qm"><b>New playlist</b></span></button>${rows}`);
+  const one = ts.length === 1 ? ts[0] : null;
+  const sub = one ? `${one.title || ''}${(one.artists && one.artists[0]) || one.artist ? ' · ' + ((one.artists && one.artists.join(', ')) || one.artist) : ''}` : `${ts.length} songs`;
+  const has = p => ts.every(t => p.tracks.some(x => x.id === t.id));
+  const cnt = p => `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}`;
+  const rowsOf = q => playlists.filter(p => !q || p.name.toLowerCase().includes(q)).map(p => `<button class="plr${has(p) ? ' have' : ''}" data-pl="${esc(p.id)}"><span class="plc"><img src="${esc(plCover(p, 100))}" alt=""></span><span class="qm"><b>${esc(p.name)}</b><span>${has(p) ? 'Already added' : cnt(p)}</span></span>${has(p) ? `<span class="ck">${ic('check', 18)}</span>` : ''}</button>`).join('') || '<p class="mhint adn">No playlists match.</p>';
+  const sheet = openModal(`<div class="adh"><h3>${opt.liked ? 'Saved to Liked songs' : 'Add to playlist'}</h3><p class="mhint">${esc(opt.liked ? 'Add it to a playlist too' : sub)}</p>${playlists.length > 5 ? `<input id="adQ" class="minp" placeholder="Find a playlist" autocomplete="off" spellcheck="false">` : ''}</div>
+    <button class="plr new" id="mNew"><span class="plc">${ic('plus', 22)}</span><span class="qm"><b>New playlist</b></span></button>
+    <div class="adl" id="adL">${rowsOf('')}</div>
+    <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
   $('mNew').onclick = () => promptName({ title: 'New playlist', cta: 'Create', onOk: v => {
     const p = createPlaylist(v, ts); toast(`Added ${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'} to "${v}"`);
     if (view === 'liked') renderLiked();
   } });
+  if ($('adQ')) $('adQ').oninput = e => { $('adL').innerHTML = rowsOf(e.target.value.trim().toLowerCase()); };
   sheet.onclick = e => {
     const r = e.target.closest('[data-pl]'); if (!r) return;
     const pl = playlists.find(p => p.id === r.dataset.pl); if (!pl) return;
