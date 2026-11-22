@@ -2714,7 +2714,7 @@ function qkClick(v){
 }
 function fillCont(){
   const el = $('cont'); if (!el) return;
-  el.innerHTML = ((playlists.length || followed.length) ? rowHtml('Your playlists', 'uplhome', plCards(), false, 'Library') : '') + (recent.length ? rowHtml('Listen again', 'recent', recent, true, 'Recently played') : '');
+  el.innerHTML = ((playlists.length || followed.length) ? rowHtml('Your playlists', 'uplhome', plCards().filter(c => c.kind !== 'djhub'), false, 'Library') : '') + (recent.length ? rowHtml('Listen again', 'recent', recent, true, 'Recently played') : '');
   wireRows(el); markPlaying();
 }
 
@@ -3077,6 +3077,7 @@ function renderSettings(){
     <section class="sgrp glass"><h3>Music</h3>
       <div class="srow"><div><b>Music language</b><span>Customises your home page and moods</span></div><button class="spick" id="sLang" data-v="${lang()}"><span>${LANG_LABEL[lang()]}</span>${ic('chev', 14)}</button></div>
       <div class="srow tgl"><div><b>Pronunciation</b><span>Show Tanglish / romanised text under lyrics (Tamil, Hindi, Telugu, Korean and more)</span></div><button class="sw" id="sTl" role="switch" aria-label="Pronunciation" aria-checked="${lyTl()}"></button></div>
+      ${window.__dj ? __dj.settingsHtml() : ''}
     </section>
     <section class="sgrp glass"><h3>Server</h3>
       <label class="srow"><div><b>API base URL</b><span>Where your Thirai server is running</span></div><input id="sBase" value="${esc(base())}" spellcheck="false" autocapitalize="off"></label>
@@ -3104,6 +3105,7 @@ function renderSettings(){
   $('sBase').onchange = e => store.set('base', e.target.value.trim());
   $('sKey').onchange = e => store.set('key', e.target.value);
   $('sTl').onclick = e => { const on = !lyTl(); store.set('lytl', on ? '1' : '0'); e.currentTarget.setAttribute('aria-checked', on); toast(on ? 'Pronunciation on' : 'Pronunciation off'); };
+  if (window.__dj) __dj.wireSettings();
   $('sLang').onclick = async () => {
     const v = await pickDialog({ title: 'Music language', options: LANGS.map(l => ({ v: l, label: LANG_LABEL[l] })), value: lang() });
     if (!v || v === lang()) return;
@@ -3485,7 +3487,7 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- now playing view ---------- */
-function openNP(){ if (!current) return; setTimeout(urlSync, 0); $('npv').classList.add('open'); document.documentElement.classList.add('npopen'); $('exp').innerHTML = ic('down'); updateNP(); }
+function openNP(){ const dj = window.__dj; if (!current && !(dj && dj.active && dj.active())) return; setTimeout(urlSync, 0); $('npv').classList.add('open'); document.documentElement.classList.add('npopen'); $('exp').innerHTML = ic('down'); if (current) updateNP(); try { if (dj && dj.sync) dj.sync(); } catch {} }
 function closeNP(){ setTimeout(urlSync, 0); const v = $('npv'); if (v.classList.contains('open') && !matchMedia('(prefers-reduced-motion:reduce)').matches) { v.classList.add('closing'); setTimeout(() => v.classList.remove('closing'), 230); } v.classList.remove('open'); document.documentElement.classList.remove('npopen'); $('npr').classList.remove('up'); $('exp').innerHTML = ic('up'); }
 const toggleNP = () => $('npv').classList.contains('open') ? closeNP() : openNP();
 const TAB_ORDER = ['queue', 'related', 'lyrics'];
@@ -4895,6 +4897,7 @@ document.addEventListener('click', e => {
   if (String(c.dataset.k).startsWith('search_')) recordSearchTap(t);
   if (t.kind === 'sharedpl') return show('shared', t.id);
   if (t.kind === 'uplaylist') return show('upl', t.id);
+  if (t.kind === 'djhub') return window.__dj && __dj.open();
   if (t.kind) return show('entity', t);
   if (!b) return playFrom(c.dataset.k, +c.dataset.i);
   if (b.dataset.a === 'rm') { recent = recent.filter(r => r.id !== t.id); acct.send('DELETE', '/isai/library/recent?key=' + enc(t.id)); fillCont(); }
@@ -4960,9 +4963,11 @@ function openPlSort(id){
   const sh = openModal(`<h3>Sort by</h3>${Object.entries(PLSORTS).map(([k, v]) => `<button class="plr${k === cur ? ' sel' : ''}" data-sort="${k}"><span class="qm"><b>${v}</b></span>${k === cur ? `<span class="ck">${ic('check', 20)}</span>` : ''}</button>`).join('')}<div class="mbtns"><button class="btn ghost" data-mc>Cancel</button></div>`);
   sh.onclick = e => { const b = e.target.closest('[data-sort]'); if (!b) return; plSortSet(id, b.dataset.sort); closeModal(); renderUserPl(id); };
 }
+const DJ_COVER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><defs><linearGradient id=\"g\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#4facfe\"/><stop offset=\"1\" stop-color=\"#3b4fe0\"/></linearGradient></defs><rect width=\"100\" height=\"100\" fill=\"url(#g)\"/><g transform=\"translate(50 50) scale(2.7) translate(-12 -12.2)\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 15v-3a8 8 0 0 1 16 0v3\"/><rect x=\"3\" y=\"14\" width=\"4.6\" height=\"6.4\" rx=\"1.9\" fill=\"#fff\"/><rect x=\"16.4\" y=\"14\" width=\"4.6\" height=\"6.4\" rx=\"1.9\" fill=\"#fff\"/></g></svg>');
+const djCard = () => ({ kind: 'djhub', id: '__djcard', title: 'DJ', artist: 'Tamil songs based on mood', thumbnail: DJ_COVER });
 const likedCard = () => ({ kind: 'uplaylist', id: LIKED_ID, title: 'Liked songs', artist: `Pinned · ${liked.length} song${liked.length === 1 ? '' : 's'}`, thumbnail: LIKED_COVER });
 const followedCards = () => followed.map(f => ({ kind: 'sharedpl', id: f.id, title: f.name, artist: f.owner ? `by @${f.owner}` : 'Shared playlist', thumbnail: f.thumb || PH }));
-const plCards = () => [likedCard()].concat(LF_OK ? [localCard()] : []).concat(playlists.map(p => ({ kind: 'uplaylist', id: p.id, title: p.name, artist: `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}${p.visibility && p.visibility !== 'private' ? ' · ' + VIS[p.visibility][0] : ''}`, thumbnail: plCover(p) }))).concat(followedCards());
+const plCards = () => [likedCard()].concat(LF_OK ? [localCard()] : []).concat([djCard()]).concat(playlists.map(p => ({ kind: 'uplaylist', id: p.id, title: p.name, artist: `${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}${p.visibility && p.visibility !== 'private' ? ' · ' + VIS[p.visibility][0] : ''}`, thumbnail: plCover(p) }))).concat(followedCards());
 
 /* ---------- username + playlist sharing ---------- */
 const VIS = {
@@ -7377,6 +7382,1324 @@ if (!isInstalled() && !GUEST_SLUG) openInstall();
   window.__npSetBackdrop = setBackdrop;
   if (typeof current !== 'undefined' && current) setBackdrop(current);
 
+})();
+</script>
+<script>
+/* ===== Isai DJ: tell it how you feel, it queues the music =====
+   DJ is a button in Library. One setup sheet (mood, music language, how much commentary, subtitles),
+   then DJ says a short intro (Google US English by default) and the mix starts. With commentary on,
+   DJ also says a short line when a new song starts: the music dips, a caption shows what it says,
+   then the music comes back. Songs come from your existing /search endpoint. No extra server or API. */
+(function(){
+  'use strict';
+  const K_LAST = 'dj_last', K_PREFS = 'dj_prefs';
+  const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const EVERY = [['0', 'Intro only'], ['5', 'Every 5 songs'], ['3', 'Every 3 songs'], ['1', 'Every song']];
+
+  /* what people say -> what to search for, and the lines DJ says */
+  const MOODS = [
+    { n: 'Sad',      tag: 'Staying in the feels', line: 'Sad vibes, coming right up.', k: ['sad', 'cry', 'depress', 'lonely', 'alone', 'blue', 'miss ', 'hurt', 'tears'], q: ['sad melody songs', 'soulful emotional songs', 'heart touching sad songs', 'yuvan sad songs', 'sid sriram sad songs', 'ar rahman sad songs'] },
+    { n: 'Heartbreak', tag: 'For when it hurts', line: 'Heartbreak hour. I’ve got you.', k: ['heartbreak', 'heartbroken', 'breakup', 'break up', 'broken', 'love failure', 'ex '], q: ['love failure songs', 'breakup songs', 'heartbreak melody', 'yuvan heartbreak songs', 'anirudh breakup songs', 'missing you songs'] },
+    { n: 'Happy',    tag: 'Keeping the good vibes going', line: 'Feel-good mode, coming right up.', k: ['happy', 'good mood', 'great', 'joy', 'cheer', 'excited', 'feel good', 'smile', 'fun'], q: ['feel good songs', 'happy upbeat songs', 'peppy songs', 'harris jayaraj feel good songs', 'anirudh feel good hits', 'gv prakash happy songs'] },
+    { n: 'Workout',  tag: 'Keep that energy up', line: 'Let’s get moving.', k: ['workout', 'work out', 'gym', 'running', 'run ', 'pump', 'lift', 'training', 'cardio'], q: ['gym motivation songs', 'mass workout songs', 'high energy beat songs', 'anirudh mass hits', 'fast beat songs', 'running songs'] },
+    { n: 'Chill',    tag: 'Keeping it easy', line: 'Easy does it. Chill vibes, coming right up.', k: ['chill', 'relax', 'calm', 'easy', 'mellow', 'unwind', 'lazy', 'tired', 'after work', 'long day', 'peace'], q: ['chill songs', 'soft melody songs', 'relaxing melody songs', 'yuvan chill songs', 'evening melody songs', 'sid sriram chill songs'] },
+    { n: 'Sleep',    tag: 'Nice and soft', line: 'Sweet dreams. Nice and soft.', k: ['sleep', 'bedtime', 'insomnia', 'lullaby', 'drift off'], q: ['sleep songs', 'lullaby songs', 'calm night melody', 'soft instrumental melodies', 'ilaiyaraaja soft melodies', 'peaceful songs'] },
+    { n: 'Focus',    tag: 'Staying locked in', line: 'Locking in. Focus music, coming right up.', k: ['focus', 'study', 'concentrat', 'coding', 'homework', 'reading'], q: ['focus songs', 'calm instrumental songs', 'study instrumental', 'ar rahman instrumental', 'soft background music', 'peaceful melody songs'] },
+    { n: 'Party',    tag: 'Keep it moving', line: 'Party time. Turning it up.', k: ['party', 'dance', 'club', 'celebrat', 'hype', 'turn up'], q: ['party songs', 'dance hits', 'club dance songs', 'anirudh dance hits', 'dj dance songs', 'peppy dance numbers'] },
+    { n: 'Kuthu',    tag: 'More mass beats', line: 'Kuthu time. Hold on tight.', k: ['kuthu', 'mass', 'dappan', 'dappankuthu'], q: ['kuthu songs', 'mass dance songs', 'anirudh kuthu', 'folk beat songs', 'dance floor hits', 'gaana kuthu songs'] },
+    { n: 'Romantic', tag: 'More love songs', line: 'Love songs, coming right up.', k: ['love', 'romantic', 'romance', 'crush', 'date night', 'in love'], q: ['love songs', 'romantic melody songs', 'love duets', 'sid sriram love songs', 'ar rahman romantic songs', 'harris jayaraj love songs'] },
+    { n: 'Road trip',tag: 'Keep on rolling', line: 'Road trip mode. Let’s roll.', k: ['drive', 'driving', 'road', 'commute', 'travel', 'trip', 'bus', 'train'], q: ['road trip songs', 'travel songs', 'driving songs', 'long drive melody songs', 'ilaiyaraaja travel songs', 'feel good travel songs'] },
+    { n: 'Late night', tag: 'Quiet hours', line: 'Late night mode. Keeping it low.', k: ['late night', 'midnight', 'night drive', '2am', '3am', 'night owl'], q: ['late night songs', 'night drive songs', 'midnight melody', 'yuvan night songs', 'soft night songs', 'dreamy night songs'] },
+    { n: 'Intense',  tag: 'Let it out', line: 'Let it out. Here we go.', k: ['angry', 'mad', 'rage', 'frustrat', 'annoyed', 'intense'], q: ['intense songs', 'angry songs', 'mass bgm songs', 'fierce rap songs', 'high energy rage songs', 'anirudh intense songs'] },
+    { n: 'Throwback',tag: 'Another one from the vault', line: 'Taking it back. Old favorites, coming right up.', k: ['nostalg', 'throwback', 'retro', 'old songs', 'old is gold', 'classic', 'memories'], q: ['old classic songs', 'ilaiyaraaja hits', 'ar rahman 90s hits', 'retro melody songs', 'evergreen hits', '80s hits'] },
+    { n: '90s hits', tag: 'More from the 90s', line: 'Nineties, coming right up.', k: ['90s', '90 s', 'nineties'], q: ['90s hits', '90s melody songs', 'ar rahman 90s songs', 'ilaiyaraaja 90s songs', 'deva 90s hits', 'vidyasagar 90s hits'] },
+    { n: 'Melody',   tag: 'More soft melodies', line: 'Soft melodies, coming right up.', k: ['melody', 'melodies', 'melodious', 'soulful'], q: ['melody songs', 'soft melody hits', 'soulful melody songs', 'harris jayaraj melody', 'yuvan melody songs', 'sid sriram melody'] },
+    { n: 'Rainy',    tag: 'Rainy day mix continues', line: 'Rainy day mix, coming right up.', k: ['rain', 'monsoon'], q: ['rain songs', 'monsoon melodies', 'rainy day melody', 'ilaiyaraaja rain songs', 'ar rahman rain songs', 'soft rain mood songs'] },
+    { n: 'Morning',  tag: 'Easing into the day', line: 'Good morning. A fresh start, coming right up.', k: ['morning', 'wake up', 'wake-up'], q: ['morning songs', 'fresh start songs', 'morning melody', 'uplifting morning songs', 'ilaiyaraaja morning songs', 'sunrise songs'] },
+    { n: 'Motivated',tag: 'Keep going', line: 'Let’s go. Time to get after it.', k: ['motivat', 'confident', 'inspire', 'pumped', 'energi'], q: ['motivational songs', 'inspiring songs', 'confidence songs', 'anirudh motivational songs', 'success songs', 'never give up songs'] },
+    { n: 'Friendship', tag: 'For your people', line: 'Friends and good songs. Perfect.', k: ['friendship', 'friends', 'friend ', 'buddies', 'bestie'], q: ['friendship songs', 'friends anthem songs', 'best friends songs', 'college friends songs', 'gang songs', 'dosth songs'] },
+    { n: 'Devotional', tag: 'Peaceful and spiritual', line: 'Something peaceful, coming right up.', k: ['devotional', 'bhakti', 'god', 'temple', 'spiritual', 'prayer', 'murugan', 'amman'], q: ['devotional songs', 'bhakti songs', 'murugan songs', 'amman songs', 'temple songs', 'peaceful devotional songs'] },
+    { n: 'Anirudh', tag: 'More Anirudh', line: 'Anirudh time. Turn it up.', k: ['anirudh'], q: ['anirudh hits', 'anirudh mass songs', 'anirudh melody songs', 'anirudh love songs', 'anirudh dance hits', 'anirudh latest songs'] },
+    { n: 'Yuvan', tag: 'More Yuvan', line: 'Yuvan Shankar Raja, coming right up.', k: ['yuvan'], q: ['yuvan hits', 'yuvan melody songs', 'yuvan love songs', 'yuvan bgm songs', 'yuvan sad songs', 'yuvan 2000s hits'] },
+    { n: 'A. R. Rahman', tag: 'More Rahman', line: 'A. R. Rahman, coming right up.', k: ['rahman', 'arr '], q: ['ar rahman hits', 'ar rahman melody songs', 'ar rahman love songs', 'ar rahman 90s songs', 'ar rahman soulful songs', 'ar rahman duets'] },
+    { n: 'Ilaiyaraaja', tag: 'More Ilaiyaraaja', line: 'The maestro, coming right up.', k: ['ilaiyaraaja', 'raaja', 'isaignani'], q: ['ilaiyaraaja hits', 'ilaiyaraaja melody songs', 'ilaiyaraaja 80s songs', 'ilaiyaraaja love songs', 'ilaiyaraaja evergreen', 'ilaiyaraaja spb songs'] },
+    { n: 'Sid Sriram', tag: 'More Sid Sriram', line: 'Sid Sriram, coming right up.', k: ['sid sriram'], q: ['sid sriram hits', 'sid sriram melody songs', 'sid sriram love songs', 'sid sriram sad songs', 'sid sriram latest', 'sid sriram duets'] },
+    { n: 'Harris Jayaraj', tag: 'More Harris', line: 'Harris Jayaraj, coming right up.', k: ['harris'], q: ['harris jayaraj hits', 'harris jayaraj melody songs', 'harris jayaraj love songs', 'harris jayaraj 2000s', 'harris jayaraj feel good', 'harris jayaraj duets'] },
+    { n: 'Duets', tag: 'More duets', line: 'Duets, coming right up.', k: ['duet', 'couple songs'], q: ['tamil duet songs', 'love duets', 'melody duets', 'evergreen duets', 'romantic duets', 'modern duets'] },
+    { n: 'Wedding', tag: 'More wedding songs', line: 'Wedding bells. Let’s celebrate.', k: ['wedding', 'marriage', 'kalyanam'], q: ['wedding songs', 'marriage songs', 'wedding dance songs', 'mehendi songs', 'family celebration songs', 'kalyana songs'] },
+    { n: 'Missing someone', tag: 'Thinking of them', line: 'Missing someone. I’ll keep you company.', k: ['missing someone', 'miss you', 'missing you', 'long distance'], q: ['missing you songs', 'separation songs', 'long distance love songs', 'yearning melody songs', 'miss you melody', 'longing songs'] },
+    { n: 'Cozy', tag: 'Warm and cosy', line: 'Cosy mode, coming right up.', k: ['cozy', 'cosy', 'cuddle', 'coffee'], q: ['cozy songs', 'warm melody songs', 'coffee time songs', 'soft acoustic songs', 'evening tea songs', 'gentle melody songs'] },
+    { n: 'Mass hits', tag: 'More mass', line: 'Mass mode. Here we go.', k: ['mass hits', 'hero intro', 'bgm'], q: ['mass hero songs', 'hero intro songs', 'mass bgm hits', 'thalapathy mass songs', 'thala mass songs', 'rajini mass songs'] },
+    { n: 'Folk',     tag: 'Roots and folk', line: 'Folk and gaana, coming right up.', k: ['folk', 'village', 'gaana', 'naadu'], q: ['folk songs', 'gaana songs', 'village songs', 'naadodi pattu', 'folk beat songs', 'rural melody songs'] }
+  ];
+  const FILL = /\b(i\s*am|i'?m|im|feeling|feel|feels|want|wanna|need|play|put on|give me|some|something|songs?|music|tracks?|please|for|a|an|the|to|listen|listening|really|so|bit|little|very|today|right now|now|me|my|just|kind of|kinda|like|similar|songs like)\b/g;
+
+  function plan(text){
+    let t = ' ' + String(text || '').toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
+    if (/\b(on repeat|most played|my favou?rites?|my top songs|replay)\b/.test(t)) return { qs: [], label: 'On repeat', line: 'Your most played songs, coming right up.', tag: 'Your most played', moods: [], special: 'repeat' };
+    t = t.replace(/\b(not|n't) (feeling |so |very |too )*(good|great|happy|okay|ok|well)\b/g, ' sad ');
+    const exact = MOODS.find(m => m.n.toLowerCase() === t.trim());      // a mood picked from the list means exactly that mood
+    const hits = exact ? [exact] : MOODS.filter(m => m.k.some(w => t.includes(w)));
+    let qs = [], label = '', line = '', tag = 'Keeping it going', moods = [];
+    if (hits.length) {
+      const use = hits.slice(0, 2);
+      use.forEach(m => qs.push(...m.q.slice(0, use.length > 1 ? 3 : 6)));
+      label = use.map(m => m.n).join(' + '); line = use[0].line; tag = use[0].tag; moods = use.map(m => m.n);
+    } else {
+      const c = t.replace(FILL, ' ').replace(/[^\p{L}\p{N}\s'&-]/gu, ' ').replace(/\s+/g, ' ').trim() || t.trim();
+      qs = [c + ' songs', c, c + ' hits', c + ' melody']; label = c; line = cap(c) + ', coming right up.';
+    }
+    return { qs, label, line, tag, moods };
+  }
+
+  /* ---------- DJ's voice: Google US English first, then any en-US voice ---------- */
+  const synth = window.speechSynthesis, canSpeak = !!(synth && window.SpeechSynthesisUtterance);
+  const norm = l => String(l || '').replace('_', '-').toLowerCase();
+  let voiceName = '';                                            // the voice picked in DJ's setup sheet ('' = automatic)
+  function pickVoice(){
+    let vs = []; try { vs = synth.getVoices() || []; } catch {}
+    if (voiceName) { const c = vs.find(v => v.name === voiceName); if (c) return c; }
+    const en = vs.filter(v => /^en/.test(norm(v.lang))), us = en.filter(v => norm(v.lang) === 'en-us');
+    return us.find(v => /google us english/i.test(v.name))      // the default is the Google voice
+        || us.find(v => /google/i.test(v.name))
+        || en.find(v => /google/i.test(v.name))
+        || vs.find(v => /google/i.test(v.name) && /^en/.test(norm(v.lang)))
+        || us.find(v => v.default) || us[0] || en[0] || null;
+  }
+  function voicesReady(){
+    return new Promise(res => {
+      try { if (synth.getVoices().length) return res(); } catch { return res(); }
+      let done = false; const fin = () => { if (!done) { done = true; res(); } };
+      try { synth.addEventListener('voiceschanged', fin, { once: true }); } catch {}
+      setTimeout(fin, 700);
+    });
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const estMs = text => Math.max(1400, String(text).split(/\s+/).length * 380 + 400);
+  const sentences = s => {
+    const raw = String(s || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?]["”’)]?)\s+/), out = [];
+    raw.forEach(p => {                                            // keep initials and titles ("A. R. Rahman", "Dr. Dre") in one piece
+      if (out.length && /(^|\s)([A-Z]|Mr|Mrs|Ms|Dr|St|Vs|Jr|Sr)\.$/.test(out[out.length - 1])) out[out.length - 1] += ' ' + p; else out.push(p);
+    });
+    return out.filter(Boolean);
+  };
+
+  /* say(): speaks a list of lines one sentence at a time (long speech in one go gets cut off by browsers).
+     An item can be a function that returns the text, so the last line can use things found while DJ was talking. */
+  function say(input, onSent){
+    const items = Array.isArray(input) ? input : [input];
+    let ended = false, paused = false, curFin = null, gT = 0, resolveDone;
+    const done = new Promise(r => { resolveDone = r; });
+    const finish = () => { ended = true; clearTimeout(gT); resolveDone(); };
+    const one = s => new Promise(res => {
+      const ms = estMs(s); let d = false;
+      const f = () => { if (!d) { d = true; clearTimeout(gT); curFin = null; res(); } };
+      curFin = f;
+      const viaSynth = () => {
+        if (!canSpeak) { gT = setTimeout(f, ms); return; }        // no voice on this device: still pace the captions
+        const arm = () => { clearTimeout(gT); gT = setTimeout(() => { if (paused) return arm(); try { synth.cancel(); } catch {} f(); }, ms * 2 + 4000); };
+        arm();
+        try {
+          const u = new SpeechSynthesisUtterance(s), v = pickVoice();
+          u.lang = v ? v.lang : 'en-US'; if (v) u.voice = v;
+          u.rate = 1; u.pitch = 1; u.volume = 1;
+          u.onend = f; u.onerror = f;
+          synth.speak(u);
+        } catch { f(); }
+      };
+      viaSynth();
+    });
+    (async () => {
+      if (canSpeak) { await voicesReady(); try { synth.cancel(); } catch {} await sleep(90); }
+      for (let ix = 0; ix < items.length; ix++) {
+        if (ended) break;
+        const it = items[ix];
+        let txt = ''; try { txt = typeof it === 'function' ? await it() : it; } catch {}
+        const ss = sentences(txt);
+        for (let i = 0; i < ss.length; i++) {
+          const s = ss[i]; if (ended) break; if (onSent) onSent(s, ix);
+          await one(s);
+        }
+      }
+      finish();
+    })();
+    return {
+      done,
+      cancel(){ try { synth.cancel(); } catch {} ended = true; if (curFin) curFin(); finish(); },
+      pause(){ paused = true; tkHold = true; try { synth.pause(); } catch {} },
+      resume(){ paused = false; tkHold = false; try { synth.resume(); } catch {} },
+      isPaused: () => paused
+    };
+  }
+
+  /* ---------- colours: DJ's orb and background take the palette of the song (same palette the app background uses) ---------- */
+  const DEF = ['hsl(222 62% 21%)', 'hsl(228 58% 15%)', 'hsl(218 64% 11%)'];   // dark blue: used when there's no mood or song colour to match
+  const vivid = (c, l) => { const m = /hsl\(\s*(\d+)\s+(\d+)%/.exec(String(c)); return m ? `hsl(${m[1]} ${Math.max(+m[2], 58)}% ${l}%)` : c; };
+  function setDJ(p){
+    const r = document.documentElement.style;
+    if (!p || p === DEF) { r.setProperty('--d1', DEF[0]); r.setProperty('--d2', DEF[1]); r.setProperty('--d3', DEF[2]); return; }   // nothing to match: stay dark blue, not brightened
+    r.setProperty('--d1', p[0]); r.setProperty('--d2', p[1]); r.setProperty('--d3', p[2]);   // same colours the app background uses
+  }
+  async function palFor(t){
+    if (!t) return null;
+    const ss = [cov(t, 64), `${base()}/cover/${t.id}?s=64`].filter(Boolean);
+    for (const s of ss) { if (!(s in pcache)) pcache[s] = await loadPalette(s); if (pcache[s]) return pcache[s]; }
+    return null;
+  }
+  function setDJNow(t){                                          // instantly from cache if we have it, otherwise as soon as it's loaded
+    const k = t && cov(t, 64);
+    setDJ((k && pcache[k]) || DEF);
+    if (t && !(k in pcache)) palFor(t).then(p => { if (p && djPill) setDJ(p); });
+  }
+
+  /* ---------- DJ's extra bits of UI: the orb (pill + big), and the full-height subtitle panel on desktop ---------- */
+  const PICKS = [['On repeat', 'Your most played lately'], ['Happy', 'Bright, feel-good songs'], ['Sad', 'Slow, soft and honest'], ['Heartbreak', 'For when it hurts'], ['Chill', 'Easy and unhurried'], ['Romantic', 'Love songs'], ['Melody', 'Soft Tamil melodies'], ['Workout', 'High energy, strong beats'], ['Party', 'Dance numbers, turned up'], ['Kuthu', 'Mass beats for the dance floor'], ['Road trip', 'Songs for the journey'], ['Late night', 'Quiet hours'], ['Rainy', 'Rainy day melodies'], ['Morning', 'A fresh start to the day'], ['Motivated', 'Get up and go'], ['Intense', 'Let it all out'], ['Friendship', 'Songs for your people'], ['Throwback', 'Old classics and evergreens'], ['90s hits', 'Evergreen nineties'], ['Folk', 'Gaana and village roots'], ['Devotional', 'Peaceful and spiritual'], ['Focus', 'Calm and steady'], ['Sleep', 'Soft and slow, to wind down'], ['Missing someone', 'For the ones far away'], ['Cozy', 'Warm and gentle'], ['Duets', 'Two voices, one song'], ['Wedding', 'Celebrations and kalyanam'], ['Mass hits', 'Hero intros and big BGMs'], ['Anirudh', 'His biggest hits'], ['Yuvan', 'Yuvan Shankar Raja'], ['A. R. Rahman', 'The Mozart of Madras'], ['Ilaiyaraaja', 'The maestro'], ['Sid Sriram', 'That voice'], ['Harris Jayaraj', 'Melody and style']];
+  let orbP = null, orbB = null, gH = null, openedByDJ = false;
+  const GLYPH = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4.6" height="6.4" rx="1.9" fill="#fff"/><rect x="16.4" y="14" width="4.6" height="6.4" rx="1.9" fill="#fff"/></svg>';
+  function ensureDOM(){
+    if (orbP) return;
+    $('pimg').insertAdjacentHTML('afterend', '<i class="djorb" id="djorbP">' + GLYPH + '</i>');
+    $('npcover').insertAdjacentHTML('beforebegin', '<i class="djorb big" id="djorbB">' + GLYPH + '</i>');
+    $('npv').insertAdjacentHTML('afterbegin', '<div id="djbgfull"></div>');
+    $('npv').insertAdjacentHTML('beforeend', '<div id="djmood" role="dialog" aria-label="DJ"><button class="dmd" title="Minimise" type="button" aria-label="Minimise"></button><button class="dmx" type="button" aria-label="Close DJ"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="dmw"><div class="dmi">' + GLYPH + '</div><h2 class="dmh" id="dmH"></h2><div class="dmbody"><div><p class="dms">Pick a mood and I’ll play Tamil songs to match.</p><div class="dml">' + moodHtml() + '</div></div></div></div></div>');
+    try { document.querySelector('#djmood .dmd').innerHTML = ic('down'); } catch {}
+    wireMood();
+    $('npr').insertAdjacentHTML('beforeend', '<div id="djpanel" aria-live="polite"><div id="djlines"></div></div>');
+    orbP = $('djorbP'); orbB = $('djorbB'); sortMoods();
+    const dm = document.querySelector('#djmood .dmd');
+    if (dm) { $('npv').appendChild(dm); dm.addEventListener('click', e => { e.stopPropagation(); closeNP(); }); }
+  }
+  function revealWords(el, text, ms){
+    const w = String(text).split(/\s+/);
+    el.innerHTML = w.map(x => `<span>${esc(x)}</span>`).join(' ');
+    const sp = [...el.children]; let i = 0;
+    const id = setInterval(() => { if (tkHold) return; if (i < sp.length) sp[i++].classList.add('on'); else clearInterval(id); }, ms / Math.max(1, w.length));
+    return { all(){ clearInterval(id); sp.forEach(s => s.classList.add('on')); }, stop(){ clearInterval(id); } };
+  }
+  let lineH = null, pClose = 0;
+  const panelOk = () => $('npv').classList.contains('open');
+  function panelOpen(tag){
+    if (!panelOk()) return false;
+    ensureDOM(); clearTimeout(pClose);
+    const p = $('djpanel'); $('djlines').innerHTML = '';
+    const tabs = $('npr').querySelector('.tabs');                // the text starts right under the tabs, like the lyrics view
+    p.style.setProperty('--djt', isMobile() ? '0px' : (tabs ? tabs.offsetTop + 6 : 64) + 'px');   // the tabs are hidden while DJ is up, so the words start where they were
+    if (isMobile()) djlyOn(); else $('npr').classList.add('lyrmode'); $('npv').classList.add('djtalk'); void p.offsetWidth; p.classList.add('on');
+    return true;
+  }
+  function panelLine(text, ms){                                  // each sentence arrives as a big line, older ones dim and drift up
+    const p = $('djpanel'); if (!p || !p.classList.contains('on')) return;
+    const box = $('djlines');
+    if (lineH) lineH.all();
+    box.querySelectorAll('.djln:not(.past)').forEach(x => x.classList.add('past'));
+    const el = document.createElement('p'); el.className = 'djln'; box.appendChild(el);
+    lineH = revealWords(el, text, ms * .85);
+    requestAnimationFrame(() => { try { box.scrollTo({ top: Math.max(0, el.offsetTop - box.clientHeight * .16), behavior: 'smooth' }); } catch {} });
+  }
+  /* phone: DJ has its own lyrics-style layout (class djly on the player view). Elements glide between layouts (FLIP). */
+  function flipLayout(change, coverFrom, coverTo){
+    const ids = ['mtitle', 'martist', 'mprev', 'mpp', 'mnext'], list = () => ids.map(i => $(i)).concat([document.querySelector('.npseek')]);
+    const fs = e => parseFloat(getComputedStyle(e).fontSize) || 16;
+    const A = list().map(e => e.getBoundingClientRect()), fa = [fs($('mtitle')), fs($('martist'))], cf = coverFrom(), ca = cf.getBoundingClientRect();
+    change();
+    const els = list(), ct = coverTo(), OPT = { duration: 620, easing: 'cubic-bezier(.32,.72,0,1)' };
+    const go = (el, a, b, sc) => { if (!a.width || !b.width) return; try { el.animate([{ transformOrigin: '0 0', transform: 'translate(' + (a.left - b.left) + 'px,' + (a.top - b.top) + 'px) scale(' + sc[0] + ',' + sc[1] + ')' }, { transformOrigin: '0 0', transform: 'none' }], OPT); } catch {} };
+    els.forEach((e, i) => {
+      const b = e.getBoundingClientRect();
+      if (i < 2) { const r = fa[i] / fs(e); go(e, A[i], b, [r, r]); }
+      else if (i === 5) go(e, A[i], b, [A[i].width / b.width, 1]);
+      else go(e, A[i], b, [A[i].width / b.width, A[i].width / b.width]);
+    });
+    const cb = ct.getBoundingClientRect(); if (ca.width && cb.width) go(ct, ca, cb, [ca.width / cb.width, ca.height / cb.height]);
+  }
+  function djlyOn(){
+    const v = $('npv'); if (v.classList.contains('djly')) return;
+    try { lyBack(); } catch {}                                   // leave real lyrics mode first, if it was on
+    if (v.classList.contains('open') && orbB && orbB.offsetParent) flipLayout(() => v.classList.add('djly'), () => orbB, () => orbB);
+    else v.classList.add('djly');
+  }
+  function djlyOff(){ $('npv').classList.remove('djly'); }
+  function lyLeave(){
+    if (isMobile()) { djlyOff(); return; }
+    const r = $('npr');
+    try { r.classList.toggle('lyrmode', npTab === 'lyrics'); } catch { r.classList.remove('lyrmode'); }
+  }
+  /* when the player is opened again: show DJ exactly as it is now, or clear a DJ layout that was left behind while minimised */
+  function syncView(){
+    const v = $('npv'); if (!v || !orbB) return;
+    const picking = !!($('djmood') && $('djmood').classList.contains('on'));
+    if (djPill || picking) { djCover(true); if (isMobile()) djlyOn(); $('martist').textContent = 'Isai TTS'; }
+    else if (v.classList.contains('djon') || v.classList.contains('djly')) { djCover(false); djlyOff(); v.classList.remove('djtalk'); }
+  }
+  /* whenever the player refreshes itself with the current song, DJ's own title and "Isai TTS" go back on top, so no artist name shows under DJ */
+  if (typeof window.updateNP === 'function') {
+    const _upd = window.updateNP;
+    window.updateNP = function(){
+      const r = _upd.apply(this, arguments);
+      try { if (orbB && (djPill || ($('djmood') && $('djmood').classList.contains('on')))) { $('mtitle').textContent = 'DJ'; $('martist').textContent = 'Isai TTS'; } } catch {}
+      return r;
+    };
+  }
+  /* closing the DJ screen while the mood list is showing stops DJ's voice completely and cancels DJ; once a mood is chosen you can minimise into the pill and DJ carries on */
+  if (typeof window.closeNP === 'function') {
+    const _close = window.closeNP;
+    window.closeNP = function(){
+      try {
+        if ($('djmood') && $('djmood').classList.contains('on')) { moodCancel(); try { synth.cancel(); } catch {} }
+      } catch {}
+      return _close.apply(this, arguments);
+    };
+    const nc = document.getElementById('npclose'); if (nc) nc.onclick = () => window.closeNP();
+  }
+  function djEnd(){                                              // a song starts: the lyrics-style layout eases back into the normal player
+    const v = $('npv');
+    if (isMobile() && v.classList.contains('djly') && v.classList.contains('open') && orbB && orbB.offsetParent) {
+      panelClose(true);
+      flipLayout(() => { djCover(false); djlyOff(); }, () => orbB, () => $('npcover'));
+    } else { panelClose(); djCover(false); djlyOff(); }   // also when the player is minimised, so the DJ layout can't get left behind
+  }
+  function panelClose(keepLayout){                                         // fade the words away and let the queue slide in underneath
+    const p = $('djpanel'); if (!p || !p.classList.contains('on')) return;
+    if (lineH) { lineH.all(); lineH = null; }
+    p.classList.remove('on'); $('npv').classList.remove('djtalk');
+    if (!keepLayout) lyLeave();
+    const q = $('npq'); q.classList.remove('djin'); void q.offsetWidth; q.classList.add('djin');
+    clearTimeout(pClose); pClose = setTimeout(() => { if (!p.classList.contains('on')) { $('djlines').innerHTML = ''; $('npq').classList.remove('djin'); } }, 1100);
+  }
+  function openDJView(){                                         // the mood list and subtitles live in the now-playing view, so open it
+    const v = $('npv'); if (v.classList.contains('open')) return;
+    v.classList.add('open'); document.documentElement.classList.add('npopen');
+    try { $('exp').innerHTML = ic('down'); } catch {}
+  }
+
+  /* ---------- DJ lives in the player pill, like a song called "DJ" ---------- */
+  let djPill = false, hadPill = false, tk = 0, tkHold = false;
+  function djCover(on){                                          // the big cover in the now-playing view becomes the orb
+    const v = $('npv');
+    if (!on) { v.classList.remove('djon'); return; }
+    if (!v.classList.contains('djon')) {
+      const w = $('npcover').offsetWidth || Math.max(160, Math.min(380, innerHeight - 520));
+      orbB.style.width = orbB.style.height = w + 'px'; v.classList.add('djon');
+    }
+    $('mtitle').textContent = 'DJ';
+  }
+  function setSub(txt){                                         // the pill always says "Isai TTS"; subtitles live in the big view (on phones, under the title)
+    $('partist').textContent = 'Isai TTS';
+    if (djPill && $('npv').classList.contains('open')) { djCover(true); $('martist').textContent = 'Isai TTS'; }
+  }
+  function pillDJ(label){
+    ensureDOM();
+    const pl = $('player');
+    if (!djPill) { hadPill = pl.classList.contains('on'); }
+    djPill = true; pl.classList.add('on', 'djp');
+    $('pimg').dataset.id = '__dj';                               // a cover that's still loading can't swap itself back in
+    $('ptitle').textContent = 'DJ'; setSub('');
+    try { if (MS) MS.metadata = new MediaMetadata({ title: 'DJ', artist: 'Isai TTS' }); } catch {}
+  }
+  /* subtitles in the pill: the last few words as DJ says them */
+  function ticker(text, ms){
+    clearInterval(tk);
+    const w = String(text).split(/\s+/); let i = 1;
+    const paint = () => setSub(w.slice(Math.max(0, i - 7), i).join(' '));
+    paint();
+    tk = setInterval(() => { if (tkHold) return; if (i < w.length) { i++; paint(); } else clearInterval(tk); }, ms * .85 / Math.max(1, w.length));
+  }
+  function restoreTimes(){
+    const t = current;
+    const set = (ct, d) => {
+      const p = d ? Math.min(1, ct / d) : 0;
+      $('cur').textContent = $('mcur').textContent = fmt(ct);
+      $('dur').textContent = $('mdur').textContent = '-' + fmt(Math.max(0, d - ct));
+      $('mprog').style.width = (p * 100) + '%';
+      $('seek').value = $('mseek').value = p * 1000; fillRange($('seek')); fillRange($('mseek'));
+    };
+    if (!t) return set(0, 0);
+    const live = a && a._tid === t.id;
+    set(live ? (a.currentTime || 0) : (restorePos || 0), (live && a.duration) || t.duration || 0);
+  }
+  function pillRestore(times){
+    if (!djPill) return;
+    djPill = false; clearInterval(tk); tkHold = false;
+    panelClose(); djCover(false);
+    const pl = $('player'); pl.classList.remove('djp', 'djintro'); document.body.classList.remove('djintro', 'djpause');
+    const t = current;
+    if (!t) { if (!hadPill) pl.classList.remove('on'); return; }
+    setImg($('pimg'), t, 160); $('ptitle').textContent = t.title || ''; $('partist').innerHTML = artistLinks(t);
+    try { updateNP(); } catch {}
+    try { msMeta(t); } catch {}
+    try { setPP(); } catch {}
+    if (times) restoreTimes();
+  }
+
+  /* ---------- prefs ---------- */
+  const prefs = () => {
+    const p = jget(K_PREFS, {}) || {};
+    return { lang: LANGS.includes(p.lang) ? p.lang : lang(), every: ['0', '1', '3', '5'].includes(String(p.every)) ? String(p.every) : '3', subs: p.subs !== false, voice: typeof p.voice === 'string' ? p.voice : '' };
+  };
+
+  /* ---------- Settings → Music: DJ voice (default is the Google voice) ---------- */
+  function settingsHtml(){
+    const P = prefs();
+    return `<div class="srow"><div><b>DJ voice</b><span>Default is the Google voice. Tap to pick another one from this device</span></div><button class="spick" id="sDjVoice"><span>${esc(P.voice || 'Default · Google')}</span>${ic('chev', 14)}</button></div>`;
+  }
+  function wireSettings(){
+    const b = $('sDjVoice'); if (!b) return;
+    b.onclick = async () => {
+      await voicesReady();
+      let vs = []; try { vs = synth.getVoices() || []; } catch {}
+      if (!vs.length) { toast('No voices found on this device', true); return; }
+      const rank = v => (/^en/i.test(v.lang) ? 0 : 2) + (/google/i.test(v.name) ? 0 : 1);
+      vs = vs.slice().sort((x, y) => (rank(x) - rank(y)) || x.name.localeCompare(y.name));
+      const cur = prefs().voice || '__auto';
+      const v = await pickDialog({ title: 'DJ voice', options: [{ v: '__auto', label: 'Default · Google' }].concat(vs.map(x => ({ v: x.name, label: x.name + ' (' + x.lang + ')' }))), value: cur });
+      if (!v || v === cur) return;
+      const name = v === '__auto' ? '' : v;
+      store.set(K_PREFS, JSON.stringify(Object.assign({}, prefs(), { voice: name })));
+      voiceName = name; b.querySelector('span').textContent = name || 'Default · Google';
+      if (prevH) prevH.cancel();
+      prevH = say('Hi, I’m Isai DJ. This is how I sound.');
+    };
+  }
+  /* ---------- the setup sheet: everything is chosen before anything loads ---------- */
+  let prevH = null;
+
+  /* ---------- launching DJ: it greets you, asks how you feel, and the answer starts the mix (no popup) ---------- */
+  let dmRev = null, dmQ = false, dmDone = false;
+  function dmReset(){
+    const w = document.querySelector('#djmood .dmw'), h = $('dmH'); if (!w) return;
+    w.classList.remove('ready'); dmDone = false; dmQ = false; if (dmRev) { dmRev.stop(); dmRev = null; }
+    h.textContent = ''; h.classList.remove('dmswap');
+  }
+  function dmLine(text){                                         // subtitles for what DJ says, word by word, big and centred
+    const h = $('dmH'); if (!h || dmDone) return;
+    if (dmRev) dmRev.stop();
+    h.classList.remove('dmswap'); void h.offsetWidth; h.classList.add('dmswap');
+    dmRev = revealWords(h, text, estMs(text) * .8);
+    dmQ = /feeling/i.test(text);
+  }
+  function dmReady(){                                            // the icon shrinks, the heading settles up and the options unfold
+    if (dmDone) return; dmDone = true;
+    const w = document.querySelector('#djmood .dmw'), h = $('dmH'); if (!w) return;
+    if (!dmQ) h.textContent = 'How are you feeling right now?';
+    else if (dmRev) dmRev.all();
+    dmRev = null; h.querySelectorAll('span').forEach(x => x.classList.add('on'));
+    w.classList.add('ready');
+  }
+  function moodShow(on){
+    const m = $('djmood'); if (!m) return;
+    m.classList.toggle('on', on); $('npv').classList.toggle('djpick', on);
+    if (on) { m.querySelectorAll('.dmr.on').forEach(x => x.classList.remove('on')); const i = $('dmIn'); if (i) i.value = ''; m.scrollTop = 0; const sw = m.querySelector('.dmw'); if (sw) sw.scrollTop = 0; dmReset(); }
+  }
+  function moodCancel(){
+    if (gH) { gH.cancel(); gH = null; }
+    djTok++; moodShow(false); stopIntro(); endTalk();
+    if (dmPrev) { dmPrev.cancel(); dmPrev = null; }
+    if (isMobile()) djlyOff();
+    pillRestore(true);
+    if (openedByDJ) { openedByDJ = false; try { closeNP(); } catch {} }
+  }
+  function moodPick(text){
+    text = String(text || '').trim();
+    const inp = $('dmIn');
+    if (!text) { if (inp) { inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.focus(); } return; }
+    if (gH) { gH.cancel(); gH = null; }
+    if (dmPrev) { dmPrev.cancel(); dmPrev = null; }
+    const P = prefs(), out = { lang: 'tamil', every: '3', subs: true, voice: P.voice, skipGreet: true };
+    try { store.set(K_PREFS, JSON.stringify(Object.assign({}, P, { lang: 'tamil' }))); } catch {}
+    openedByDJ = false;
+    setTimeout(() => moodShow(false), 180);
+    run(text, out);
+  }
+  /* ---------- choosing DJ's voice on the startup screen ---------- */
+  let dmPrev = null;
+  const PREVIEWS = ['Hi, I’m Isai DJ. This is how I sound.', 'Hey there, Isai DJ here. How’s this voice?', 'Hello! Isai DJ, at your service. Does this one feel right?', 'Hi, it’s me, your DJ. Let me know if you like this voice.'];
+  function wireMood(){
+    const m = $('djmood');
+    m.addEventListener('click', e => {
+      if (e.target.closest('.dmd')) return closeNP();
+      if (e.target.closest('.dmx')) return moodCancel();
+      if (!dmDone && e.target.closest('.dmw')) { if (gH) { gH.cancel(); gH = null; } return dmReady(); }   // tap to skip the greeting
+      const r = e.target.closest('.dmr');
+      if (r) { r.classList.add('on'); return moodPick(r.dataset.v); }
+    });
+  }
+  function open(){
+    if (window.__guest) { window.__showLock && window.__showLock(); return; }
+    if (!isOnline()) { toast("You're offline · DJ needs a connection", true); return; }
+    const tok = ++djTok; stopIntro(); endTalk(); panelClose(); bags = {};
+    voiceName = prefs().voice || '';
+    ensureDOM(); setDJNow(current); warmSources();              // start with the colours of the song that's playing (dark blue if nothing is)
+    try { if (a && !a.paused) a.pause(); } catch {}
+    openedByDJ = !$('npv').classList.contains('open');
+    if (isMobile() && openedByDJ) $('npv').classList.add('djly');   // already in the DJ layout when the screen slides up, so nothing flashes and re-arranges
+    openDJView(); pillDJ(''); djCover(true);
+    const begin = () => {
+      if (tok !== djTok) return;
+      if (isMobile()) djlyOn();
+      moodShow(true);
+      const h = new Date().getHours(), part = h >= 5 && h < 12 ? 'morning' : h < 17 && h >= 12 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night';
+      gH = say([pick('greet:' + part, GREET[part]), 'How are you feeling right now?'], s => dmLine(s));
+      gH.done.then(() => { if (tok === djTok) { gH = null; setTimeout(() => { if (tok === djTok) dmReady(); }, 350); } });
+    };
+    begin();
+  }
+  function openSetupLegacy(){
+    if (window.__guest) { window.__showLock && window.__showLock(); return; }
+    if (!isOnline()) { toast("You're offline · DJ needs a connection", true); return; }
+    const P = prefs();
+    const grp = (g, items, on) => `<div class="djchs" data-g="${g}">${items.map(([v, l]) => `<button class="djch${String(v) === String(on) ? ' on' : ''}" data-v="${esc(String(v))}">${esc(l)}</button>`).join('')}</div>`;
+    const sh = openModal(`<h3>DJ</h3>
+      <p class="djl">How are you feeling?</p>
+      <input id="djIn" class="minp" maxlength="120" placeholder="e.g. a bit sad after a long day" autocomplete="off" spellcheck="false">
+      <div class="djchs" data-g="mood">${MOOD_DEF.map(m => `<button class="djch" data-v="${esc(m[0])}">${esc(m[0])}</button>`).join('')}</div>
+      <p class="djl">Music language</p>${grp('lang', LANGS.map(l => [l, LANG_LABEL[l]]), P.lang)}
+      <p class="djl">Commentary</p>${grp('every', EVERY, P.every)}
+      <p class="djl">Voice</p><div class="djvr"><select id="djVoice" class="minp" aria-label="DJ voice"><option value="">Default</option></select><button class="btn ghost" id="djPrev" type="button">Preview</button></div>
+      <div class="djsr"><div><b>Subtitles</b><span>Show what DJ says</span></div><button class="sw" id="djSubs" role="switch" aria-label="Subtitles" aria-checked="${P.subs}"></button></div>
+      <div class="mbtns"><button class="btn ghost" data-mc>Cancel</button><button class="btn" id="djGo">Start</button></div>`);
+    const inp = $('djIn'), sel = { lang: P.lang, every: P.every };
+    if (!isMobile()) inp.focus();
+    voicesReady().then(() => {                                   // every voice this device has, English ones first
+      const sv = $('djVoice'); if (!sv) return;
+      let vs = []; try { vs = synth.getVoices() || []; } catch {}
+      vs = vs.slice().sort((x, y) => (/^en/i.test(y.lang) - /^en/i.test(x.lang)) || x.name.localeCompare(y.name));
+      sv.innerHTML = '<option value="">Default · Google US English if available</option>' + vs.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join('');
+      sv.value = vs.some(v => v.name === P.voice) ? P.voice : '';
+    });
+    $('djPrev').onclick = () => {
+      voiceName = $('djVoice').value;
+      if (prevH) prevH.cancel();
+      prevH = say('Hi, I’m Isai DJ. Let’s find the right music for you.');
+    };
+    inp.oninput = () => sh.querySelectorAll('[data-g=mood] .djch').forEach(b => b.classList.remove('on'));
+    sh.onclick = e => {
+      const b = e.target.closest('.djch'); if (!b) return;
+      const g = b.parentElement.dataset.g;
+      b.parentElement.querySelectorAll('.djch').forEach(x => x.classList.toggle('on', x === b));
+      if (g === 'mood') inp.value = b.dataset.v; else sel[g] = b.dataset.v;
+    };
+    $('djSubs').onclick = e => { const el = e.currentTarget; el.setAttribute('aria-checked', el.getAttribute('aria-checked') !== 'true'); };
+    inp.onkeydown = e => { if (e.key === 'Enter') $('djGo').click(); };
+    $('djGo').onclick = () => {
+      const text = inp.value.trim();
+      if (!text) { inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.focus(); return; }
+      const out = { lang: sel.lang, every: sel.every, subs: $('djSubs').getAttribute('aria-checked') === 'true', voice: $('djVoice').value };
+      if (prevH) { prevH.cancel(); prevH = null; }
+      store.set(K_PREFS, JSON.stringify(out));
+      run(text, out);
+    };
+  }
+
+  /* On repeat: the songs you've played the most in the last 30 days (falls back to recent plays and likes) */
+  async function repeatList(){
+    try { await ensureActivity(); } catch {}
+    const now = Date.now(), n = new Map();
+    for (const p of lplays) { if (now - p[1] > 30 * 864e5) continue; n.set(p[0], (n.get(p[0]) || 0) + 1 + (now - p[1] < 7 * 864e5 ? .5 : 0)); }
+    const out = [], seen = new Set();
+    const add = t => { if (t && t.id && !seen.has(t.id)) { seen.add(t.id); out.push(t); } };
+    [...n.entries()].sort((x, y) => y[1] - x[1]).forEach(([id]) => add(ltracks[id]));
+    if (out.length < 10) { recent.forEach(add); liked.forEach(add); }
+    return out.slice(0, 30);
+  }
+  /* ---------- search ---------- */
+  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  async function search(qs, langKey){
+    const langs = ['tamil'];                                     // DJ plays Tamil songs only
+    const per = langs.length > 1 ? 3 : 6;
+    const jobs = [];
+    langs.forEach(L => qs.slice(0, per).forEach(q => jobs.push(L + ' ' + q)));
+    return Promise.all(jobs.map(async k => {
+      try { if (!relCache[k]) relCache[k] = (await (await api('/search?limit=15&type=songs&q=' + encodeURIComponent(k))).json()).results || []; return relCache[k]; }
+      catch { return []; }
+    }));
+  }
+
+
+  /* ---------- your playlists: DJ plays from these first. A mood with no playlist falls back to searching. ---------- */
+  const SRC = [].concat(
+    ["RDCLAK5uy_luGNC6K4kc6WqwtrBr4kVcxTJAmrlsVFY", "RDCLAK5uy_kxyDfb8adHA-cigfDo_m-thB3GIvSiQSQ", "RDCLAK5uy_lG9Y0ygyS7rido4vIJF0reMGFWunV1d2Y", "RDCLAK5uy_kNfw-ZAY4EUIaID3bIjJz9KElpywxkI7o", "RDCLAK5uy_mONI8R419TGO-Shho1pq495gCsEVTi6D4", "RDCLAK5uy_mmbki5KAzdd4NFMn8dhIZSQOQTAaZ2Ikc", "RDCLAK5uy_nTbyVypdXPQd00z15bTWjZr7pG-26yyQ4", "RDCLAK5uy_nst6TjuDcm2GKUXPrp9nYkfg5_oeEofE8", "RDCLAK5uy_mXUrV3_kqn3WUflvb3nZr35f3F5Q049H0"].map(i => ({ k: 'yt', id: i, u: 'https://music.youtube.com/playlist?list=' + i })),
+    ["37i9dQZF1DX0nA91dV2ts4", "37i9dQZF1DXbri690Qnqkm", "37i9dQZF1DX1i3hvzHpcQV", "37i9dQZF1DWVKIEQFt7RL6", "37i9dQZF1DWYfvJNWU1bKi", "37i9dQZF1DX09enSktFOuB", "37i9dQZF1DWVIeFpvRcEQh", "37i9dQZF1DX7vl8XKmpwdM", "37i9dQZF1DWYJURnnDTZLd", "37i9dQZF1DWVo4cdnikh7Z", "37i9dQZF1DX0ZNoUFyfZDY", "37i9dQZF1DWSw34ykYPoaf", "37i9dQZF1DX5hlePrkMwGp", "37i9dQZF1DX3bcfiyW6qms", "37i9dQZF1DX8rReperOvgQ", "37i9dQZF1DX1UGmKmt2DtZ", "37i9dQZF1DX0TyiNWW7uUQ", "1xl0CluaiouEYY7CspCFZ0", "37i9dQZF1DWY7EoqMbT7wZ", "37i9dQZF1DWTgirUMN05o2", "37i9dQZF1DX2x1COalpsUi", "37i9dQZF1DWZS4GhkDZq7c", "37i9dQZF1DWVpbsT5WxS1s", "37i9dQZF1DWZp7pYV7ceWl"].map(i => ({ k: 'sp', id: i, u: 'https://open.spotify.com/playlist/' + i }))
+  );
+  const K_SRC = 'dj_src_v1';
+  let srcMeta = {}; try { srcMeta = JSON.parse(store.get(K_SRC, '{}')) || {}; } catch {}   // playlist id -> its title, learned once and remembered
+  const ALT = { Heartbreak: ['breakup', 'break up', 'love failure'], Romantic: ['romanc', 'love'], Workout: ['gym', 'fitness'], Chill: ['relax', 'calm'], Party: ['dance'], Kuthu: ['dappan', 'mass'], Melody: ['melod'], Throwback: ['retro', 'classic', 'evergreen', 'old'], '90s hits': ['90'], Folk: ['gaana', 'village'], Devotional: ['devotion', 'bhakti', 'spiritual'], 'Road trip': ['road', 'travel', 'drive'], 'Late night': ['night'], Rainy: ['rain', 'monsoon'], Morning: ['wake'], Motivated: ['motivat', 'inspir', 'confiden'], Friendship: ['friend'], Intense: ['angry', 'rage'], Focus: ['study', 'concentr'], Sleep: ['lullaby'], Happy: ['feel good', 'feel-good', 'joy', 'cheer'], Sad: ['sorrow'], 'A. R. Rahman': ['rahman'], 'Harris Jayaraj': ['harris'], Duets: ['duet'], Wedding: ['marriage', 'kalyan'], 'Missing someone': ['missing', 'miss you'], Cozy: ['cosy'], 'Mass hits': ['mass'] };
+  const srcFor = n => {
+    const ws = [String(n).toLowerCase()].concat(ALT[n] || []).map(w => new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    return SRC.filter(s => { const t = srcMeta[s.id]; return t && ws.some(r => r.test(t)); });
+  };
+  function sortMoods(){                                          // inside each group, moods that have a playlist come first; never while the options are showing
+    const root = document.querySelector('#djmood .dml'); if (!root || dmDone) return;
+    const ix = r => PICKS.findIndex(p => p[0] === r.dataset.v);
+    const has = r => srcFor(r.dataset.v).length > 0;
+    root.querySelectorAll('.dmcs').forEach(box => {
+      const rows = [...box.querySelectorAll('.dmr')].sort((x, y) => ix(x) - ix(y));
+      [...rows.filter(has), ...rows.filter(r => !has(r))].forEach(r => box.appendChild(r));
+    });
+  }
+  /* the options, organised into groups: a fixed list, "On repeat" on its own on top */
+  const GROUPS = [
+    ['Feelings', ['Happy', 'Sad', 'Heartbreak', 'Romantic', 'Missing someone', 'Intense', 'Motivated']],
+    ['Energy', ['Workout', 'Party', 'Kuthu', 'Mass hits']],
+    ['Calm', ['Chill', 'Melody', 'Cozy', 'Focus', 'Sleep', 'Late night', 'Rainy', 'Morning']],
+    ['Moments', ['Road trip', 'Friendship', 'Wedding', 'Duets']],
+    ['Eras and roots', ['Throwback', '90s hits', 'Folk', 'Devotional']],
+    ['Artists', ['Anirudh', 'Yuvan', 'A. R. Rahman', 'Ilaiyaraaja', 'Sid Sriram', 'Harris Jayaraj']]
+  ];
+  function moodHtml(){
+    const D = Object.fromEntries(PICKS);
+    const chev = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    return '<button class="dmr dmfeat" type="button" style="--i:0" data-v="On repeat"><span class="dmt"><b>On repeat</b><span>' + esc(D['On repeat']) + '</span></span>' + chev + '</button>'
+      + GROUPS.map((g, gi) => '<section class="dmg" style="--i:' + (gi + 1) * 2 + '"><h4 class="dmgh">' + esc(g[0]) + '</h4><div class="dmcs">'
+        + g[1].map(n => '<button class="dmr dmc" type="button" data-v="' + esc(n) + '" title="' + esc(D[n] || '') + '">' + esc(n) + '</button>').join('') + '</div></section>').join('');
+  }
+  const srcLoad = {}, srcSongs = {};
+  function srcRead(s){                                           // reads one playlist; YouTube Music ones via the import route, Spotify ones via the Spotify import route
+    if (!srcLoad[s.id]) srcLoad[s.id] = (async () => {
+      const d = await (await (s.k === 'yt' ? api('/import?url=' + encodeURIComponent(s.u)) : apiFB('/spotify/import?url=' + encodeURIComponent(s.u)))).json();
+      if (d.title && srcMeta[s.id] !== String(d.title).toLowerCase()) { srcMeta[s.id] = String(d.title).toLowerCase(); store.set(K_SRC, JSON.stringify(srcMeta)); sortMoods(); }
+      return d.tracks || [];
+    })().catch(() => { delete srcLoad[s.id]; return []; });
+    return srcLoad[s.id];
+  }
+  async function srcTracks(s){                                   // songs ready to play; Spotify songs are matched on YouTube Music first (a random 40 of them)
+    if (srcSongs[s.id]) return srcSongs[s.id];
+    let t = await srcRead(s);
+    if (s.k === 'sp' && t.length) {
+      t = shuf(t.slice()).slice(0, 40); const out = [];
+      for (let i = 0; i < t.length; i += 20) {
+        const b = t.slice(i, i + 20);
+        try {
+          const res = (await (await apiFB('/spotify/match', { tracks: b.map(x => ({ title: x.title, artists: x.artists, duration: x.duration })) })).json()).results || [];
+          res.forEach(r => { if (r && r.match) out.push(r.match); });
+        } catch {}
+      }
+      t = out;
+    }
+    if (t.length) srcSongs[s.id] = t;
+    return t;
+  }
+  let warmed = false;
+  function warmSources(){                                        // learn the playlist titles once, quietly, so the mood list can put the ones with a playlist first
+    sortMoods(); if (warmed) return; warmed = true;
+    const todo = SRC.filter(s => !srcMeta[s.id]); let n = 0;
+    const worker = async () => { while (n < todo.length) { const s = todo[n++]; await srcRead(s); await sleep(250); } };
+    worker(); worker();
+  }
+  async function fromSrc(pl, tok){
+    if (!pl.moods.length) return [];
+    const c = shuf([].concat(...pl.moods.map(srcFor)));
+    for (const s of c.slice(0, 3)) {
+      const t = await srcTracks(s); if (tok !== djTok) return [];
+      if (t.length >= 10) return t;
+    }
+    return [];
+  }
+
+  /* ---------- what DJ says: lots of lines per mood, picked so nothing repeats until it has all been used ---------- */
+  const TALK = {
+    Sad: {
+      ack: ['I hear you. Some days just feel heavy, and that’s okay.', 'Sounds like today took a bit out of you. I’ve got you.', 'It’s alright to not be alright for a while. You don’t have to explain it to me.'],
+      body: ['So I’m putting together a gentle mix, songs that sit with you instead of rushing you along. No pressure to feel better, just let them play.', 'I’m picking slow, honest songs, the kind that understand without saying much. Take your time with them.', 'This one is full of soft melodies and a few tender lyrics. Let them say the things that are hard to say out loud.'],
+      aside: ['Sometimes the right sad song feels like a friend who simply listens.', 'There’s no timer on a mood like this. I’ll keep the songs coming for as long as you want them.', 'If you need to sit quietly for a minute, that’s fine too. The music will keep you company.', 'A good cry and a good song have a lot in common. Both leave you a little lighter.', 'Slow songs are underrated. They let the feeling move through instead of getting stuck.']
+    },
+    Happy: {
+      ack: ['Now that’s what I like to hear. Good mood detected.', 'Love the energy. Let’s make it even better.', 'A good day deserves a good soundtrack, so let’s do it properly.'],
+      body: ['I’m lining up bright, feel-good songs with a bounce in them. The kind you catch yourself tapping along to.', 'Expect warm melodies, upbeat rhythms, and maybe a smile you didn’t plan on.', 'This mix is all sunshine and good tempo. Sing along if you feel like it, I won’t tell anyone.'],
+      aside: ['Good moods are contagious, so go ahead and spread a little.', 'If your foot isn’t tapping yet, give it another song.', 'Happy songs hit different when you’re actually happy. Enjoy this one.', 'Nothing wrong with a little singing at your desk, or in the kitchen, or anywhere really.', 'Keep that smile going. The next few songs should help.']
+    },
+    Workout: {
+      ack: ['Alright, time to get moving.', 'Let’s go. Energy first, excuses later.', 'Gym mode activated.'],
+      body: ['I’m stacking up high energy songs with strong beats, the kind that make one more rep feel possible.', 'Expect driving rhythms and big drops. Keep your pace steady and let the tempo carry you.', 'This mix is built to keep your heart rate up and your focus sharp. Lace up and let’s roll.'],
+      aside: ['Remember to breathe and drink some water. The music will handle the motivation.', 'Strong beats make the last set feel shorter.', 'Don’t stop now. You’re doing better than you think.', 'If a song is too slow for you, skip ahead. I won’t take it personally.', 'Push through the next few minutes. The good part is coming.']
+    },
+    Chill: {
+      ack: ['Easy now. Let’s slow things down.', 'Sounds like you’ve earned a breather.', 'Time to unwind. You’re in good hands.'],
+      body: ['I’m picking mellow songs with soft edges, nothing that asks too much of you.', 'Expect smooth melodies and relaxed rhythms. Lean back, loosen your shoulders, and let the day fade.', 'This is a calm, easy mix. Think warm lights, a comfortable seat, and nowhere to be.'],
+      aside: ['Take a slow breath in, and let it out. Nice.', 'There’s no hurry in this mix. Stay as long as you like.', 'Sometimes doing nothing, with the right song on, is exactly the plan.', 'If your day was loud, this part is for you.', 'Soft music, slow evening. I could get used to this.']
+    },
+    Sleep: {
+      ack: ['Sounds like it’s time to wind down for the night.', 'Let’s get you ready for a proper rest.', 'Long day. Let’s ease you toward sleep.'],
+      body: ['I’m choosing very soft, slow songs, quiet enough to drift off to. Dim the lights, and let your thoughts settle.', 'This mix is all gentle melodies and low energy. Don’t fight the sleepiness, just follow it.', 'Expect lullaby-like tunes and calm, steady rhythms. I’ll keep my voice down too.'],
+      aside: ['Whenever you’re ready, just close your eyes. I’ll keep things quiet.', 'Let your shoulders drop and your jaw relax.', 'No need to stay awake for this. The music will play on its own.', 'Tomorrow can wait. Tonight is for rest.', 'Easy breaths. Slow songs. Sweet dreams are on the way.']
+    },
+    Focus: {
+      ack: ['Locking in. I like the commitment.', 'Time to get things done. I’ll stay out of your way.', 'Focus mode. Let’s clear the noise.'],
+      body: ['I’m picking steady, calm songs that sit in the background without grabbing your attention. They’re here to help you think, not distract you.', 'Expect even tempos and soft textures, the kind of music that fades into the work and helps the hours go by.', 'This mix is built for concentration. I’ll keep my interruptions short, promise.'],
+      aside: ['Small steps count. Keep going, you’re doing fine.', 'If your mind wanders, that’s normal. Just bring it back gently.', 'Consider a quick stretch and a sip of water when you reach a good stopping point.', 'Deep work likes a steady rhythm, and I’ll provide one.', 'One task at a time. You’ve got this.']
+    },
+    Party: {
+      ack: ['Now we’re talking. Party mode, on.', 'Alright, let’s turn this into a night.', 'You came to have fun, so let’s have fun.'],
+      body: ['I’m loading up big, danceable songs with bass you can feel and hooks everyone knows. Get ready to move.', 'Expect high energy tracks, loud choruses, and hardly a slow moment.', 'This mix is all about the dance floor. Grab your friends, or dance alone, I’m not judging.'],
+      aside: ['Turn it up a notch. The neighbours will understand.', 'If you’re not dancing yet, you’re still warming up.', 'The best part of a party playlist is singing along badly, together.', 'Keep the energy high. We’re just getting started.', 'Somebody grab the aux cord, because I’ve got this one.']
+    },
+    Romantic: {
+      ack: ['Ah, a little romance. I approve.', 'Love is in the air, or at least in the playlist.', 'Something sweet for the heart, coming right up.'],
+      body: ['I’m choosing tender melodies and heartfelt lyrics, the kind that make you think of someone special.', 'Expect warm voices and slow, swaying rhythms. Perfect for a quiet evening, or a message you’ve been meaning to send.', 'This mix is soft, sweet, and a little dreamy. Let it set the mood.'],
+      aside: ['Love songs say what we sometimes can’t. Let them speak for you.', 'If someone’s on your mind right now, this might be a good time to tell them.', 'Candles are optional, but they do help.', 'There’s something about a slow song that makes time feel kinder.', 'Go on, smile if you’re thinking of someone.']
+    },
+    'Road trip': {
+      ack: ['Windows down, then. Let’s hit the road.', 'Long drive ahead? I’ve got you covered.', 'Travel mode. Good choice.'],
+      body: ['I’m putting together songs that feel like open roads, easy to sing along to and just the right speed for the journey.', 'Expect a mix of upbeat favourites and mellow cruisers. Something for every stretch of the trip.', 'This mix is built for the miles. Keep your eyes on the road and let the music handle the mood.'],
+      aside: ['Good company and good songs make any distance feel shorter.', 'If you’re driving, stay alert, and keep the volume at a sensible level.', 'Every road trip needs at least one song everybody sings together.', 'Look out of the window for a minute. The best views don’t last.', 'The journey is half the fun, and the music is the other half.']
+    },
+    Intense: {
+      ack: ['Sounds like you’ve got something to let out. Go for it.', 'Alright, let’s turn that frustration into something useful.', 'Big feelings need big songs.'],
+      body: ['I’m lining up loud, hard-hitting tracks with a lot of fire in them. No holding back in this mix.', 'Expect heavy beats, powerful vocals, and plenty of attitude. Let it all out.', 'This one is raw and powerful. Shout along if it helps. I won’t mind.'],
+      aside: ['Sometimes you just need a song that’s as fired up as you are.', 'Take a deep breath after this one. You’ve earned it.', 'Let the music carry the weight for a while.', 'It’s good to get it out. Better in a song than anywhere else.', 'Feeling any better yet? A couple more songs, and we’ll see.']
+    },
+    Throwback: {
+      ack: ['Ah, the good old days. Let’s take a trip back.', 'Nostalgia mode. My favourite kind.', 'Time to dust off some classics.'],
+      body: ['I’m pulling out old favourites, the songs that played on repeat years ago and still sound great today.', 'Expect timeless melodies and voices you know by heart. Some of these might bring back a memory or two.', 'This mix is a walk through the past. Sing the words you still remember, I bet it’s more than you think.'],
+      aside: ['Old songs have a way of bringing back whole afternoons.', 'Funny how a melody can remember things we forgot.', 'Some songs never age. They just get better with time.', 'Who were you listening to these with, back then?', 'Classics are classics for a reason. Enjoy the ride.']
+    },
+    Rainy: {
+      ack: ['Rain outside, music inside. Perfect.', 'A rainy day deserves its own soundtrack.', 'Listen to that weather. Let’s match it.'],
+      body: ['I’m picking soft, moody songs that go with the sound of raindrops. Warm, a little wistful, and very cosy.', 'Expect gentle melodies and slow rhythms, ideal for watching the rain from a window.', 'This mix is all about cosy vibes. Grab something warm to drink and settle in.'],
+      aside: ['Is there anything better than a good song and the sound of rain?', 'Rainy days slow everything down, and that’s not a bad thing.', 'A warm drink would go really well with this one.', 'Watch the window for a bit. The rain is putting on a show.', 'Cosy weather, cosy songs. Stay in as long as you like.']
+    },
+    Morning: {
+      ack: ['Good morning to you. Let’s start the day right.', 'A fresh day, a fresh playlist.', 'Rise and shine. I’ve got your soundtrack ready.'],
+      body: ['I’m choosing bright, gentle songs to ease you into the day, nothing too loud, nothing too slow.', 'Expect warm melodies and light rhythms, the musical version of a good stretch and a cup of tea.', 'This mix is all about a fresh start. Take your time, the day isn’t going anywhere.'],
+      aside: ['A good morning song can set the tone for the whole day.', 'Have you had some water yet? It’s a good first step.', 'Open a window if you can. Some fresh air will go nicely with this.', 'No rush. Let the day come to you.', 'Whatever’s ahead today, you’re starting it with good music.']
+    },
+    Motivated: {
+      ack: ['Love that attitude. Let’s keep it going.', 'Feeling driven? Let’s fuel it.', 'Time to chase that goal.'],
+      body: ['I’m lining up powerful, uplifting songs with big choruses to keep you moving forward.', 'Expect confident beats and inspiring lyrics, perfect for pushing through whatever’s in front of you.', 'This mix is all about momentum. Pick a task and let the music get you started.'],
+      aside: ['Big things start with a small step. Take it now.', 'You’re closer than you were this morning. Keep going.', 'Believe in the work, and the work will show up.', 'Don’t wait for the perfect moment. Use this one.', 'Every great effort starts with a song like this.']
+    }
+  };
+  const GEN = {
+    ack: ['You said {x}, and I love that.', '{x}. That’s a good one. Let me see what I can find.', 'Interesting choice. {x}, coming right up.'],
+    body: ['I’m searching for songs that fit that feeling, and mixing them so no two in a row feel the same.', 'Expect a blend of favourites and a few surprises that match your mood.', 'This mix is built just for you, starting with how you’re feeling right now.'],
+    aside: ['Music has a way of understanding us even when words don’t.', 'Skip anything that doesn’t fit, I won’t mind a bit.', 'A good mix always has a few surprises. Keep an ear out.', 'Sit back and enjoy, there’s plenty more where this came from.', 'That’s the beauty of music. It’s always there when you need it.']
+  };
+  const GREET = {
+    morning: ['Good morning, and welcome to Isai DJ.', 'Morning! You’re tuned in to Isai DJ.', 'Rise and shine, this is Isai DJ.'],
+    afternoon: ['Good afternoon, and welcome to Isai DJ.', 'Hey there, this is Isai DJ, keeping your afternoon company.', 'Afternoon! You’re tuned in to Isai DJ.'],
+    evening: ['Good evening, and welcome to Isai DJ.', 'Evening! You’re tuned in to Isai DJ.', 'Hey, it’s Isai DJ, and I’m glad you’re here this evening.'],
+    night: ['It’s late, and you’re still here with Isai DJ. I like that.', 'Hello, night owl. This is Isai DJ.', 'Late night, quiet hours, and Isai DJ. Let’s make it a good one.']
+  };
+  const LANGLINE = {
+    tamil: ['I’m digging into the Tamil catalogue for this one.', 'Tamil songs only, just as you asked.', 'Today’s mix is all Tamil.'],
+    english: ['I’m keeping it all in English this time.', 'English songs only, coming right up.', 'Today’s mix is all English.'],
+    both: ['I’m blending Tamil and English together, so you get the best of both.', 'Expect Tamil and English songs, side by side.', 'Tamil and English, shuffled together.']
+  };
+  const CLOSER = ['So settle in, turn it up a little, and let the music take it from here.', 'Get comfortable, and let’s get started.', 'Alright, that’s enough from me. Let the music do the talking.', 'Sit back, and I’ll take care of the rest.', 'Here we go.'];
+  const FIRSTUP = ['First up, {t} by {a}.', 'Kicking things off, it’s {t} from {a}.', 'And we’re starting with {t}, by {a}.'];
+  const REACT = ['That was {p}.', '{p}. Good one.', 'Hope you enjoyed {p}.', '{p} just wrapped up.'];
+  const TRACK_TA = ['Here’s {t} by {a}.', '{a}, with {t}.', 'Up next, {t} from {a}.', 'Now playing, {t}, by {a}.', 'Coming up, {t}, from {a}.'];
+  const TRACK_T = ['Here’s {t}.', 'Up next, {t}.', 'This is {t}.'];
+  const TRACK_A = ['More from {a}.', 'This one’s by {a}.', 'Here’s another one from {a}.'];
+  const TRACK_0 = ['Here’s the next one.', 'Up next.', 'Here comes another.'];
+  const NOW_TA = ['This is {t} by {a}.', 'That’s {a}, with {t}.', 'You’re listening to {t}, by {a}.', '{t}, from {a}.', 'This one’s {t}, by {a}.'];
+  const NOW_T = ['This is {t}.', 'You’re listening to {t}.', 'That’s {t}.'];
+  const NOW_A = ['This one’s from {a}.', 'That’s {a}.', 'More {a} for you.'];
+  const NUDGE = ['Enjoy.', 'Let it play.', 'Turn it up a little.', 'Take it away.', 'Here we go.'];
+  const SHAPES = [['react', 'aside', 'track'], ['aside', 'track', 'nudge'], ['stat', 'track'], ['react', 'track', 'nudge'], ['track', 'aside'], ['stat', 'aside', 'track']];
+
+  /* ---------- more to say: extra lines per mood, plus time-of-day thoughts and little bridges so it flows like a real host ---------- */
+  const MORE = {
+    Sad: {
+      ack: ['Hey, I’m here. Let’s take it slow.', 'That sounds like a lot. Let’s find something that fits.', 'Okay. No rush, and no need to put on a brave face with me.'],
+      body: ['I’m going for quiet, tender songs, the ones that feel like a hand on your shoulder.', 'Nothing flashy here. Just soft voices and slow melodies, at your pace.', 'I’ve got a few songs that tend to help when the day feels like this. Let’s start with those.'],
+      aside: ['You don’t have to be fine right now.', 'Sometimes the song says it better, so let it.', 'Take your time. I’m not going anywhere.', 'A little ache in a melody can feel strangely comforting.']
+    },
+    Happy: {
+      ack: ['Ooh, good vibes. I’m in.', 'Okay, I can hear the smile from here.', 'Now we’re talking. Let’s keep that mood right where it is.'],
+      body: ['I’ve got bright songs with a little bounce, just right for a mood like yours.', 'Think sunny melodies and tunes you’ll want to hum for the rest of the day.', 'This one’s light, warm and easy to love. Let’s see if we can make it even better.'],
+      aside: ['Honestly, this is my favourite kind of mix to put together.', 'See? Told you the next one would be good.', 'Whatever got you this happy, I hope it sticks around.', 'Quick reminder: you’re allowed to dance in the middle of the room.']
+    },
+    Workout: {
+      ack: ['Okay, let’s get that energy up.', 'Love it. Warm up first, then we go.', 'Alright, you bring the effort, I’ll bring the beats.'],
+      body: ['I’m picking songs with a real pulse, so your pace never has to think about itself.', 'This mix starts strong and keeps building, so you can ride it all the way through.', 'Big rhythm, big chorus, no wasted time. That’s the plan.'],
+      aside: ['Shoulders down, chin up, keep going.', 'You’re further in than when we started, so that’s progress.', 'Don’t forget your water, champ.', 'One more song, then see how you feel.']
+    },
+    Chill: {
+      ack: ['Ahh, yes. Let’s ease into it.', 'Alright, no pressure, no rush. Let’s just float for a bit.', 'Sounds like a perfect time to slow down.'],
+      body: ['I’m keeping it soft and unhurried, so you can drift along with it.', 'Think warm tunes, loose rhythms, and nothing that needs your attention.', 'This one’s like a slow walk with no destination. I think you’ll like it.'],
+      aside: ['This is the part where you put the phone down. Well, almost.', 'There’s something nice about a song that doesn’t ask for anything.', 'Stretch out a little. I won’t tell.', 'Quiet moments like this are worth protecting.']
+    },
+    Sleep: {
+      ack: ['Alright, let’s get you comfy.', 'Sleepy already? Good. Let’s help it along.', 'Okay, lights low, volume low.'],
+      body: ['I’m picking songs that feel like a soft blanket, slow and warm.', 'Nothing sudden, nothing loud. Just easy melodies that fade into the quiet.', 'These songs are in no hurry at all, and neither are you.'],
+      aside: ['Let your eyes get heavy whenever they want.', 'Phone down soon, and let the songs do the rest.', 'Nothing left to do today. You did enough.', 'Breathe in slowly, then out even slower.']
+    },
+    Focus: {
+      ack: ['Okay, heads down. Let’s do this.', 'Got it. I’ll keep things steady and out of your way.', 'Good call. A little structure goes a long way.'],
+      body: ['I’m choosing songs with a calm, even flow, so your mind can settle into the work.', 'Think background rhythm, nothing that pulls you away from the page.', 'No big surprises in this one. Just a steady groove while you get things done.'],
+      aside: ['If you’ve been sitting a while, roll your shoulders for a second.', 'Half the battle is just starting, and you’ve started.', 'Tiny breaks help. So does water.', 'You’re in the zone. I can tell.']
+    },
+    Party: {
+      ack: ['Yes! Okay, let’s make some noise.', 'Alright, the night is officially on.', 'Oh, it’s a party? Say no more.'],
+      body: ['I’ve got songs with a beat that’ll find your feet whether you like it or not.', 'Big hooks, big bass, and a chorus everyone can shout.', 'Think dance floor energy, from the first song to the last.'],
+      aside: ['If a song makes you want to move, move.', 'This is the part where someone always starts singing way too loudly.', 'Keep it going, the best songs are still ahead.', 'Don’t just stand there. Okay, fine, but only for a second.']
+    },
+    Romantic: {
+      ack: ['Aww, that’s lovely. Let’s set the mood.', 'Okay, something warm for the heart. I’ve got just the thing.', 'Love songs it is. Always a good idea.'],
+      body: ['I’m picking sweet, flowing melodies, the sort that make a quiet room feel a little warmer.', 'Soft voices, gentle rhythm, and lyrics that say what you’re feeling.', 'This mix is easy, tender and a bit dreamy. Perfect for the mood.'],
+      aside: ['Some songs just feel like a particular person, don’t they?', 'A good love song can say it all in three minutes.', 'No pressure, but this would be a nice one to share.', 'Something about a slow melody makes everything feel softer.']
+    },
+    'Road trip': {
+      ack: ['Seatbelt on, let’s roll.', 'Nice, the open road. Great choice.', 'Alright, destination unknown, soundtrack sorted.'],
+      body: ['I’m pulling together songs that sound better with the windows down.', 'Some easy cruisers, some big singalongs. Enough to cover every mile.', 'This mix is made for the long stretches, so there’s no need to touch the dial.'],
+      aside: ['Check the fuel, check the route, then check this song out.', 'Somewhere out there is the perfect road for this one.', 'If you’re the passenger, you’re in charge of music. That’s the rule.', 'Hope the traffic is kind to you.']
+    },
+    Intense: {
+      ack: ['Okay, I’m listening. Let it out.', 'Right, deep breath, then we turn it up.', 'Sounds like you need something with some weight to it.'],
+      body: ['I’m grabbing songs with edge and fire in them. Perfect for burning through that feeling.', 'Hard beats, strong voices, and zero holding back.', 'This one’s loud on purpose. Let it carry what you’re carrying.'],
+      aside: ['It’s fine to be loud for a while.', 'You’re allowed to feel all of it.', 'A few more of these and the edge should start to soften.', 'Music is a much better place to put that energy than anywhere else.']
+    },
+    Throwback: {
+      ack: ['Oh, I love a trip down memory lane.', 'Alright, let’s open the old trunk of songs.', 'Good taste. Some songs just never get old.'],
+      body: ['I’m going back to the ones that made whole years feel special.', 'Think golden melodies and voices that take you right back.', 'These are the evergreens. You’ll know a lot of them before the first line.'],
+      aside: ['I’d bet at least one of these has a story attached for you.', 'They really knew how to build a tune back then.', 'Funny how one melody brings back a whole summer.', 'Hum along. Everyone knows these ones.']
+    },
+    Rainy: {
+      ack: ['Ahh, rain. That’s the best excuse to stay in.', 'Okay, soundtrack for the weather coming right up.', 'Rainy day? Then let’s make it a cosy one.'],
+      body: ['I’m picking songs that sound like raindrops on a window, soft and a little dreamy.', 'Think warm blankets, hot chai, and slow, wistful melodies.', 'Something gentle to match that grey sky outside.'],
+      aside: ['Rain and a good song. I’d say that’s about perfect.', 'Hope you’ve got something warm to hold.', 'There’s a reason rainy days feel like songs.', 'Listen to the rain between the notes for a second.']
+    },
+    Morning: {
+      ack: ['Morning! Let’s get the day going gently.', 'Good start. Let’s ease in.', 'Alright, time to open the curtains and turn this on.'],
+      body: ['I’m choosing sunny, easy songs, a nice gentle way to wake up.', 'Not too loud, not too slow. Just a good, fresh beginning.', 'Think warm light and a cup of something hot. That’s the vibe.'],
+      aside: ['Breakfast is a good idea, just saying.', 'Whatever today is, you’ve got this much covered already.', 'Mornings are kinder with a good song in them.', 'Take your time getting up. The music will wait.']
+    },
+    Motivated: {
+      ack: ['Yes, that’s the spirit.', 'I love this energy. Let’s put it to work.', 'Okay, big goals today. I’m with you.'],
+      body: ['I’m lining up songs that make you stand taller and move faster.', 'Strong choruses, steady drive, and a bit of fire in every one.', 'These are the songs that say, go on, you can do it.'],
+      aside: ['Start before you feel ready. That’s the secret.', 'Look at you, already moving. Keep it up.', 'One thing at a time, and the list gets shorter.', 'Today’s the day. I can feel it.']
+    }
+  };
+  Object.keys(MORE).forEach(k => ['ack', 'body', 'aside'].forEach(f => TALK[k][f].push(...MORE[k][f])));
+  /* a lot more to say, for every option (the ones that had no lines of their own get a full set) */
+  const EXTRA = {"Sad": {"ack": ["Come as you are. There’s no performance needed here.", "Rough day, rough week, whatever it is, I’m glad you told me.", "Let’s keep it soft today."], "body": ["I’m choosing songs with a lot of space in them, so you can breathe between the lines.", "Think slow strings, quiet voices, and lyrics that don’t try to fix anything.", "This one’s built for sitting by the window and letting the evening pass."], "aside": ["You can skip any song that cuts too close. No questions asked.", "Sad songs aren’t about staying sad. They’re about not carrying it alone.", "Some feelings only loosen when a melody gives them somewhere to go.", "Hydrate, and maybe unclench your shoulders a little. Music’s got the rest.", "There’s a strange kind of comfort in a song that already knows how you feel.", "No need to be strong right now. Just listen."]}, "Happy": {"ack": ["Brilliant. Let’s turn that good mood into a proper playlist.", "A happy listener makes my job easy. Here we go.", "Smiling already? Good. Let’s keep it that way."], "body": ["Think bright rhythms, warm hooks and choruses you can’t help but hum.", "I’m going for songs that feel like the first sunny day after a long week.", "It’s a feel-good run, the kind that makes ordinary chores feel like a dance floor."], "aside": ["If you’re humming, that’s a sign the mix is working.", "Good days are worth soundtracking. This is yours.", "Try singing the chorus out loud. It helps, I promise.", "Don’t be surprised if a little dance sneaks in.", "Happy songs sound even better when you’re not waiting for anything.", "Share a song you love with someone today. It doubles the fun."]}, "Workout": {"ack": ["Let’s get that heart rate up.", "Warm-up done? Perfect. Time for the real thing.", "Okay, champion. Let’s move."], "body": ["I’m stacking high-tempo songs with punchy beats so your pace stays up.", "Expect heavy drops, big choruses and no long slow bits to kill the momentum.", "This mix keeps a steady drive, with a few surges to push you through the hard sets."], "aside": ["Breathe on the beat. It makes everything easier.", "One more set. You’ve already done the hard part by showing up.", "Water break is allowed. Champions hydrate.", "Form first, speed second. The music can wait for you.", "Every rep is a small promise you keep to yourself.", "If the song’s too slow for you right now, skip it. I won’t be offended."]}, "Chill": {"ack": ["Easy does it. Let’s slow things down.", "Time to unwind. I’ll handle the music.", "Deep breath in, and let’s begin."], "body": ["I’m picking soft grooves and gentle voices, nothing that asks for your attention.", "Think late-afternoon light, a warm drink and no plans.", "This mix drifts along at its own pace. Let it carry you."], "aside": ["There’s no schedule on this one.", "Put the phone down for a bit if you can. The songs will do the talking.", "Chilling is a skill. You’re doing great.", "A slow song is a small holiday.", "Nothing needs fixing right now. Just let it play.", "Unclench your jaw. Yes, now."]}, "Sleep": {"ack": ["Let’s help you wind down.", "Long day? Let’s send it off gently.", "Time to slow everything down."], "body": ["I’m choosing the softest, slowest songs, with nothing sudden to wake you up.", "Think quiet melodies, low voices and plenty of space between the notes.", "This is a lullaby mix for grown-ups. Dim the lights and let it drift."], "aside": ["Put your phone down once you’re comfortable. The music will keep going.", "Let your breathing slow down to match the songs.", "Tomorrow can wait. Tonight is for resting.", "If your mind is racing, follow the melody instead of the thoughts.", "A cooler room and soft music, that’s all you need.", "Sleep well. I’ll keep it quiet."]}, "Focus": {"ack": ["Let’s get you in the zone.", "Heads down, then. I’ll keep the background steady.", "Focus mode on. I’ll stay out of your way."], "body": ["I’m going for calm, steady songs without much to distract you.", "Think soft rhythm and smooth melodies that sit in the background.", "No big surprises in this mix, just a steady rhythm to work to."], "aside": ["Try working in twenty-five minute rounds. Then take a short break.", "Close the extra tabs. You’ll thank yourself later.", "A tidy desk helps more than you’d think.", "One task at a time. The rest can wait its turn.", "If a song pulls you out of it, skip it. Your attention comes first.", "Stretch your shoulders once in a while. Seriously."]}, "Party": {"ack": ["Now we’re talking. Let’s get this going.", "Party time. Someone turn the lights down.", "Okay, okay, I see you. Let’s dance."], "body": ["I’m lining up the biggest crowd-pleasers, one banger after another.", "Expect heavy beats, singalong hooks and songs nobody can sit through.", "This mix is built to get everyone on their feet, even the shy ones."], "aside": ["If the room isn’t dancing yet, give it one more song.", "The best part of a party is the song everyone sings together.", "Keep the volume up. Your neighbours will understand.", "No wrong dance moves tonight.", "Grab someone and dance. Don’t overthink it.", "Pace yourself. The night’s long and the playlist’s longer."]}, "Romantic": {"ack": ["Aww. Let’s set the mood properly.", "Love is in the air. I’ll find the right songs.", "Something sweet coming right up."], "body": ["I’m picking soft melodies and warm voices, songs that say what words sometimes can’t.", "Expect gentle love songs, a few duets, and a lot of heart.", "This mix is candlelight in musical form. Settle in."], "aside": ["If there’s someone on your mind, send them a message. A song does the rest.", "Love songs hit differently when you’re actually in love.", "The best ones feel like a quiet conversation.", "Some songs are just made for slow walks and good company.", "Dedicate one of these to someone today.", "Warm lights, soft music, nothing to rush. That’s the whole recipe."]}, "Road trip": {"ack": ["Windows down. Let’s hit the road.", "Seatbelt on, destination set. Music next.", "Road trip, here we go."], "body": ["I’m building a mix with great driving rhythms and plenty of singalong choruses.", "Expect open-road songs with just the right amount of energy for the miles ahead.", "This one’s made for long stretches and sunset views."], "aside": ["Someone has to be in charge of snacks. Hope it’s not me.", "The best road trip songs are the ones everyone ends up singing.", "Keep your eyes on the road and your heart on the chorus.", "A good playlist makes any distance feel shorter.", "Stop for chai when you feel like it. The songs will wait.", "Roll down the window for this next one."]}, "Intense": {"ack": ["Alright, let’s turn it up.", "Big feelings call for big songs.", "Okay, no holding back then."], "body": ["I’m picking powerful songs with heavy beats and a lot of drive.", "Expect loud, bold music that doesn’t apologise for itself.", "This mix is all high stakes and strong choruses."], "aside": ["Let it out. That’s what loud songs are for.", "Sometimes you just need the volume up.", "Channel it. Then breathe.", "Intense songs help you say the things you can’t say out loud.", "There’s a calm on the other side of a loud song.", "Turn it up. Then turn it up a little more."]}, "Throwback": {"ack": ["Memory lane, here we come.", "Let’s go back a few years.", "Nostalgia mode activated."], "body": ["I’m pulling out the old favourites, the ones that bring everything flooding back.", "Expect classic songs and the kind of melodies you never really forgot.", "This mix is a time machine with a very good soundtrack."], "aside": ["Where were you when you first heard this one?", "Old songs have a way of holding on to a moment.", "Some songs never get old. They just get dearer.", "Sing along. You still know every word.", "Funny how a few notes can take you right back.", "Old is gold. It really is."]}, "Rainy": {"ack": ["Listening to the rain? Perfect. Let me add to it.", "Rain outside, music inside. Sounds right.", "A rainy mood. I know just what to play."], "body": ["I’m picking soft, dreamy songs that go with the sound of raindrops.", "Think warm blankets, hot tea and gentle melodies.", "Expect romantic and reflective songs, all made for the window seat."], "aside": ["Rain makes every song a little more beautiful.", "Tea, rain and a good song. That’s all you need.", "Don’t rush anywhere. The rain won’t mind.", "The sound of rain is the best background track ever.", "Maybe step out for a minute and listen. Take a deep breath.", "Rain has a way of slowing the whole world down."]}, "Morning": {"ack": ["Good to see you up. Let’s ease into the day.", "Morning! Let’s start this off right.", "Fresh day, fresh songs."], "body": ["I’m putting together bright, gentle songs to wake you up without any shouting.", "Expect soft rhythms and cheerful melodies, like sunlight through the curtains.", "This is a slow build, starting calm and getting brighter as we go."], "aside": ["Drink some water first. Then more music.", "A good morning song sets the tone for everything after it.", "Open a window if you can. Fresh air helps.", "Take a minute before the day takes you.", "Breakfast, music, sunshine. A very good combination.", "Whatever today brings, you’ve started it well."]}, "Motivated": {"ack": ["That’s the spirit. Let’s fuel it.", "Ready to go after it? So am I.", "Let’s make today count."], "body": ["I’m choosing songs that build energy with strong beats and a lot of heart.", "Expect anthems and big choruses, all pointing forward.", "This mix is built to keep your head up and your steps firm."], "aside": ["Small steps still count as steps.", "Start before you feel ready. That’s how it works.", "You’ve already come further than you think.", "Make the first move. The rest will follow.", "Tired is allowed. Quitting isn’t the only option though.", "Go do the thing. I’ll be here when you’re done."]}, "Heartbreak": {"ack": ["I’m sorry. That’s one of the hardest feelings there is.", "Oh, that hurts. Let’s find something that understands.", "I’m here. You don’t have to explain a thing.", "Okay. Take a breath. Let’s get through this one together.", "Hearts mend slowly. Let’s give yours some company."], "body": ["I’m choosing tender songs, the ones that hold the hurt instead of hurrying it away.", "Expect slow melodies and honest lyrics, the kind that say what you’re feeling.", "This mix is for the ache. It doesn’t try to cheer you up, it just keeps you company.", "Think soft voices, a few sad classics, and a lot of space to feel it all.", "I’ll start gentle and let it find its own way from there."], "aside": ["It’s okay to miss them. It’s also okay to move on, in your own time.", "Nobody heals on a schedule.", "Some songs sound like they were written about you. They weren’t, but it helps.", "You’re allowed to cry. It’s part of the way through.", "This will hurt less, even if it doesn’t feel like it right now.", "Be kind to yourself tonight. Water, food, and a long breath.", "The right song can make the heaviness feel shared.", "Skip any song that’s too much. You’re in charge.", "One day you’ll hear these songs and smile instead.", "You loved deeply. That says a lot about you."]}, "Melody": {"ack": ["Melody it is. A good choice.", "Ah, a soft one. I love these.", "Let’s go for something sweet and smooth.", "Beautiful tunes coming right up.", "Smooth and gentle. I’ll do my best."], "body": ["I’m picking songs where the tune does most of the talking.", "Think lovely hooks, soft rhythms and voices that glide.", "This mix is all about the melody, nothing loud, nothing rushed.", "Expect classic tunes and a few new ones that deserve to be classics.", "I’m going for songs you could hum on a quiet evening."], "aside": ["A good melody sticks with you long after the song ends.", "Some tunes just feel like home.", "Close your eyes for this next one.", "Melodies are like old friends. They show up when you need them.", "Notice how the voice and the tune seem to lean on each other.", "A simple tune can say more than a long speech.", "Hum along if you want. Nobody’s listening.", "There’s no hurry in a beautiful song.", "Let the tune lead and see where it goes.", "Pure, simple and lovely. That’s what melody is all about."]}, "Kuthu": {"ack": ["Kuthu time! Let’s shake the room.", "Oh, we’re going loud. I love it.", "Time for some proper dance floor energy.", "Kuthu mode on. Mind the furniture.", "Let’s get everyone up on their feet."], "body": ["I’m lining up high-energy beats with that unmistakable swing.", "Expect heavy drums, big hooks and a groove you can’t sit through.", "This mix is all about the dance. No slow songs allowed.", "Think wedding procession energy, minus the traffic.", "The tempo’s high, the volume’s higher. Let’s go."], "aside": ["If your feet aren’t moving, try standing up.", "The best kuthu moments come with friends and a lot of noise.", "Don’t hold back on the moves.", "Warm up your legs. This is going to get fun.", "Nobody’s watching. Or everyone is. Dance anyway.", "This is what the volume knob is for.", "Kuthu has a way of making everyone forget their worries.", "Try the steps you know. Make up the ones you don’t.", "A little sweat is the sign of a good song.", "Keep going. The next one’s even better."]}, "Late night": {"ack": ["Still awake? I’m glad you’re here.", "The quiet hours are the best ones for music.", "Late night, low lights. Perfect.", "Night owl, welcome. Let’s settle in.", "The world’s gone quiet. Let’s fill it gently."], "body": ["I’m choosing mellow songs that suit the hours when everything else is asleep.", "Think soft beats, low voices and a little bit of dreaminess.", "This mix is for thoughts that only come out after midnight.", "Expect slow, warm songs with room to wander.", "It’s all hush and groove tonight."], "aside": ["Nights are good for thinking. Just don’t overthink.", "It’s okay to stay up a little. Just don’t forget to rest.", "There’s a different kind of peace after midnight.", "The best songs sound better in the dark.", "Whatever’s on your mind, the music will keep you company.", "Keep the volume low and the lights lower.", "Some of the best conversations happen at this hour.", "A cup of something warm goes well with this.", "Remember to get some sleep when the playlist ends.", "The city sounds different at night. So does the music."]}, "Friendship": {"ack": ["Friends, music and good times. Let’s go.", "This one’s for your people. I love it.", "Time to celebrate the ones who stick around.", "Good friends deserve good songs.", "Call a friend if you can. This is the soundtrack."], "body": ["I’m picking cheerful songs about friendship, laughter and the good old days.", "Expect feel-good tunes that are perfect for sharing.", "This mix is full of songs you’d want to sing together.", "Think road trips, tea breaks and inside jokes.", "It’s all warm, bright and just a little bit nostalgic."], "aside": ["Good friends are the best kind of luck.", "Send this one to the friend you haven’t talked to in a while.", "Some songs make you think of a person instantly.", "The best memories involve a friend and a terrible joke.", "A real friend knows your song before you press play.", "Plan something with your friends this week. You’ll be glad you did.", "Friendship songs hit differently with people around.", "Cheers to the ones who’ve been there through everything.", "You don’t need a big reason to call a friend.", "Sing along loudly. That’s what friends are for."]}, "90s hits": {"ack": ["The nineties! What a golden time for music.", "Ah, the 90s. I know just where to look.", "Let’s go back to the era of cassettes and radios.", "Great choice. Some of the best melodies came from then.", "Get ready for a trip down memory lane."], "body": ["I’m picking classic hits that defined a whole generation.", "Expect timeless melodies and songs everyone still knows by heart.", "This mix is full of old favourites that still sound fresh.", "Think tape recorders, radio dedications and rainy afternoons.", "The songs are old, the feeling is brand new."], "aside": ["They really don’t make them like this anymore.", "Some of these songs are practically family.", "You probably know every word of this one.", "Radio dedications were something special.", "The nineties had a warmth that’s hard to describe.", "Funny how a tune can remind you of a whole summer.", "Ask someone older about their favourite song from then.", "Timeless is the right word for these.", "The melodies from this era are still hard to beat.", "Sing along. You’ve earned it."]}, "Folk": {"ack": ["Folk it is. Earthy and honest, I love it.", "Time for some roots. Great choice.", "Songs from the soil. Coming right up.", "Let’s go back to where the music began.", "Raw and real. That’s what folk is about."], "body": ["I’m picking songs full of rhythm, drums and stories from the heart.", "Expect lively beats, earthy voices and a whole lot of soul.", "This mix is about village festivals, harvest days and open skies.", "Think strong voices, simple tunes and plenty of energy.", "It’s all about honest storytelling and good rhythm."], "aside": ["Folk songs carry stories older than any of us.", "The drums alone are worth listening to.", "These songs were made to be sung together.", "No studio tricks, just real voices and real feeling.", "There’s a lot of history in a single folk tune.", "Try tapping the rhythm along on a table.", "Folk music has a way of making you feel connected.", "Listen for the little details in the percussion.", "Some of the best songs were never written down.", "Good music doesn’t need to be fancy."]}, "Devotional": {"ack": ["A peaceful choice. Let’s begin.", "Let’s bring a little calm into your day.", "Devotional music, with respect and care.", "Let’s fill the room with something gentle.", "A good way to start, or to end, a day."], "body": ["I’m picking calm, uplifting songs that bring a sense of peace.", "Expect soothing voices and sacred melodies.", "This mix is all about stillness and gratitude.", "Think morning prayers, quiet evenings and a little light.", "I’ll keep it gentle and respectful throughout."], "aside": ["Take a moment to breathe slowly.", "Peace often starts with a quiet minute.", "Let the music settle your thoughts.", "Gratitude is a good habit, even in small doses.", "Light a lamp if you like. It adds to the mood.", "These songs have comforted people for generations.", "Sit comfortably and just listen.", "Calm is something you can choose, even for a few minutes.", "Let go of anything heavy for now.", "Whatever you believe, peace is something we can all use."]}, "Missing someone": {"ack": ["Missing someone is hard. I’m here with you.", "Distance can feel so heavy. Let’s ease it a little.", "Thinking of someone far away? Let’s find the right songs.", "I understand. Let’s keep you company.", "Those feelings are real. Let’s give them some music."], "body": ["I’m picking soft, warm songs about longing and the people we carry with us.", "Expect gentle melodies and lyrics that understand how it feels.", "This mix is for the quiet moments when someone’s on your mind.", "Think old letters, long calls and the wish that they were here.", "I’ll keep it tender and honest."], "aside": ["A call or a message might make their day too.", "Missing someone means they matter to you.", "Distance can’t really undo a bond.", "Send them a song if you can. It says a lot.", "Some songs make the miles feel shorter.", "It’s okay to feel a little sad about it.", "The next time you meet will be even sweeter.", "Look at an old photo if it helps. Smile at the memory.", "Hold on to the good stuff. It lasts.", "They’re probably thinking about you too."]}, "Cozy": {"ack": ["Cosy it is. Grab a blanket.", "Warm and soft, coming right up.", "Let’s make it comfortable.", "Perfect. A snug little mix for you.", "Slippers on, then. I’ll handle the music."], "body": ["I’m picking soft, warm songs that feel like a hug.", "Think steaming cups, soft lighting and a lazy afternoon.", "Expect gentle voices and slow melodies, nothing sharp or sudden.", "This is a mix for staying in, and loving it.", "It’s all warm tunes and easy rhythms."], "aside": ["A hot drink goes perfectly with this.", "Cosy is a feeling. You’re already there.", "There’s nothing wrong with doing nothing for a while.", "Soft blankets and slow songs, the best combination.", "The outside world can wait a bit.", "Maybe read a few pages while this plays.", "A little warmth goes a long way.", "Put your feet up. You’ve earned it.", "Dim the lights if you like. It helps.", "Staying in is underrated."]}, "Duets": {"ack": ["Two voices, one song. I love duets.", "Duets are some of the best songs there are.", "Let’s find some lovely pairs.", "Great choice. These songs are all about chemistry.", "A duet mix, coming right up."], "body": ["I’m picking songs where two voices play off each other beautifully.", "Expect sweet conversations in song, with great harmony.", "This mix is full of back and forth, flirting and heartfelt moments.", "Think love stories told by two singers.", "It’s all about how well the voices fit together."], "aside": ["Listen to how the voices answer each other.", "The best duets feel like a real conversation.", "Try picking out which part you’d sing.", "Some pairs just sound perfect together.", "A duet is a little love story in itself.", "Sing one of the parts. Find a partner for the other.", "Notice when the voices finally come together.", "Great harmony is a small miracle.", "Two voices can say what one can’t.", "Dedicate this one to someone special."]}, "Wedding": {"ack": ["A wedding? How lovely. Let’s celebrate.", "Wedding bells! Let’s make it musical.", "Time for some festive songs.", "Congratulations to whoever’s getting married.", "Let’s fill the hall with joy."], "body": ["I’m picking joyful songs for dancing, celebrating and everything in between.", "Expect festive tunes, family favourites and lively beats.", "This mix is all colour, flowers and happy tears.", "Think grand entrances, laughter and a lot of dancing.", "There’s a little something for every relative."], "aside": ["Don’t forget to eat. Weddings are secretly about the food.", "Someone always cries. It’s tradition.", "Dance even if you don’t know the steps.", "Everyone’s a good dancer at a wedding.", "Take lots of photos. Memories matter.", "Wishing the couple a lifetime of happiness.", "The best songs get the whole family on the floor.", "Stay hydrated. It’s a long day.", "Aunties and uncles always have the best moves.", "Enjoy every moment. It goes by fast."]}, "Mass hits": {"ack": ["Mass mode on. Let’s go.", "Time for the big ones.", "Oh, we’re going full hero. I like it.", "Get ready for some goosebumps.", "Stylish and loud. Here we go."], "body": ["I’m picking songs with huge beats and entrances that make the walls shake.", "Expect heavy drums, swagger and chorus lines that demand a whistle.", "This mix is made for slow-motion walks and big moments.", "Think intro scenes, fans cheering and a lot of attitude.", "It’s all swagger and thunder."], "aside": ["Some songs are just built for the big screen.", "Imagine the slow-motion shot for this one.", "Turn it up for the drop.", "Whistles are encouraged.", "This is the kind of song that gives you chills.", "Walk a little taller for this next one.", "You don’t need an audience to feel like a hero.", "The bass on this one is something else.", "Fans know exactly which part to wait for.", "Pure style, nothing else."]}, "Anirudh": {"ack": ["Anirudh, a fan favourite. Let’s go.", "Great pick. Let’s turn it up.", "Anirudh it is. Brace yourself.", "You’ve got good taste. Let’s begin.", "Time for some proper chartbusters."], "body": ["I’m lining up a mix of high-energy hits and softer moments, all in that signature style.", "Expect big beats, catchy hooks and plenty of songs you already know.", "This mix swings between loud and tender, just like his music.", "Think stadium-sized choruses and late-night melodies.", "There’s a lot to choose from, so I’ll keep it varied."], "aside": ["Notice how the beat grabs you right from the start.", "A good hook is hard to forget. These have plenty.", "There’s a song for every mood here.", "You’ve probably got a favourite already. Skip ahead if you like.", "Some of these are pure fire on a loud speaker.", "Even the slower ones have a nice kick.", "Try spotting the little details in the background.", "This catalogue has quite a range.", "It’s hard to stay still for most of these.", "There’s nothing like a good chorus with friends."]}, "Yuvan": {"ack": ["Yuvan, a great choice.", "A lovely pick. Time for some Yuvan.", "Yuvan Shankar Raja coming right up.", "Those melodies are special. Let’s start.", "Great taste. Let’s dive in."], "body": ["I’m picking a mix of soulful melodies and cool rhythms from a much-loved composer.", "Expect heartfelt songs that mix easily between sweet and sad.", "This mix has a lot of late-night feeling and a little bit of swagger.", "Think rainy evenings and long drives.", "I’ll move between romance, sadness and good vibes."], "aside": ["Some of these songs are practically a mood on their own.", "Listen to the little touches in the music.", "There’s something deeply personal in these melodies.", "Many people have a Yuvan song for every phase of life.", "The mood in these tunes is hard to put into words.", "Close your eyes for this next one.", "Late-night drives and these songs go together well.", "Notice how simple and strong the tunes feel.", "There’s a real depth in the quiet parts.", "You probably have a favourite from this list."]}, "A. R. Rahman": {"ack": ["A. R. Rahman, a legend. Let’s begin.", "An excellent choice. This is going to be good.", "Time for some pure magic.", "Great pick. There’s so much to enjoy.", "Let’s put on something timeless."], "body": ["I’m picking a mix across many moods, from gentle melodies to grand, soaring songs.", "Expect rich arrangements and tunes that stay with you.", "This mix moves through love, longing and celebration.", "Think big orchestras, quiet moments and unforgettable voices.", "It’s a lot of ground to cover, so I’ll start with favourites."], "aside": ["Listen closely, there’s so much going on in the background.", "Some of these songs feel like they’re from another world.", "The layers in these arrangements are worth noticing.", "You can listen to these a hundred times and still hear something new.", "The melodies here have stood the test of time.", "There’s a spiritual feeling in some of these tracks.", "It’s music that works with headphones on or speakers up.", "A great song makes you stop and listen. These do.", "Some of these defined a whole era.", "There’s a reason people keep coming back to these."]}, "Ilaiyaraaja": {"ack": ["Ilaiyaraaja, the maestro. Let’s begin.", "A timeless choice. Let’s sit back.", "You’ve picked the classics. Lovely.", "Great pick. These are special.", "Let’s listen to some pure gold."], "body": ["I’m picking a mix of classic melodies that have been loved for generations.", "Expect lush strings, beautiful tunes and songs that feel like home.", "This mix has everything from soft lullabies to lively numbers.", "Think old radios, long evenings and memories.", "These are songs that wrap you up like a warm shawl."], "aside": ["Some of these songs feel like old friends.", "Notice how the music tells its own story.", "Many of these tunes still sound fresh today.", "The strings alone are worth the listen.", "Everyone seems to have a memory tied to a song like this.", "Perfect for a quiet evening.", "Classic melodies never go out of style.", "There’s so much feeling in the simplest tunes.", "These are the songs families sing together.", "An evening with these is never wasted."]}, "Sid Sriram": {"ack": ["Sid Sriram, what a voice. Let’s go.", "A lovely choice. That voice is special.", "Time for some silky vocals.", "Great pick. Let’s start.", "You’ve got a good ear. Here we go."], "body": ["I’m lining up soulful songs that really show off that voice.", "Expect smooth melodies, emotional lyrics and a lot of heart.", "This mix is full of love songs and quiet moments.", "Think dreamy ballads with a lot of feeling.", "I’ll keep it mostly tender, with a few uplifting ones in between."], "aside": ["Listen to how he bends a note. It’s something.", "A great voice can say more than the words.", "These songs feel even better with headphones.", "Notice the emotion in the long notes.", "Some of these are perfect for late nights.", "There’s a real warmth in the sound.", "Close your eyes and let the voice lead.", "Many of these have become favourites for a reason.", "You can almost feel the lyrics.", "A good voice makes any melody special."]}, "Harris Jayaraj": {"ack": ["Harris Jayaraj, great choice.", "Stylish and melodic. Let’s begin.", "A fan favourite. Here we go.", "Lovely pick. Let’s enjoy it.", "Time for some polished hits."], "body": ["I’m picking songs with smooth melodies, sleek rhythms and plenty of charm.", "Expect catchy hooks and a stylish touch throughout.", "This mix has a little bit of everything, from romance to pure fun.", "Think college days, long drives and good company.", "The songs are easy on the ear and very easy to love."], "aside": ["Notice how polished these songs sound.", "Many of these became instant favourites.", "Perfect for a road trip, honestly.", "There’s a lovely mix of moods here.", "Some of these still feel just as fresh.", "A very singable collection.", "You can hear the care in every detail.", "These tunes have a way of sticking with you.", "Good music for good company.", "Plenty of nostalgia in the next few songs."]}, "On repeat": {"ack": ["Let’s see what you’ve been playing the most.", "Your own favourites, coming right up.", "Time for the songs you keep coming back to.", "I’ll bring back the ones you love most.", "Back to the good stuff. Let’s begin."], "body": ["I’m putting together the songs you’ve played the most lately.", "This mix is all you, the ones you can’t seem to stop playing.", "Expect your recent favourites, in a fresh order.", "Think of it as your personal greatest hits.", "It’s built from your own listening, so you can’t go wrong."], "aside": ["It’s funny which songs we end up playing again and again.", "There’s probably a reason you love these.", "Some songs just stick.", "Familiar songs are comforting.", "Nothing wrong with playing a favourite on repeat.", "Your taste is the best playlist there is.", "There might be a song you forgot about in here.", "Playing favourites is perfectly fine.", "Sing along to the ones you know.", "Good songs deserve to be heard more than once."]}};
+  Object.keys(EXTRA).forEach(k => { const t = TALK[k] || (TALK[k] = { ack: [], body: [], aside: [] }); ['ack', 'body', 'aside'].forEach(f => t[f].push(...EXTRA[k][f])); });
+  GEN.ack.push('Ooh, {x}. I know just where to look.', 'Got it, {x}. Give me a moment.', '{x}, huh? I like where this is going.', 'Okay, {x}. Let’s find the right songs for that.');
+  GEN.body.push('I’m digging around for songs that match, and trying to keep the whole thing flowing nicely.', 'No fixed recipe here. I’m just following the feeling you gave me.', 'I’ll start close to what you said and let it wander from there.');
+  GEN.aside.push('If I get one wrong, just skip it. We’ll find our way.', 'Honestly, half the fun is the song you didn’t expect.', 'Keep telling me what works by what you let play.', 'Good music finds its moment. This might be it.');
+  GREET.morning.push('Good morning! Isai DJ here, glad you stopped by.', 'Morning, and welcome back to Isai DJ.');
+  GREET.afternoon.push('Hey, good afternoon. Isai DJ, at your service.', 'Afternoon! Isai DJ here, and I’m happy you’re here.');
+  GREET.evening.push('Hello, and good evening. Isai DJ here.', 'Evening! Pull up a chair, this is Isai DJ.');
+  GREET.night.push('Hey, night owl. Isai DJ here, keeping the lights low.', 'Good evening, or good night, whichever it is for you. This is Isai DJ.');
+  LANGLINE.tamil.push('Everything’s Tamil today, so let’s begin.', 'It’s Tamil all the way, the way I like it.');
+  CLOSER.push('So, let’s get into it.', 'Okay, enough talking. Time for music.', 'Right then, I’ll hand it over to the songs.', 'Alright, I’ve talked long enough. Let’s play something.');
+  FIRSTUP.push('To begin, here’s {t} by {a}.', 'Let’s start with {t}, from {a}.', 'The first one is {t}, by {a}.');
+  REACT.push('Hope that {p} hit the spot.', 'That was {p}, and I liked it.', 'And that was {p}.', 'Always nice to hear {p}.');
+  TRACK_TA.push('Next, we have {t} by {a}.', 'Let’s hear {a} with {t}.', 'Here comes {t}, by {a}.');
+  TRACK_T.push('Next, {t}.', 'Let’s hear {t}.');
+  TRACK_A.push('Next, a bit more {a}.', 'Here’s another from {a}.');
+  TRACK_0.push('Let’s see what’s next.', 'Here’s another one for you.');
+  NOW_TA.push('You’re hearing {t}, by {a}.', 'That’s {t}, from {a}.', 'Right now, {a} with {t}.');
+  NOW_T.push('That one’s {t}.', 'Now playing, {t}.');
+  NOW_A.push('This is {a}.', 'Some {a}, just for you.');
+  NUDGE.push('Enjoy this one.', 'Let it sink in.', 'Hope you like it.', 'Back to the music.', 'Just listen.');
+  const PART_ASIDE = {
+    morning: ['Mornings feel better with a soundtrack.', 'A fresh start to the day, and some music to go with it.', 'Hope your morning’s been kind so far.'],
+    afternoon: ['Afternoons need a little music to keep them company.', 'Hope your day’s going well so far.', 'Good time for a small break, don’t you think?'],
+    evening: ['The day’s winding down, and this is a nice way to ease out of it.', 'Evenings and good songs, an old and reliable pairing.', 'Hope the day treated you well.'],
+    night: ['Quiet hours are the best hours for music, I think.', 'It’s late, so I’ll keep my voice low.', 'The world’s gone quiet, and now it’s just you and the songs.']
+  };
+  const BRIDGE = ['Give me a second while I sort through the songs.', 'Let me see what I’ve got for that.', 'Okay, let me pull a few things together.', 'One moment, I’m digging through the shelves.', 'Right, here’s what I’m thinking.', 'Hmm, let me think about this for a moment.'];
+  const AFTERFIRST = ['Hope it’s a good one for you.', 'Skip it if it’s not your thing, I won’t mind.', 'Let’s see how it feels.', 'I think you’ll like this.'];
+  const CALLBACK = ['Still on your {x} mix, and I’m enjoying it.', 'Your {x} mix is going nicely.', 'Staying with the {x} vibe for a bit.'];
+  const partNow = () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night'; };
+  SHAPES.push(['time', 'track'], ['react', 'time', 'track'], ['callback', 'track'], ['aside', 'track', 'nudge'], ['react', 'callback', 'track']);
+
+  const fill = (s, v) => s.replace(/\{(\w)\}/g, (_, k) => v[k] == null ? '' : v[k]);
+  const talkOf = m => TALK[m] || GEN;
+  /* pick without repeating until the whole pool has been used (inside one DJ session) */
+  let bags = {};
+  function pick(key, pool){
+    let b = bags[key];
+    if (!b || !b.list.length) {
+      const list = shuf(pool.slice());
+      if (b && list.length > 1 && list[list.length - 1] === b.last) list.unshift(list.pop());
+      b = bags[key] = { list, last: b ? b.last : null };
+    }
+    return (b.last = b.list.pop());
+  }
+  /* pick for the intro: also avoids the line used the last time DJ ran */
+  function fresh(key, pool){
+    const seen = jget('dj_seen', {}) || {};
+    let i = Math.floor(Math.random() * pool.length);
+    if (pool.length > 1 && i === seen[key]) i = (i + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length;
+    seen[key] = i; try { store.set('dj_seen', JSON.stringify(seen)); } catch {}
+    return pool[i];
+  }
+
+  /* the intro: greeting, how you feel, what the mix is, the language, a closer, then the first song (named once it's found) */
+  function introScript(pl, P, found){
+    const mood = pl.moods[0] || null, T = talkOf(mood), h = new Date().getHours();
+    const part = h >= 5 && h < 12 ? 'morning' : h < 17 && h >= 12 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night';
+    const x = cap(pl.label);
+    const out = [
+      ...(P.skipGreet ? [] : [fresh('greet:' + part, GREET[part])]),
+      fill(fresh('ack:' + (mood || 'x'), T.ack), { x }),
+      ...(Math.random() < .65 ? [Math.random() < .5 ? fresh('time:' + part, PART_ASIDE[part]) : fresh('bridge', BRIDGE)] : []),
+      fresh('body:' + (mood || 'x'), T.body),
+      ...(pl.special ? [] : [fresh('lang:' + P.lang, LANGLINE[P.lang] || LANGLINE.both)]),
+      fresh('closer', CLOSER),
+      async () => {
+        const q = await found();
+        const t = q && q[0], title = t && nice(t.title), artist = t && nice(artistsOf(t).map(z => z.name)[0]);
+        const tail = () => Math.random() < .6 ? ' ' + fresh('afterfirst', AFTERFIRST) : '';
+        if (title && artist) return fill(fresh('first', FIRSTUP), { t: title, a: artist }) + tail();
+        if (title) return 'First up, ' + title + '.' + tail();
+        return 'First up, something I think you’ll like.';
+      }
+    ];
+    return out;
+  }
+
+  /* ---------- running the intro: DJ appears in the pill, the first song loads while DJ talks ---------- */
+  let djTok = 0, sess = null, introH = null, introT = 0;
+  async function preloadFirst(t, tok){
+    try {
+      if (navigator.connection && navigator.connection.saveData) return;
+      let url = null, blobUrl = null;
+      if (dls.some(d => d.id === t.id)) { const bl = await idb.blob(t.id).catch(() => null); if (bl) url = blobUrl = URL.createObjectURL(bl); }
+      if (!url) { if (!isOnline() && !lfDevUrl(t.id)) return; url = audioUrl(t.id); }
+      if (tok !== djTok) { if (blobUrl) URL.revokeObjectURL(blobUrl); return; }
+      if (pre) { releaseEl(pre); pre = null; }
+      const e = mkMedia(); wire(e);
+      e.volume = a.volume; e._tid = t.id; e._blob = blobUrl; e._dj = true;
+      const alts = (url === audioUrl(t.id)) ? streamUrls(t.id) : [url]; let ai = 0;
+      e.src = alts[0];
+      e.addEventListener('error', () => { if (!e._blob && ++ai < alts.length) { e.src = alts[ai]; e.load(); } else e._err = true; });
+      e.load(); pre = e;
+      try { new Image().src = cov(t, 160); new Image().src = cov(t, 600); } catch {}
+    } catch {}
+  }
+  const dropDJPre = () => { try { if (pre && pre._dj) { releaseEl(pre); pre = null; } } catch {} };
+  function paintIntro(el, total){
+    const p = Math.min(1, el / total);
+    $('cur').textContent = $('mcur').textContent = fmt(el / 1000);
+    $('dur').textContent = $('mdur').textContent = '-' + fmt(Math.max(0, (total - el) / 1000));
+    $('mprog').style.width = (p * 100) + '%';
+    $('seek').value = $('mseek').value = p * 1000; fillRange($('seek')); fillRange($('mseek'));
+  }
+  function stopIntro(){
+    clearInterval(introT); clearInterval(tk); tkHold = false;
+    if (introH) { const h = introH.h; introH = null; h.cancel(); }
+    $('player').classList.remove('djintro'); document.body.classList.remove('djintro', 'djpause');
+  }
+  /* while DJ is introducing: play/pause pauses DJ's voice, next/previous skips the intro */
+  document.addEventListener('click', e => {
+    if (!introH) return;
+    const b = e.target.closest && e.target.closest('#pp,#mpp,#next,#mnext,#prev,#mprev');
+    if (!b) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    const h = introH.h;
+    if (b.id === 'pp' || b.id === 'mpp') { h.isPaused() ? h.resume() : h.pause(); document.body.classList.toggle('djpause', h.isPaused()); }
+    else h.cancel();
+  }, true);
+
+  async function run(text, P){
+    const pl = plan(text), tok = ++djTok, label = cap(pl.label);
+    voiceName = (P && P.voice) || '';
+    sess = null; bags = {}; stopIntro(); endTalk(); panelClose();
+    closeModal(); ensureDOM(); setDJNow(current);
+    let wasPlaying = false; try { wasPlaying = !!(a && !a.paused); if (wasPlaying) a.pause(); } catch {}   // so the intro is heard on its own
+    const base = current;
+
+    /* look for songs right away, and start loading the first one, all while DJ is still talking */
+    let pals = [];
+    const BAD = /karaoke|reaction|review|jukebox|mashup|full movie|full album|trailer|teaser|making of|behind the scenes|interview|ringtone|whatsapp status|status video|8d audio|shorts|tiktok/i;
+    const REMIX = /slowed|reverb|lo-?fi|bgm|instrumental|\bcover\b|\bremix\b/i;
+    const keepRemix = pl.moods.some(m => ['Sleep', 'Chill', 'Focus', 'Rainy', 'Morning', 'Late night', 'Devotional'].includes(m)) || !pl.moods.length;
+    const prep = (async () => {
+      let pool = [];
+      if (pl.special === 'repeat') pool = await repeatList();
+      else if (!(pool = await fromSrc(pl, tok)).length) {
+        if (tok !== djTok) return null;
+        const got = await search(pl.qs, P.lang);
+        if (tok !== djTok) return null;
+        const seen = new Set(), titles = new Set(), all = [];
+        for (let i = 0; i < 15; i++) got.forEach(g => {
+          const x = g[i]; if (!x || !x.id) return;
+          const k = String(x.title || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/\s+/g, ' ').trim();
+          if (seen.has(x.id) || titles.has(k)) return;
+          seen.add(x.id); titles.add(k); all.push(x);
+        });
+        const clean = all.filter(x => !BAD.test(x.title || '') && (keepRemix || !REMIX.test(x.title || '')));
+        pool = clean.length >= 12 ? clean : all;                     // never filter down to nothing
+      }
+      if (tok !== djTok) return null;
+      if (!pool.length) return null;
+      let q = shuf(pool.slice());
+      if (!pl.special) {                                              // don't let one artist take over the mix
+        const cnt = {}, keep = [], rest = [];
+        q.forEach(x => { const a = ((artistsOf(x)[0] || {}).name || '').toLowerCase(); cnt[a] = (cnt[a] || 0) + 1; (cnt[a] <= 4 ? keep : rest).push(x); });
+        q = keep.concat(rest);
+      }
+      q = q.slice(0, 30);
+      preloadFirst(q[0], tok);
+      Promise.all(q.slice(0, 4).map(palFor)).then(r => {          // the colours follow the songs that are about to play
+        if (tok !== djTok) return;
+        pals = r.filter(Boolean); if (pals.length) setDJ(pals[0]);
+      });
+      return q;
+    })();
+
+    const script = introScript(pl, P, () => Promise.race([prep, sleep(6000).then(() => null)]));
+    const total = script.reduce((n, it) => n + (typeof it === 'function' ? 6500 : sentences(it).reduce((m, s) => m + estMs(s), 0)), 0);
+    if (P.subs) openDJView();
+    pillDJ(P.subs ? '' : label + ' mix');
+    if (P.subs) panelOpen(label + ' mix');
+    $('player').classList.add('djintro'); document.body.classList.add('djintro');
+    paintIntro(0, total);
+    let lastIx = -1, cn = 0;
+    const h = say(script, (s, ix) => {
+      if (P.subs) { ticker(s, estMs(s)); panelLine(s, estMs(s)); }
+      if (ix !== lastIx) { lastIx = ix; if (pals.length > 1) setDJ(ix === script.length - 1 ? pals[0] : pals[++cn % pals.length]); }   // a new colour with each part of the intro
+    });
+    introH = { h };
+    let el = 0, last = Date.now();
+    introT = setInterval(() => {
+      const n = Date.now(); if (!h.isPaused()) el += n - last; last = n;
+      paintIntro(Math.min(el, total * .97), total);
+      const ic_ = ic(h.isPaused() ? 'play' : 'pause');
+      if ($('pp').innerHTML !== ic_) { $('pp').innerHTML = ic_; $('mpp').innerHTML = ic_; }
+      if (current !== base || (a && !a.paused)) h.cancel();     // you started something else: DJ steps aside
+    }, 200);
+
+    await h.done;
+    if (tok !== djTok) return;                                    // a newer DJ run took over and has cleaned up
+    const took = current !== base || (a && !a.paused);
+    stopIntro();
+    if (took) { dropDJPre(); pillRestore(true); return; }
+    const list = await prep;
+    if (tok !== djTok) return;
+    if (!list) {
+      dropDJPre(); pillRestore(true); try { setPP(); } catch {}
+      toast(pl.special ? "Play a few songs first and I'll learn what's on repeat" : "Couldn't find anything for that. Try different words", true);
+      if (wasPlaying) { try { a.play(); } catch {} }
+      return;
+    }
+    djPill = false; $('player').classList.remove('djp');
+    queue = list; queueName = 'DJ · ' + label; qi = 0; queueOwned = false; qEnd = -1;
+    store.set(K_LAST, label);
+    const mm = pl.moods.length ? pl.moods : [null];
+    sess = { every: +P.every, subs: P.subs, tag: pl.tag, n: 0, mood: pl.moods[0] || null, label, t0: Date.now(), songs: 1,
+             asides: [].concat(...mm.map(m => talkOf(m).aside)) };
+    curId = queue[0].id; curTrack = queue[0]; prevT = null; prevSec = 0; maxT = 0; pend = null;
+    setTab('queue', true); try { renderQueue(); } catch {}
+    playCurrent();                                                // the first song was loading all along, so it starts at once
+    djEnd();
+    try { schedulePreload(); } catch {}
+  }
+
+  /* ---------- commentary when a new song starts: DJ takes over the pill, the music dips, then everything goes back ---------- */
+  let fadeT = 0, talk = null, restT = 0;
+  const target = () => { const s = $('vol'); return s ? Math.min(1, Math.max(0, s.value / 100)) : (a.volume || .8); };
+  const setVol = v => { try { a.volume = v; standby.volume = v; if (typeof pre !== 'undefined' && pre) pre.volume = v; } catch {} };
+  const ramp = (to, ms) => {
+    clearInterval(fadeT);
+    let from; try { from = a.volume; } catch { return; }
+    const steps = Math.max(1, Math.round(ms / 40)); let i = 0;
+    fadeT = setInterval(() => { i++; setVol(from + (to - from) * i / steps); if (i >= steps) clearInterval(fadeT); }, 40);
+  };
+  const setSay = on => document.body.classList.toggle('djsay', !!on);
+  function endTalk(){
+    setSay(false);
+    if (talk) { talk.cancel(); talk = null; }
+    clearTimeout(restT); if (djPill && !introH) pillRestore();
+    clearInterval(fadeT); if (typeof a !== 'undefined') { try { if (sessOn() || !sess) setVol(target()); } catch {} }
+  }
+  const sessOn = () => !!sess;
+  function speakOver(text){
+    clearTimeout(restT);
+    setDJNow(current);
+    pillDJ(sess && sess.subs ? '' : (sess.label || 'Your') + ' mix');
+    if (sess && sess.subs) panelOpen((sess.label || 'Your') + ' mix');
+    const my = talk = say(text, s => { if (sess && sess.subs) { ticker(s, estMs(s)); panelLine(s, estMs(s)); } });
+    setSay(true);                                                // playback controls grey out while DJ talks
+    ramp(target() * .3, 900);                                    // the music eases down under the voice
+    my.done.then(() => {
+      if (talk !== my) return;
+      setSay(false);                                   // song changed mid-sentence: endTalk already ran
+      talk = null; ramp(target(), 1700);                           // and swells back up slowly
+      restT = setTimeout(() => { if (!talk) pillRestore(); }, 700);
+    });
+  }
+
+  const nice = s => {
+    s = String(s || '').replace(/\(.*?\)|\[.*?\]/g, ' ').replace(/\s+-\s+(from|official|lyric|video|audio).*$/i, '').replace(/\s+/g, ' ').trim();
+    return (!s || s.length > 55 || /[^\u0000-\u024F\u2000-\u206F]/.test(s)) ? '' : s;
+  };
+  /* two to four sentences: a look back, a thought, where we are, then the song. The shape changes every time. */
+  function lineFor(t, p, pSec, mode){
+    const v = { t: nice(t.title), a: nice(artistsOf(t).map(x => x.name)[0]), p: p ? nice(p.title) : '' };
+    const mins = Math.round((Date.now() - (sess.t0 || Date.now())) / 60000), songs = sess.songs || 2;
+    const parts = {
+      react: () => (p && pSec >= 30 && v.p) ? fill(pick('react', REACT), v) : '',
+      aside: () => pick('aside', sess.asides || GEN.aside),
+      stat: () => {
+        const opts = ['That’s song number ' + songs + ' in this mix.', songs + ' songs in, and we’re still going.'];
+        if (mins >= 3) opts.push('We’re about ' + mins + ' minutes into this mix.', mins + ' minutes in, and it’s still sounding good.');
+        return pick('stat', opts);
+      },
+      track: () => v.t && v.a ? fill(pick('trackTA', TRACK_TA), v) : v.t ? fill(pick('trackT', TRACK_T), v) : v.a ? fill(pick('trackA', TRACK_A), v) : pick('track0', TRACK_0),
+      nudge: () => pick('nudge', NUDGE),
+      time: () => { const pn = partNow(); return pick('time' + pn, PART_ASIDE[pn]); },
+      callback: () => { const lb = String(sess.label || '').toLowerCase(); return lb && lb.length <= 16 ? fill(pick('cb', CALLBACK), { x: lb }) : pick('aside', sess.asides || GEN.aside); }
+    };
+    if (mode) {                                                  // radio style: the song is already playing, so name it (and maybe add a thought)
+      const now = v.t && v.a ? fill(pick('nowTA', NOW_TA), v) : v.t ? fill(pick('nowT', NOW_T), v) : v.a ? fill(pick('nowA', NOW_A), v) : pick('nudge', NUDGE);
+      if (mode === 'announce') return now;
+      if (mode === 'react') { const r = parts.react(); return r ? r + ' ' + now : now; }
+      return now + ' ' + parts.aside();
+    }
+    const shape = SHAPES[pick('shape', SHAPES.map((_, i) => i))];
+    return shape.map(k => parts[k]()).filter(Boolean).join(' ');
+  }
+
+  /* watching playback */
+  let curId = null, curTrack = null, prevT = null, prevSec = 0, maxT = 0, pend = null;
+  const nextGap = () => { const e = sess ? sess.every : 3; if (e <= 1) return 1; const lo = Math.max(2, e - 1), hi = e + 1; return lo + Math.floor(Math.random() * (hi - lo + 1)); };
+  function tick(){
+    if (!sess) return;
+    if (!String(queueName).startsWith('DJ ·')) { sess = null; endTalk(); return; }   // you moved on to something else
+    const t = current; if (!t || !t.id) return;
+    if (t.id !== curId) {
+      if (curTrack) { prevT = curTrack; prevSec = maxT; }
+      curTrack = t; curId = t.id; maxT = 0;
+      sess.songs = (sess.songs || 1) + 1;
+      if (talk) endTalk();                                       // song changed mid-sentence
+      pend = null;
+      if (sess.gap == null) sess.gap = nextGap();
+      if (sess.every > 0 && --sess.gap <= 0) {                   // not after every song: a random gap of a few songs, so it never feels scripted
+        sess.gap = nextGap();
+        const r = Math.random();
+        pend = { id: t.id, p: prevT, s: prevSec, mode: r < .5 ? 'announce' : r < .8 ? 'chat' : 'react', at: 3000 + Math.random() * 1500 };   // let the intro play for a few seconds first
+      }
+    }
+    const live = !loading && a && a._tid === t.id;
+    if (live) maxT = Math.max(maxT, a.currentTime || 0);
+    const ready = pend && live && !a.paused && a.currentTime >= pend.at / 1000 && (!a.duration || a.duration - a.currentTime > 25);
+    if (pend && pend.id === t.id && ready && !talk) { const p = pend; pend = null; speakOver(lineFor(t, p.p, p.s, p.mode)); }
+  }
+  setInterval(() => { try { tick(); } catch {} }, 400);
+
+  /* ---------- the DJ button in Library ---------- */
+  (function css(){
+    const s = document.createElement('style');
+    s.textContent = `.djb{border-color:rgba(48,209,88,.55)!important;color:#7be0a6!important}
+.djl{margin:16px 0 8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.djchs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.djl+.djchs{margin-top:0}
+.djch{height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:13px;font-weight:600;cursor:pointer;transition:background-color .2s var(--ease),color .2s var(--ease),border-color .2s var(--ease),transform .15s var(--ease)}
+.djch:hover{background:rgba(255,255,255,.14)}.djch:active{transform:scale(.96)}
+.djch.on{background:#fff;color:#000;border-color:#fff}
+.djsr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px}
+.djsr b{display:block;font-size:14px}.djsr span{font-size:12px;color:var(--mute)}
+
+@property --d1{syntax:'<color>';inherits:true;initial-value:#14224f}
+@property --d2{syntax:'<color>';inherits:true;initial-value:#0f1a3c}
+@property --d3{syntax:'<color>';inherits:true;initial-value:#0a1330}
+:root{transition:--c1 1.6s ease,--c2 1.6s ease,--c3 1.6s ease,--d1 1.8s ease,--d2 1.8s ease,--d3 1.8s ease}
+.djorb{display:none;position:relative;flex:none;border-radius:50%;box-sizing:border-box;animation:djBreath 3.6s ease-in-out infinite}
+.djorb svg{display:block;width:100%;height:100%;overflow:visible;color:color-mix(in srgb,var(--d3) 70%,#fff)}
+.djorb .djsw{transform-origin:50px 50px;animation:djSpin 7s linear infinite}
+#djorbP{padding:21%;background:linear-gradient(140deg,color-mix(in srgb,var(--d1) 70%,#000),color-mix(in srgb,var(--d2) 70%,#000));box-shadow:0 4px 14px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.14)}
+#djorbB{align-self:center;margin:0 auto;padding:14%;background:none;filter:drop-shadow(0 0 30px color-mix(in srgb,var(--d1) 60%,transparent))}
+@keyframes djSpin{to{transform:rotate(360deg)}}
+@keyframes djBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+body.djpause .djorb,body.djpause .djorb .djsw{animation-play-state:paused}
+.djvr{display:flex;gap:8px;align-items:center}
+.djvr select{flex:1;min-width:0}
+.djvr select option{background:#1c1c22;color:#fff}
+#player.djp #pimg{display:none}
+#player.djp .djorb{display:block}
+#player.djp #ptitle{pointer-events:none}
+#player::before{content:'';position:absolute;inset:0;border-radius:inherit;z-index:-1;pointer-events:none;opacity:0;transition:opacity .8s var(--ease);background:linear-gradient(100deg,color-mix(in srgb,var(--d1) 62%,transparent),color-mix(in srgb,var(--d2) 42%,transparent) 55%,color-mix(in srgb,var(--d3) 26%,transparent))}
+#player.djp::before{opacity:.55}
+#player.djintro .seek input,body.djintro #mseek{pointer-events:none}
+#npv.djon #npcover{display:none}
+#npv.djon #djorbB{display:block}
+#djbgfull{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;overflow:hidden;background:#0c0d12;transition:opacity .9s var(--ease)}
+#djbgfull::before{content:'';position:absolute;inset:-30%;background:radial-gradient(circle at 22% 28%,var(--d1) 0,transparent 46%),radial-gradient(circle at 80% 30%,var(--d2) 0,transparent 44%),radial-gradient(circle at 55% 85%,var(--d3) 0,transparent 48%);filter:blur(50px);opacity:.75;animation:djSpin 30s linear infinite}
+#djbgfull::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,14,.3),rgba(10,10,14,.5))}
+#npv.djon #djbgfull{opacity:1}
+/* --- fix: pill orb sized by CSS so it can never stretch the player pill --- */
+.djorb,#djorbP,#djorbB{padding:0!important;overflow:hidden;box-shadow:none!important;animation:none!important;filter:none!important;background:linear-gradient(145deg,color-mix(in srgb,var(--d1) 78%,#000),color-mix(in srgb,var(--d2) 70%,#000) 60%,color-mix(in srgb,var(--d3) 62%,#000))!important;border-radius:10px}
+#djorbB{border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.5)!important}
+.djorb svg{width:56%!important;height:56%!important;color:#fff!important}
+#player.djp .djorb,#npv.djon #djorbB{display:grid!important;place-items:center}
+@keyframes djGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+body.djpause #djorbP{animation-play-state:paused!important}
+#djorbP{width:40px!important;height:40px!important;min-width:40px;margin:0;max-width:none}
+#player.djp .np{min-height:0;max-height:100%}
+#player.djp #ptitle,#player.djp #partist{max-width:100%}
+#npv.djon .npact,#npv.djon .npbtns{display:none!important}
+/* --- mobile: DJ in the pill, the big orb and live captions --- */
+@media(max-width:720px){
+#djorbP{width:44px!important;height:44px!important;min-width:44px}
+#djorbB{width:min(calc(100vw - 48px),max(160px,calc(100dvh - 520px)))!important;height:min(calc(100vw - 48px),max(160px,calc(100dvh - 520px)))!important}
+#npv.djon #martist{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;white-space:normal;text-overflow:clip;min-height:3.9em;margin-top:8px;font-size:18px;line-height:1.3;font-weight:700;color:#fff;text-shadow:0 0 30px rgba(255,255,255,.2)}
+#npv.djon .npinfo{align-items:flex-start}
+#player.djp .np b{font-size:15px}
+.msheet:has(#djGo){max-height:88dvh;padding-bottom:calc(16px + var(--sab))}
+.msheet:has(#djGo) .minp,.msheet:has(#djGo) select{font-size:16px}
+.msheet:has(#djGo) .djch{height:40px;padding:0 16px;font-size:14px}
+.msheet:has(#djGo) .mbtns{position:sticky;bottom:calc(-16px - var(--sab));margin:16px -20px 0;padding:12px 20px calc(4px + var(--sab));background:linear-gradient(180deg,transparent,rgba(26,26,32,.97) 28%)}
+.msheet:has(#djGo) .mbtns .btn{flex:1;height:46px;justify-content:center}
+}
+/* --- mood list (replaces the popup) --- */
+@media(min-width:721px){#npv.djpick .npl,#npv.djpick .npr,#npv.djpick .nptop,#npv.djpick #djpanel{opacity:0!important;visibility:hidden!important;pointer-events:none!important}}
+@media(max-width:720px){#npv.djpick .npr,#npv.djpick .npseek,#npv.djpick .npctl,#npv.djpick #lyhead{visibility:hidden!important;pointer-events:none!important}}
+#djmood{background:rgba(10,10,14,.35);-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px);position:absolute;inset:0;z-index:12;display:flex;justify-content:center;align-items:flex-start;padding:calc(var(--sat) + 72px) 20px 120px;overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .45s var(--ease);-webkit-overflow-scrolling:touch}
+#djmood.on{opacity:1;pointer-events:auto}
+.dmd{position:absolute;top:calc(var(--sat) + 12px);left:14px;width:40px;height:40px;border:0;background:none;color:#fff;display:grid;place-items:center;cursor:pointer;z-index:2}
+.dmd:hover{opacity:.75}
+.dmd svg{width:26px;height:26px}
+.dmx{position:absolute;top:calc(var(--sat) + 12px);right:14px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.dmx:hover{background:rgba(255,255,255,.18)}
+.dmw{width:min(460px,100%);margin:auto 0}
+.dmi{width:min(44vw,190px);height:min(44vw,190px);margin:0 auto 26px;border-radius:26px;transition:width .9s var(--ease),height .9s var(--ease),margin .9s var(--ease),border-radius .9s var(--ease);display:grid;place-items:center;background:linear-gradient(145deg,color-mix(in srgb,var(--d1) 78%,#000),color-mix(in srgb,var(--d2) 70%,#000) 60%,color-mix(in srgb,var(--d3) 62%,#000));box-shadow:0 12px 36px rgba(0,0,0,.4)}
+.dmi svg{width:56%;height:56%}
+.dmh{min-height:2.3em;display:block;transition:min-height .9s var(--ease);margin:0;text-align:center;font-size:clamp(30px,6vw,42px);line-height:1.08;font-weight:800;letter-spacing:-.02em;color:#fff}
+.dms{text-align:center;margin:12px 0 24px;font-size:15px;color:rgba(255,255,255,.65)}
+.dml{display:flex;flex-direction:column;gap:8px}
+.dmr{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:58px;padding:10px 16px;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.07);color:#fff;text-align:left;cursor:pointer;font:inherit;transition:background-color .2s var(--ease),border-color .2s var(--ease),transform .15s var(--ease),color .2s var(--ease)}
+.dmr:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.2)}
+.dmr:active{transform:scale(.985)}
+.dmr svg{flex:none;opacity:.5;transition:transform .2s var(--ease),opacity .2s}
+.dmr:hover svg{opacity:1;transform:translateX(2px)}
+.dmt b{display:block;font-size:17px;font-weight:700}
+.dmt span{display:block;margin-top:2px;font-size:13px;color:rgba(255,255,255,.6)}
+.dmr.on{background:#fff;color:#000;border-color:#fff}
+.dmr.on .dmt span{color:rgba(0,0,0,.6)}
+.dml{gap:24px}
+.dmfeat{min-height:64px}
+.dmg{display:block}
+.dmgh{margin:0 0 10px 2px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.dmcs{display:flex;flex-wrap:wrap;gap:8px}
+.dmr.dmc{width:auto;min-height:0;padding:9px 16px;border-radius:999px;font-size:14px;font-weight:600;justify-content:center;gap:0;line-height:1.2}
+.dmw:not(.ready) .dmgh{opacity:0}
+.dmw.ready .dmgh{animation:dmIn .6s var(--ease) backwards;animation-delay:calc(300ms + var(--i) * 55ms)}
+.dmin{display:flex;gap:8px;margin-top:14px}
+.dmin .minp{flex:1;min-width:0;height:50px;border-radius:16px;font-size:16px;padding:0 16px}
+#dmGo{flex:none;width:50px;height:50px;border-radius:16px;border:0;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s var(--ease)}
+#dmGo:active{transform:scale(.94)}
+@keyframes dmIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes dmSw{from{opacity:0;transform:translateY(12px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+.dmh.dmswap{animation:dmSw .6s var(--ease) both}
+.dmh span{opacity:.28;transition:opacity .3s var(--ease)}.dmh span.on{opacity:1}
+.dmbody{display:grid;grid-template-rows:0fr;transition:grid-template-rows .9s var(--ease)}
+.dmbody>div{overflow:hidden;min-height:0}
+.dmw.ready .dmbody{grid-template-rows:1fr}
+.dmw.ready .dmi{width:64px;height:64px;margin-bottom:18px;border-radius:18px}
+.dmw.ready .dmh{min-height:0}
+.dmw:not(.ready) .dmr,.dmw:not(.ready) .dmin,.dmw:not(.ready) .dms{opacity:0;transform:translateY(16px);pointer-events:none}
+.dmw.ready .dmr{animation:dmIn .6s var(--ease) backwards;animation-delay:calc(300ms + var(--i) * 55ms)}
+.dmw.ready .dms{animation:dmIn .6s var(--ease) .2s backwards}
+.dmw.ready .dmin{animation:dmIn .6s var(--ease) .9s backwards}
+.dmw:not(.ready) .dmh{cursor:pointer}
+@media(max-width:720px){
+#djmood{background:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:calc(var(--sat) + 108px) 24px calc(24px + var(--sab))}
+.dmi{display:none}
+.dmw{width:100%;margin:0}
+.dmh{text-align:left;font-size:clamp(28px,8.2vw,34px);line-height:1.2;letter-spacing:-.015em;min-height:2.5em}
+.dms{text-align:left;margin:10px 0 18px}
+.dmx{top:calc(var(--sat) + 38px);right:24px;width:34px;height:34px}
+.dmd{top:calc(var(--sat) + 34px);left:18px}
+#npv.djly #lybg{opacity:1}
+#npv.djly .nptop{opacity:0;pointer-events:none}
+#npv.djly .npl{inset:0;overflow:hidden;padding:calc(var(--sat) + 26px) 24px calc(var(--sab) + 14px);display:grid;grid-template-columns:58px minmax(0,1fr);grid-template-rows:58px minmax(0,1fr) auto auto;column-gap:13px;row-gap:0;align-items:center;justify-content:stretch;align-content:stretch;touch-action:none}
+#npv.djly .npcard{display:contents}
+#npv.djly #djorbB{grid-column:1!important;grid-row:1!important;width:58px!important;height:58px!important;border-radius:9px!important;margin:0!important;box-shadow:none!important}
+#npv.djly .npinfo{grid-column:2;grid-row:1;min-width:0;align-items:center}
+#npv.djly #mtitle{font-size:17px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#npv.djly #martist{display:block!important;min-height:0!important;margin:0!important;font-size:15px!important;font-weight:400!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:1}
+#npv.djly .npbtns{opacity:0;pointer-events:none}
+#npv.djly .npseek{grid-column:1/-1;grid-row:3}
+#npv.djly .npctl{grid-column:1/-1;grid-row:4;margin-top:10px}
+#npv.djly .npr{top:calc(var(--sat) + 96px)!important;bottom:calc(var(--sab) + 154px)!important;height:auto!important;padding:0!important;border-radius:0!important;border-color:transparent!important;background:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;transform:none!important;transition:none!important;overflow:hidden}
+#npv.djly .tabs,#npv.djly .npf,#npv.djly .grab,#npv.djly .lyhd{display:none}
+#npv.djly #npq{opacity:0}
+#npv.djly #lyhead{opacity:0!important;pointer-events:none}
+}
+@media all{
+#djpanel{position:absolute;left:0;right:0;bottom:0;top:var(--djt,64px);z-index:6;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .6s var(--ease)}
+#djpanel.on{opacity:1}
+#djlines{position:relative;flex:1;min-height:0;overflow:hidden;padding:6px 0 45% 0;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 8%,#000 88%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 8%,#000 88%,transparent 100%);transition:transform .9s var(--ease),filter .8s var(--ease),opacity .7s var(--ease)}
+#djpanel:not(.on) #djlines{transform:translateY(-24px);filter:blur(8px);opacity:0}
+.djln{margin:0;padding:12px 8px;font-size:34px;line-height:1.22;font-weight:800;letter-spacing:-.01em;color:#fff;text-shadow:0 0 60px rgba(255,255,255,.25);transform-origin:left center;transition:opacity .5s var(--ease),filter .5s var(--ease),transform .5s var(--ease);animation:djLnIn .6s var(--ease) backwards}
+.djln.past{opacity:.38;filter:blur(.8px);transform:scale(.97);text-shadow:none}
+.djln span{opacity:.3;transition:opacity .3s var(--ease)}
+.djln span.on,.djln.past span{opacity:1}
+@keyframes djLnIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+#npq{transition:opacity .45s var(--ease)}
+#npv.djtalk #npq,#npv.djtalk .npf{opacity:0;pointer-events:none}
+#npq.djin{animation:djQin .8s var(--ease) .1s backwards}
+@keyframes djQin{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
+}
+@media(max-width:720px){.djln{font-size:clamp(26px,8.2vw,34px)}#djlines{padding:6px 24px 30% 24px}}
+/* --- full screen: the headphone icon sits on its own, no gradient tile behind it --- */
+#djorbB,#npv.djly #djorbB,.dmi{background:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible}
+#djorbB svg{width:80%!important;height:80%!important;filter:drop-shadow(0 8px 26px rgba(0,0,0,.35))}
+#npv.djly #djorbB svg{width:72%!important;height:72%!important;filter:none}
+.dmi svg{width:72%;height:72%;filter:drop-shadow(0 8px 26px rgba(0,0,0,.35))}
+/* --- phone: only the list scrolls, below the DJ header, so nothing runs underneath it --- */
+/* --- voice picker on the DJ startup screen --- */
+@media(max-width:720px){/* the blurred album-cover layers are hidden while DJ is on, so only the colour gradient shows */
+#npv.djon #npbgA,#npv.djon #npbgB,#npv.djon #npbgShade{display:none!important}
+/* --- full-screen DJ background: exactly the app's blurred-cover look, from the song's colours --- */
+#djbgfull{background:var(--bg)!important}
+#djbgfull::before{inset:0!important;filter:none!important;opacity:1!important;animation:none!important;background:radial-gradient(1100px 650px at 12% -8%,var(--d1),transparent 62%),radial-gradient(900px 600px at 100% 8%,var(--d2),transparent 60%),linear-gradient(180deg,var(--d3) 0%,var(--bg) 78%)!important}
+#djbgfull::after{display:none!important}
+}
+/* --- while DJ is speaking the playback controls are greyed out; the volume slider stays live --- */
+body.djintro #prev,body.djintro #pp,body.djintro #next,body.djintro #rep,body.djintro #shuf,body.djintro #mprev,body.djintro #mpp,body.djintro #mnext,body.djintro #mrep,body.djintro #mshuf,body.djintro .seek,body.djintro .npseek,
+body.djsay #prev,body.djsay #pp,body.djsay #next,body.djsay #rep,body.djsay #shuf,body.djsay #mprev,body.djsay #mpp,body.djsay #mnext,body.djsay #mrep,body.djsay #mshuf,body.djsay .seek,body.djsay .npseek{opacity:.35;pointer-events:none;filter:grayscale(1);transition:opacity .3s var(--ease)}
+body.djintro .vol,body.djsay .vol{opacity:1;pointer-events:auto;filter:none}
+/* --- no X button on the DJ screen anywhere; only the arrow (on phones it sits where the X was) --- */
+.dmx{display:none!important}
+@media(max-width:720px){#npv.djly .dmd{left:auto!important;right:18px!important}}
+/* --- desktop: the mood list sits on the plain gradient (no blur layer that can flicker into a line), and what is underneath is hidden while it shows --- */
+@media(min-width:721px){
+#djmood{background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+#npv .nptop,#npv .npl,#npv #npr,#npv #lyclean,#npv #lyhead{transition:visibility 0s linear .5s}
+#npv.djpick .nptop,#npv.djpick .npl,#npv.djpick #npr,#npv.djpick #lyclean,#npv.djpick #lyhead{visibility:hidden;transition:none}
+}
+/* --- Up next / Related / Lyrics are hidden while Isai DJ is up (the space is kept, so nothing jumps) --- */
+#npv .tabs{transition:opacity .25s var(--ease)}
+#npv.djon .tabs,#npv.djtalk .tabs,#npv.djpick .tabs{visibility:hidden;opacity:0;pointer-events:none}
+/* --- the minimise arrow: on the mood list, and on phones also while DJ is introducing --- */
+#npv>.dmd{display:none;z-index:14}
+#npv.djpick>.dmd,#npv.djly>.dmd{display:grid}
+/* --- the mini player pill is hidden on the DJ introduction page --- */
+html:has(#npv.open.djpick) #player,body.djintro:has(#npv.open) #player{opacity:0!important;pointer-events:none!important;transform:translateY(24px)}
+/* --- DJ background is always the colour gradient, never the blurred album cover (all screen sizes) --- */
+#npv.djon #npbgA,#npv.djon #npbgB,#npv.djon #npbgShade{display:none!important}
+#djbgfull{background:var(--bg)!important}
+#djbgfull::before{inset:0!important;filter:none!important;opacity:1!important;animation:none!important;background:radial-gradient(1100px 650px at 12% -8%,var(--d1),transparent 62%),radial-gradient(900px 600px at 100% 8%,var(--d2),transparent 60%),linear-gradient(180deg,var(--d3) 0%,var(--bg) 78%)!important}
+#djbgfull::after{display:none!important}
+/* --- the mini player pill looks the same as it does for a song: no DJ colour tint, and a neutral tile instead of a gradient one --- */
+#player.djp::before{opacity:0!important}
+#player #djorbP,#player.djp #djorbP{background:none!important;background-image:none!important;box-shadow:none!important;border-radius:0!important}
+#player #djorbP svg{width:64%!important;height:64%!important}
+@media(max-width:720px){
+#djmood{overflow:hidden}
+.dmw{max-height:100%;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-top:14px;margin-top:-14px;padding-bottom:8px;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14px);mask-image:linear-gradient(180deg,transparent 0,#000 14px)}
+.dmw::-webkit-scrollbar{display:none}
+}`;
+    document.head.appendChild(s);
+  })();
+  function paintLib(){
+    return;   // DJ is a card next to Liked songs and Local files now
+    const bar = document.querySelector('.libact'); if (!bar || bar.querySelector('[data-dj]')) return;
+    bar.insertAdjacentHTML('afterbegin', `<button class="btn ghost djb" data-dj>${ic('play', 16)} DJ</button>`);
+  }
+  if (typeof renderLiked === 'function') {
+    const o = renderLiked;
+    window.renderLiked = function(){ const r = o.apply(this, arguments); try { paintLib(); } catch {} return r; };
+  }
+  document.addEventListener('click', e => { if (e.target.closest('[data-dj]')) { e.stopPropagation(); open(); } }, true);
+  try { if (view === 'liked') paintLib(); } catch {}
+
+  window.__dj = { open, sync: () => syncView(), active: () => !!(djPill || ($('djmood') && $('djmood').classList.contains('on'))), on: () => false, settingsHtml, wireSettings, _t: { plan, pickVoice, lineFor: (t, p, sec, tag) => { sess = { tag: tag || 'Keeping it going', mood: null, asides: GEN.aside, songs: 2, t0: Date.now() }; bags = {}; return lineFor(t, p, sec); } } };
 })();
 </script>
 </body>
